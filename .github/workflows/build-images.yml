@@ -120,6 +120,9 @@ jobs:
           ADMIN_CHANGED: ${{ steps.changes.outputs.admin }}
           IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
         run: |
+          # Een deploy-only commit kan tijdens de lange imagebuild op main landen. Werk eerst bij,
+          # anders zou de latere GitOps-commit non-fast-forward falen en nooit bij ArgoCD komen.
+          git pull --rebase origin main
           if [[ "$BACKEND_CHANGED" == "true" ]]; then
             kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
           fi
