@@ -23,8 +23,20 @@ void main() {
     await tester.pumpWidget(HkhApp(statusSource: _SuccessfulStatusSource()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ontdek de geschiedenis van Heemskerk'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Ontdek de geschiedenis van Heemskerk vanuit een vraag',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('hkh test · abc123'), findsOneWidget);
+
+    await tester.tap(find.text('Lees onze productvisie'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Productvisie'), findsWidgets);
+    expect(find.text('Productprincipes'), findsOneWidget);
+    expect(find.text('Verbonden'), findsOneWidget);
   });
 
   testWidgets('shows a retry action when the service is unavailable', (
