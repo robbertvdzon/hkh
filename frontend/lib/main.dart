@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'backend/backend_client.dart';
 import 'backend/backend_status.dart';
 import 'config/app_config.dart';
+import 'product_vision_page.dart';
 import 'self_update_prompt.dart';
 
 void main() {
@@ -156,15 +157,20 @@ class _ReadyState extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(height: 20),
-        Text(
-          'Ontdek de geschiedenis van Heemskerk',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 12),
         const Text(
-          'Dit is de technische basis. Verhalen, plaatsen en historische bronnen worden in volgende productiteraties toegevoegd.',
+          'Ontdek de geschiedenis van Heemskerk vanuit een vraag, plek, persoon of gebeurtenis.\n'
+          'Verken betrouwbare historische bronnen en hun verbindingen met de wereld daarbuiten.',
           textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 20),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => const ProductVisionPage(),
+            ),
+          ),
+          icon: const Icon(Icons.auto_stories_outlined),
+          label: const Text('Lees onze productvisie'),
         ),
         const SizedBox(height: 28),
         Card(
