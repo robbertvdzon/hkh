@@ -30,30 +30,47 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Prepare release signing key
+        working-directory: frontend/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/hkh-release.keystore
+          cat > keystore.properties <<EOF
+          storeFile=hkh-release.keystore
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          keyPassword=${ANDROID_KEYSTORE_PASSWORD}
+          EOF
+
       - name: Build release APK
         working-directory: frontend
         run: |
           flutter pub get
           flutter build apk --release \
             --build-number=${{ github.run_number }} \
-            --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+            --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }} \
+            --dart-define=UPDATE_REPOSITORY=robbertvdzon/hkh \
+            --dart-define=UPDATE_RELEASE_TAG=hkh-latest \
+            --dart-define=UPDATE_LABEL="HKH-app"
 
       - name: Stage APK
-        id: stage
         shell: bash
         run: |
-          timestamp=$(date -u +%Y%m%d-%H%M%S)
-          short_sha=$(git rev-parse --short HEAD)
-          tag="apk-${timestamp}-${short_sha}"
           mkdir -p artifacts
           cp frontend/build/app/outputs/flutter-apk/app-release.apk artifacts/hkh.apk
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.stage.outputs.tag }}
-          name: "HKH Android APK"
+          tag_name: hkh-latest
+          name: "HKH Android APK (laatste build)"
+          body: |
+            Automatisch gebouwde HKH release-APK. Dit is altijd de nieuwste versie
+            (build ${{ github.run_number }}, commit ${{ github.sha }}).
           files: artifacts/hkh.apk
           make_latest: true
           generate_release_notes: false
