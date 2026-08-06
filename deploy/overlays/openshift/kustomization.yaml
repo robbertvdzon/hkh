@@ -2,14 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: hkh
 resources:
-  - ../../base
+- ../../base
 images:
-  - name: backend-image
-    newName: ghcr.io/robbertvdzon/hkh-backend
-    newTag: main
-  - name: frontend-image
-    newName: ghcr.io/robbertvdzon/hkh-frontend
-    newTag: main
-  - name: admin-image
-    newName: ghcr.io/robbertvdzon/hkh-admin
-    newTag: main
+- name: admin-image
+  newName: ghcr.io/robbertvdzon/hkh-admin
+  newTag: sha-bd4c042
+- name: backend-image
+  newName: ghcr.io/robbertvdzon/hkh-backend
+  newTag: sha-bd4c042
+- name: frontend-image
+  newName: ghcr.io/robbertvdzon/hkh-frontend
+  newTag: sha-bd4c042
