@@ -4,23 +4,11 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 import sys
 from pathlib import Path
 
 
-IGNORED_PARTS = {
-    ".git",
-    ".dart_tool",
-    ".idea",
-    "build",
-    "target",
-}
-IGNORED_FILES = {
-    ".DS_Store",
-    "secrets.env",
-    "secrets-cluster.env",
-    "local.properties",
-}
 IDENTITY_PATHS = {
     ".github/workflows/build-apk.yml",
     "README.md",
@@ -48,15 +36,16 @@ def is_identity(path: str) -> bool:
 
 def snapshot(root: Path) -> dict[str, str]:
     files: dict[str, str] = {}
-    for path in root.rglob("*"):
-        relative = path.relative_to(root)
-        if not path.is_file() or any(part in IGNORED_PARTS for part in relative.parts):
+    tracked_output = subprocess.check_output(
+        ["git", "-C", str(root), "ls-files", "-z"],
+    )
+    for relative_bytes in tracked_output.split(b"\0"):
+        if not relative_bytes:
             continue
-        if path.name in IGNORED_FILES:
-            continue
-        relative_text = relative.as_posix()
+        relative_text = relative_bytes.decode()
         if is_identity(relative_text):
             continue
+        path = root / relative_text
         files[relative_text] = hashlib.sha256(path.read_bytes()).hexdigest()
     return files
 
