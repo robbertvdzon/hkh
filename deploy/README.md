@@ -1,8 +1,10 @@
 # OpenShift deployment
 
-De productiebaseline wordt via ArgoCD uit `deploy/overlays/openshift` naar namespace `hkh`
-gesynchroniseerd. De set bevat de Kotlin-backend, beide Flutter-webapps en een persistente
+De fase-1-baseline wordt via ArgoCD uit `deploy/overlays/openshift` naar namespace `hkh`
+gesynchroniseerd. De set bevat de Kotlin-backend, beide Flutter-webapps en een efemere
 PostgreSQL 16-database. OpenShift maakt voor de drie HTTP-services automatisch TLS-routes aan.
+Voordat echte historische gegevens worden opgeslagen, moet de database naar managed PostgreSQL
+of geschikte persistente OpenShift-opslag worden omgezet; zie `docs/deployment.md`.
 
 ## Secrets
 
