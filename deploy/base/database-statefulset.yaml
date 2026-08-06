@@ -37,7 +37,7 @@ spec:
                   name: hkh-runtime
                   key: HKH_DATABASE_PASSWORD
             - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
+              value: /var/lib/postgresql/data
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
