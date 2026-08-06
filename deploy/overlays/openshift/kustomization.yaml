@@ -12,4 +12,4 @@ images:
   newTag: sha-ec9ba58
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-ec9ba58
+  newTag: sha-c0ad5f5
