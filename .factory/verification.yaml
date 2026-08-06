@@ -1,0 +1,39 @@
+version: 1
+commands:
+  - id: backend-maven-verify
+    pathPrefixes:
+      - backend/
+      - secrets.env.example
+      - .factory/verification.yaml
+    argv:
+      - mvn
+      - -B
+      - --no-transfer-progress
+      - clean
+      - verify
+    workingDirectory: backend
+    timeoutSeconds: 1800
+  - id: frontend-flutter-analyze
+    pathPrefixes:
+      - frontend/
+    argv: [flutter, analyze]
+    workingDirectory: frontend
+    timeoutSeconds: 900
+  - id: frontend-flutter-test
+    pathPrefixes:
+      - frontend/
+    argv: [flutter, test]
+    workingDirectory: frontend
+    timeoutSeconds: 900
+  - id: admin-flutter-analyze
+    pathPrefixes:
+      - frontend-admin/
+    argv: [flutter, analyze]
+    workingDirectory: frontend-admin
+    timeoutSeconds: 900
+  - id: admin-flutter-test
+    pathPrefixes:
+      - frontend-admin/
+    argv: [flutter, test]
+    workingDirectory: frontend-admin
+    timeoutSeconds: 900

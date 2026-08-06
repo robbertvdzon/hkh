@@ -1,0 +1,32 @@
+# IDE en OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Kotlin / Maven
+**/target/
+**/build/
+*.jar
+*.war
+
+# Flutter
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/build/
+frontend-admin/.dart_tool/
+frontend-admin/.flutter-plugins
+frontend-admin/.flutter-plugins-dependencies
+frontend-admin/build/
+
+# Lokale configuratie en secrets
+secrets.env
+properties.env
+deploy/secrets-cluster.env
+*.local.properties
+
+# Logs en tijdelijke bestanden
+*.log
+logs/
+.factory/work/

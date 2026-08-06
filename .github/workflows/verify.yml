@@ -1,0 +1,70 @@
+name: Repository verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-verification:
+    name: Repository verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed components
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/verify.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/verify.yml'
+            admin:
+              - 'frontend-admin/**'
+              - '.github/workflows/verify.yml'
+
+      - name: Set up JDK 21
+        if: steps.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Verify backend
+        if: steps.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+        run: mvn -B --no-transfer-progress -f backend/pom.xml clean verify
+
+      - name: Set up Flutter
+        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.admin == 'true' || github.event_name == 'workflow_dispatch'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.2"
+          channel: stable
+          cache: true
+
+      - name: Verify user frontend
+        if: steps.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Verify admin frontend
+        if: steps.changes.outputs.admin == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: frontend-admin
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
