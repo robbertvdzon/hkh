@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'backend/backend_client.dart';
 import 'backend/backend_status.dart';
 import 'config/app_config.dart';
+import 'self_update_prompt.dart';
 
 void main() {
   runApp(HkhApp(statusSource: BackendClient(AppConfig.apiBaseUrl)));
@@ -46,6 +48,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _status = widget.statusSource.load();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) maybePromptSelfUpdate(context);
+      });
+    }
   }
 
   void _retry() => setState(() => _status = widget.statusSource.load());
