@@ -7,9 +7,11 @@ RUN flutter pub get
 COPY . .
 ARG API_BASE_URL=
 ARG GOOGLE_CLIENT_ID=
+ARG PREVIEW_MODE=false
 RUN flutter build web --release --pwa-strategy=none \
     --dart-define=API_BASE_URL=${API_BASE_URL} \
-    --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
+    --dart-define=PREVIEW_MODE=${PREVIEW_MODE}
 
 # Flutter gebruikt standaard een vaste main.dart.js-naam. Geef iedere inhoud een eigen URL,
 # zodat browsers en Cloudflare nooit een oude app-bundle onder dezelfde naam kunnen serveren.
