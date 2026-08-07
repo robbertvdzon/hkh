@@ -73,3 +73,36 @@ ongemoeid. Acceptatiecriteria 1 t/m 7 nagelopen en akkoord:
 Gerichte hercontrole door de reviewer op deze HEAD: `flutter test` in `frontend/` → 5
 tests passed; `flutter analyze` → No issues found. Werktree bleef schoon (geen
 lockfile-churn).
+
+## SF-2002 — Story-brede test (tester)
+
+Vangnet uit `.factory/verification.yaml` volledig gedraaid op deze HEAD, alle exitcode 0:
+
+| id | resultaat |
+| --- | --- |
+| `backend-maven-verify` | BUILD SUCCESS — Tests run: 20, Failures: 0, Errors: 0, Skipped: 0 |
+| `frontend-flutter-analyze` | No issues found! |
+| `frontend-flutter-test` | 5 tests, All tests passed! |
+| `admin-flutter-analyze` | No issues found! |
+| `admin-flutter-test` | 4 tests, All tests passed! |
+
+Preview-omgeving `https://hkh-pr-15.vdzonsoftware.nl` (namespace `hkh-pr-15`) getest met
+een headless Chromium; screenshots in `/work/screenshots/`.
+
+- AC1/AC2 — `SF-2002-homepage.png`: homepage opent direct met introtekst, de knop "Lees
+  onze productvisie" en de sectie "Laatste nieuws". Geen statuskaart "Service
+  beschikbaar", geen `application version · commit`, geen paginabrede laadindicator.
+- AC3 — `SF-2002-homepage-api-down.png`: met alle `**/api/**`-requests geblokkeerd blijven
+  introtekst en de productvisieknop zichtbaar; alleen binnen het nieuwsblok verschijnt
+  "Het laatste nieuws kon niet worden geladen." met "Opnieuw proberen". De oude
+  paginabrede foutpagina "De HKH-service is niet bereikbaar" komt niet meer voor.
+- AC4 — netwerkverkeer van de homepage bevat uitsluitend `GET /api/news`; geen
+  `/actuator/health` en geen `/api/version`. Ook in het gedeployde webbundel
+  (`main.1fe2862c00c4.js`) komen `Service beschikbaar`, `De HKH-service is niet
+  bereikbaar`, `actuator/health` en `api/version` niet meer voor.
+- Buiten scope ongewijzigd: `/actuator/health`, `/api/version` en `/api/news` op de
+  preview geven alle drie HTTP 200.
+- AC5/AC6/AC7 — analyzer schoon, testsuite groen, `docs/factory/` bevat geen TODO's meer
+  en de vijf gedocumenteerde commando's slagen daadwerkelijk.
+
+Geen bevindingen; geen flaky tests waargenomen.
