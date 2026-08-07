@@ -12,4 +12,4 @@ images:
   newTag: sha-326cad1
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-326cad1
+  newTag: sha-7e37ace
