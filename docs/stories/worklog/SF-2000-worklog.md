@@ -51,3 +51,25 @@ Verificatie (volledig vangnet, alle exitcode 0):
 Repo-brede grep op 'Service beschikbaar', 'statusSource' en 'BackendStatus' levert geen
 treffers meer op in productiecode; alleen de negatieve assertie in `widget_test.dart`
 noemt de oude foutmelding nog.
+
+## SF-2001 — review (reviewer)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld: alleen `frontend/`-code,
+`docs/factory/` en de worklog; backend, `frontend-admin/` en de self-update-flow zijn
+ongemoeid. Acceptatiecriteria 1 t/m 7 nagelopen en akkoord:
+
+- Statuskaart, `FutureBuilder<BackendStatus>`, `_LoadingState`, `_ErrorState`, `_status`
+  en `_retry()` zijn weg; `_HomeContent` rendert direct met nette spacing (één
+  `SizedBox(height: 28)` boven 'Laatste nieuws').
+- `backend_status.dart` verwijderd, `BackendClient.load()` geschrapt, `BackendClient`
+  implementeert nog alleen `LatestNewsSource`; `dart:convert` blijft terecht in gebruik
+  voor `loadLatestNews()`. Geen ongebruikte imports of achterblijvende referenties.
+- Tests dekken introtekst + nieuws + navigatie, falende nieuwsbron (incl. `findsNothing`
+  op de oude paginabrede foutmelding) en de lege nieuwslijst.
+- `docs/factory/` bevat concrete informatie; de stackclaims (Kotlin, Spring Modulith,
+  Flyway, `tools/`-scripts, `docs/architecture/reference-baseline.md`) zijn tegen de repo
+  geverifieerd en de vijf commando's komen overeen met `.factory/verification.yaml`.
+
+Gerichte hercontrole door de reviewer op deze HEAD: `flutter test` in `frontend/` → 5
+tests passed; `flutter analyze` → No issues found. Werktree bleef schoon (geen
+lockfile-churn).
