@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'backend/backend_client.dart';
-import 'backend/backend_status.dart';
 import 'config/app_config.dart';
 import 'news/latest_news.dart';
 import 'product_vision_page.dart';
@@ -10,17 +9,12 @@ import 'self_update_prompt.dart';
 
 void main() {
   final backend = BackendClient(AppConfig.apiBaseUrl);
-  runApp(HkhApp(statusSource: backend, newsSource: backend));
+  runApp(HkhApp(newsSource: backend));
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({
-    required this.statusSource,
-    required this.newsSource,
-    super.key,
-  });
+  const HkhApp({required this.newsSource, super.key});
 
-  final BackendStatusSource statusSource;
   final LatestNewsSource newsSource;
 
   @override
@@ -35,19 +29,14 @@ class HkhApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: HomePage(statusSource: statusSource, newsSource: newsSource),
+      home: HomePage(newsSource: newsSource),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({
-    required this.statusSource,
-    required this.newsSource,
-    super.key,
-  });
+  const HomePage({required this.newsSource, super.key});
 
-  final BackendStatusSource statusSource;
   final LatestNewsSource newsSource;
 
   @override
@@ -55,20 +44,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<BackendStatus> _status;
-
   @override
   void initState() {
     super.initState();
-    _status = widget.statusSource.load();
     if (!kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) maybePromptSelfUpdate(context);
       });
     }
   }
-
-  void _retry() => setState(() => _status = widget.statusSource.load());
 
   @override
   Widget build(BuildContext context) {
@@ -80,21 +64,7 @@ class _HomePageState extends State<HomePage> {
             constraints: const BoxConstraints(maxWidth: 680),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: FutureBuilder<BackendStatus>(
-                future: _status,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const _LoadingState();
-                  }
-                  if (snapshot.hasError) {
-                    return _ErrorState(onRetry: _retry);
-                  }
-                  return _ReadyState(
-                    status: snapshot.requireData,
-                    newsSource: widget.newsSource,
-                  );
-                },
-              ),
+              child: _HomeContent(newsSource: widget.newsSource),
             ),
           ),
         ),
@@ -103,62 +73,9 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
+class _HomeContent extends StatelessWidget {
+  const _HomeContent({required this.newsSource});
 
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircularProgressIndicator(),
-        SizedBox(height: 20),
-        Text('De historische omgeving wordt voorbereid…'),
-      ],
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.cloud_off,
-          size: 56,
-          color: Theme.of(context).colorScheme.error,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'De HKH-service is niet bereikbaar',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Controleer de verbinding en probeer het opnieuw.',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Opnieuw proberen'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ReadyState extends StatelessWidget {
-  const _ReadyState({required this.status, required this.newsSource});
-
-  final BackendStatus status;
   final LatestNewsSource newsSource;
 
   @override
@@ -185,16 +102,6 @@ class _ReadyState extends StatelessWidget {
           ),
           icon: const Icon(Icons.auto_stories_outlined),
           label: const Text('Lees onze productvisie'),
-        ),
-        const SizedBox(height: 28),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.check_circle_outline),
-            title: const Text('Service beschikbaar'),
-            subtitle: Text(
-              '${status.application} ${status.version} · ${status.commit}',
-            ),
-          ),
         ),
         const SizedBox(height: 28),
         Text(
