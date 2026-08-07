@@ -28,7 +28,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # PR's moeten de branch-head bouwen; main moet als branch uitgecheckt
+          # blijven zodat de latere GitOps image-pin commit kan pushen.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref_name }}
 
       - name: Detect changed components
         id: changes
