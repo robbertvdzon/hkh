@@ -1,21 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hkh_app/backend/backend_status.dart';
 import 'package:hkh_app/main.dart';
 import 'package:hkh_app/news/latest_news.dart';
-
-class _SuccessfulStatusSource implements BackendStatusSource {
-  @override
-  Future<BackendStatus> load() async => const BackendStatus(
-    application: 'hkh',
-    version: 'test',
-    commit: 'abc123',
-  );
-}
-
-class _FailingStatusSource implements BackendStatusSource {
-  @override
-  Future<BackendStatus> load() async => throw StateError('offline');
-}
 
 class _NewsSource implements LatestNewsSource {
   _NewsSource(this.items, {this.error = false});
@@ -38,15 +23,8 @@ final _news = LatestNewsItem(
 );
 
 void main() {
-  testWidgets('shows backend version when the service is ready', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      HkhApp(
-        statusSource: _SuccessfulStatusSource(),
-        newsSource: _NewsSource([_news]),
-      ),
-    );
+  testWidgets('shows the introduction and the latest news', (tester) async {
+    await tester.pumpWidget(HkhApp(newsSource: _NewsSource([_news])));
     await tester.pumpAndSettle();
 
     expect(
@@ -55,7 +33,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('hkh test · abc123'), findsOneWidget);
     expect(find.text('Laatste nieuws'), findsOneWidget);
     expect(find.text('Nieuwe historische ontdekking'), findsOneWidget);
     expect(find.text('Een bijzonder verhaal uit Heemskerk.'), findsOneWidget);
@@ -68,41 +45,33 @@ void main() {
     expect(find.text('Verbonden'), findsOneWidget);
   });
 
-  testWidgets('shows a retry action when the service is unavailable', (
+  testWidgets('keeps the homepage usable when the news source fails', (
     tester,
   ) async {
     await tester.pumpWidget(
-      HkhApp(
-        statusSource: _FailingStatusSource(),
-        newsSource: _NewsSource(const []),
-      ),
+      HkhApp(newsSource: _NewsSource(const [], error: true)),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('De HKH-service is niet bereikbaar'), findsOneWidget);
-    expect(find.text('Opnieuw proberen'), findsOneWidget);
-  });
-
-  testWidgets('shows empty and error states for latest news', (tester) async {
-    await tester.pumpWidget(
-      HkhApp(
-        statusSource: _SuccessfulStatusSource(),
-        newsSource: _NewsSource(const []),
+    expect(
+      find.textContaining(
+        'Ontdek de geschiedenis van Heemskerk vanuit een vraag',
       ),
+      findsOneWidget,
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Er zijn nog geen nieuwsberichten.'), findsOneWidget);
-
-    await tester.pumpWidget(
-      HkhApp(
-        statusSource: _SuccessfulStatusSource(),
-        newsSource: _NewsSource(const [], error: true),
-      ),
-    );
-    await tester.pumpAndSettle();
+    expect(find.text('Lees onze productvisie'), findsOneWidget);
+    expect(find.text('De HKH-service is niet bereikbaar'), findsNothing);
     expect(
       find.text('Het laatste nieuws kon niet worden geladen.'),
       findsOneWidget,
     );
+    expect(find.text('Opnieuw proberen'), findsOneWidget);
+  });
+
+  testWidgets('shows an empty state when there is no news', (tester) async {
+    await tester.pumpWidget(HkhApp(newsSource: _NewsSource(const [])));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Er zijn nog geen nieuwsberichten.'), findsOneWidget);
   });
 }
