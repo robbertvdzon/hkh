@@ -1,10 +1,19 @@
 # OpenShift deployment
 
 De fase-1-baseline wordt via ArgoCD uit `deploy/overlays/openshift` naar namespace `hkh`
-gesynchroniseerd. De set bevat de Kotlin-backend, beide Flutter-webapps en een efemere
-PostgreSQL 16-database. OpenShift maakt voor de drie HTTP-services automatisch TLS-routes aan.
-Voordat echte historische gegevens worden opgeslagen, moet de database naar managed PostgreSQL
-of geschikte persistente OpenShift-opslag worden omgezet; zie `docs/deployment.md`.
+gesynchroniseerd. De set bevat de Kotlin-backend, beide Flutter-webapps en PostgreSQL 16.
+OpenShift maakt voor de drie HTTP-services automatisch TLS-routes aan.
+
+De productiedatabase gebruikt een 5Gi `local-path`-PVC op de SSD. Om 02:15 (Europe/Amsterdam)
+maakt `postgres-backup` een gecontroleerde custom-format dump plus SHA-256-checksum op de externe
+HDD onder `/var/mnt/external-hdd/postgres-backups/hkh`; bestanden ouder dan dertig dagen worden
+opgeruimd. Een PR-preview gebruikt een eigen disposable 1Gi-PVC. Bij verwijdering van de
+previewnamespace worden PVC en PV door de bestaande preview-lifecycle opgeruimd.
+
+Alleen in een door de backend geverifieerde PR-preview worden na Flyway automatisch de
+deterministische datasets uit `PreviewDataSeeder` toegepast. `preview_seed_history` houdt per
+versie bij wat al is uitgevoerd, waardoor een restart en het beveiligde endpoint
+`POST /api/admin/preview/test-data/ensure` idempotent zijn. Productie kan de seeder niet starten.
 
 ## Secrets
 

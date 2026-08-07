@@ -5,6 +5,14 @@ resources:
   - preview-secret.yaml
 patches:
   - target:
+      version: v1
+      kind: PersistentVolumeClaim
+      name: database-data
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 1Gi
+  - target:
       group: bitnami.com
       version: v1alpha1
       kind: SealedSecret

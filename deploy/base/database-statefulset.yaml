@@ -13,15 +13,27 @@ spec:
       labels:
         app.kubernetes.io/name: database
     spec:
-      # Expliciet om een eerder gebruikte database-ServiceAccount bij upgrades te overschrijven.
-      serviceAccountName: default
+      serviceAccountName: database
+      securityContext:
+        fsGroupChangePolicy: OnRootMismatch
+        seLinuxOptions:
+          type: spc_t
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: database-data
       containers:
         - name: postgres
           image: quay.io/sclorg/postgresql-16-c9s:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
           ports:
             - name: postgres
               containerPort: 5432
