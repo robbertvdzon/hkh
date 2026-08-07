@@ -1,6 +1,7 @@
 package nl.vdzon.hkh.news
 
 import java.sql.ResultSet
+import java.sql.Timestamp
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
@@ -11,7 +12,7 @@ interface LatestNewsStore {
 }
 
 @Repository
-class LatestNewsRepository(private val jdbcTemplate: JdbcTemplate) : LatestNewsStore {
+class LatestNewsRepository(private val jdbcTemplate: JdbcTemplate) : LatestNewsStore, PreviewLatestNewsSeedStore {
     override fun findAll(): List<LatestNews> = jdbcTemplate.query(
         """
         SELECT id, title, message, published_at, created_at, created_by
@@ -32,6 +33,30 @@ class LatestNewsRepository(private val jdbcTemplate: JdbcTemplate) : LatestNewsS
         message,
         createdBy,
     ).single()
+
+    override fun upsert(records: List<PreviewLatestNewsSeed>) {
+        records.forEach { record ->
+            jdbcTemplate.update(
+                """
+                INSERT INTO latest_news (id, title, message, published_at, created_at, created_by)
+                OVERRIDING SYSTEM VALUE
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    message = EXCLUDED.message,
+                    published_at = EXCLUDED.published_at,
+                    created_at = EXCLUDED.created_at,
+                    created_by = EXCLUDED.created_by
+                """.trimIndent(),
+                record.id,
+                record.title,
+                record.message,
+                Timestamp.from(record.publishedAt),
+                Timestamp.from(record.createdAt),
+                record.createdBy,
+            )
+        }
+    }
 
     private companion object {
         val rowMapper = RowMapper { result: ResultSet, _: Int ->

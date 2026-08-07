@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: hkh
 resources:
 - ../../base
+- postgres-backup.yaml
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin

@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException
 
 class AdminControllerTest {
     private val config = AdminAuthConfig("client-id", "admin@example.com")
-    private val production = PreviewRuntimeConfig(false, "", "jdbc:postgresql://production:5432/hkh")
+    private val production = PreviewRuntimeConfig(false, "", "jdbc:postgresql://production:5432/hkh", "")
 
     @Test
     fun `allows a verified allowlisted administrator`() {
@@ -40,7 +40,7 @@ class AdminControllerTest {
 
     @Test
     fun `allows the preview administrator only in guarded preview mode`() {
-        val preview = PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh")
+        val preview = PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh", "42")
         val controller = AdminController(
             AdminAuthenticator(AdminAuthConfig("", ""), GoogleIdTokenVerifier { error("not used") }, preview),
         )

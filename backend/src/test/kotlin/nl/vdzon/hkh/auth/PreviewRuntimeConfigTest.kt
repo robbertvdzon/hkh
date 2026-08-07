@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 class PreviewRuntimeConfigTest {
     @Test
     fun `accepts preview admin with marker and isolated database`() {
-        val config = PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh")
+        val config = PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh", "42")
 
         assertTrue(config.accepts(PreviewRuntimeConfig.ADMIN_HEADER_VALUE))
         assertFalse(config.accepts("wrong"))
@@ -17,14 +17,28 @@ class PreviewRuntimeConfigTest {
     @Test
     fun `rejects preview mode with an external database`() {
         assertFailsWith<IllegalArgumentException> {
-            PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://prod.example/hkh")
+            PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://prod.example/hkh", "42")
         }
     }
 
     @Test
     fun `rejects a preview marker in production mode`() {
         assertFailsWith<IllegalArgumentException> {
-            PreviewRuntimeConfig(false, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh")
+            PreviewRuntimeConfig(false, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh", "")
+        }
+    }
+
+    @Test
+    fun `rejects preview mode without a positive PR number`() {
+        assertFailsWith<IllegalArgumentException> {
+            PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh", "0")
+        }
+    }
+
+    @Test
+    fun `rejects a preview PR number in production mode`() {
+        assertFailsWith<IllegalArgumentException> {
+            PreviewRuntimeConfig(false, "", "jdbc:postgresql://database:5432/hkh", "42")
         }
     }
 }
