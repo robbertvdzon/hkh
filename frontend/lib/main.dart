@@ -4,17 +4,24 @@ import 'package:flutter/material.dart';
 import 'backend/backend_client.dart';
 import 'backend/backend_status.dart';
 import 'config/app_config.dart';
+import 'news/latest_news.dart';
 import 'product_vision_page.dart';
 import 'self_update_prompt.dart';
 
 void main() {
-  runApp(HkhApp(statusSource: BackendClient(AppConfig.apiBaseUrl)));
+  final backend = BackendClient(AppConfig.apiBaseUrl);
+  runApp(HkhApp(statusSource: backend, newsSource: backend));
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({required this.statusSource, super.key});
+  const HkhApp({
+    required this.statusSource,
+    required this.newsSource,
+    super.key,
+  });
 
   final BackendStatusSource statusSource;
+  final LatestNewsSource newsSource;
 
   @override
   Widget build(BuildContext context) {
@@ -28,15 +35,20 @@ class HkhApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: HomePage(statusSource: statusSource),
+      home: HomePage(statusSource: statusSource, newsSource: newsSource),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.statusSource, super.key});
+  const HomePage({
+    required this.statusSource,
+    required this.newsSource,
+    super.key,
+  });
 
   final BackendStatusSource statusSource;
+  final LatestNewsSource newsSource;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -77,7 +89,10 @@ class _HomePageState extends State<HomePage> {
                   if (snapshot.hasError) {
                     return _ErrorState(onRetry: _retry);
                   }
-                  return _ReadyState(status: snapshot.requireData);
+                  return _ReadyState(
+                    status: snapshot.requireData,
+                    newsSource: widget.newsSource,
+                  );
                 },
               ),
             ),
@@ -141,15 +156,14 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _ReadyState extends StatelessWidget {
-  const _ReadyState({required this.status});
+  const _ReadyState({required this.status, required this.newsSource});
 
   final BackendStatus status;
+  final LatestNewsSource newsSource;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListView(
       children: [
         Icon(
           Icons.account_balance,
@@ -182,7 +196,120 @@ class _ReadyState extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 28),
+        Text(
+          'Laatste nieuws',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 12),
+        _LatestNewsSection(source: newsSource),
       ],
     );
+  }
+}
+
+class _LatestNewsSection extends StatefulWidget {
+  const _LatestNewsSection({required this.source});
+
+  final LatestNewsSource source;
+
+  @override
+  State<_LatestNewsSection> createState() => _LatestNewsSectionState();
+}
+
+class _LatestNewsSectionState extends State<_LatestNewsSection> {
+  late Future<List<LatestNewsItem>> _news;
+
+  @override
+  void initState() {
+    super.initState();
+    _news = widget.source.loadLatestNews();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LatestNewsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.source, widget.source)) {
+      _news = widget.source.loadLatestNews();
+    }
+  }
+
+  void _retry() => setState(() => _news = widget.source.loadLatestNews());
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<LatestNewsItem>>(
+      future: _news,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Text('Het laatste nieuws kon niet worden geladen.'),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _retry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Opnieuw proberen'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final news = snapshot.requireData;
+        if (news.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Er zijn nog geen nieuwsberichten.'),
+            ),
+          );
+        }
+        return Column(
+          children: news
+              .map(
+                (item) => Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          item.title,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDate(item.publishedAt),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(item.message),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-${local.year}';
   }
 }

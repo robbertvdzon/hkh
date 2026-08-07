@@ -3,6 +3,7 @@ package nl.vdzon.hkh.auth.api
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import nl.vdzon.hkh.auth.AdminAuthConfig
+import nl.vdzon.hkh.auth.AdminAuthenticator
 import nl.vdzon.hkh.auth.GoogleIdentity
 import nl.vdzon.hkh.auth.GoogleIdTokenVerifier
 import nl.vdzon.hkh.auth.PreviewRuntimeConfig
@@ -16,14 +17,14 @@ class AdminControllerTest {
 
     @Test
     fun `allows a verified allowlisted administrator`() {
-        val controller = AdminController(config, GoogleIdTokenVerifier { GoogleIdentity("admin@example.com", true) }, production)
+        val controller = controller(GoogleIdTokenVerifier { GoogleIdentity("admin@example.com", true) })
 
         assertEquals(AdminIdentityResponse("admin@example.com"), controller.me("Bearer valid-token", null))
     }
 
     @Test
     fun `rejects a non allowlisted administrator`() {
-        val controller = AdminController(config, GoogleIdTokenVerifier { GoogleIdentity("other@example.com", true) }, production)
+        val controller = controller(GoogleIdTokenVerifier { GoogleIdentity("other@example.com", true) })
 
         val exception = assertFailsWith<ResponseStatusException> { controller.me("Bearer valid-token", null) }
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
@@ -31,7 +32,7 @@ class AdminControllerTest {
 
     @Test
     fun `rejects an unverified e-mail address`() {
-        val controller = AdminController(config, GoogleIdTokenVerifier { GoogleIdentity("admin@example.com", false) }, production)
+        val controller = controller(GoogleIdTokenVerifier { GoogleIdentity("admin@example.com", false) })
 
         val exception = assertFailsWith<ResponseStatusException> { controller.me("Bearer valid-token", null) }
         assertEquals(HttpStatus.UNAUTHORIZED, exception.statusCode)
@@ -40,11 +41,16 @@ class AdminControllerTest {
     @Test
     fun `allows the preview administrator only in guarded preview mode`() {
         val preview = PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, "jdbc:postgresql://database:5432/hkh")
-        val controller = AdminController(AdminAuthConfig("", ""), GoogleIdTokenVerifier { error("not used") }, preview)
+        val controller = AdminController(
+            AdminAuthenticator(AdminAuthConfig("", ""), GoogleIdTokenVerifier { error("not used") }, preview),
+        )
 
         assertEquals(
             AdminIdentityResponse(PreviewRuntimeConfig.ADMIN_EMAIL),
             controller.me(null, PreviewRuntimeConfig.ADMIN_HEADER_VALUE),
         )
     }
+
+    private fun controller(verifier: GoogleIdTokenVerifier) =
+        AdminController(AdminAuthenticator(config, verifier, production))
 }

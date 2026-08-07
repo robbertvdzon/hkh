@@ -36,4 +36,47 @@ admin_status="$(curl "${curl_tls_options[@]}" --silent --output /dev/null --writ
   exit 1
 }
 
+news="$(curl "${curl_tls_options[@]}" --fail --silent --show-error "${backend_url}/api/news")"
+NEWS_JSON="$news" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["NEWS_JSON"])
+if not isinstance(payload, list):
+    raise SystemExit("De publieke nieuws-API retourneert geen lijst.")
+PY
+
+if [[ "${PREVIEW_ADMIN:-0}" == "1" ]]; then
+  title="Preview contracttest ${application_id} $(date -u +%s)"
+  payload="$(python3 - "$title" <<'PY'
+import json
+import sys
+
+print(json.dumps({"title": sys.argv[1], "message": "Automatisch end-to-end getest previewbericht."}))
+PY
+)"
+  created="$(curl "${curl_tls_options[@]}" --fail --silent --show-error \
+    -X POST "${backend_url}/api/admin/news" \
+    -H 'Content-Type: application/json' \
+    -H 'X-HKH-Preview-Admin: enabled' \
+    --data "$payload")"
+  CREATED_JSON="$created" EXPECTED_TITLE="$title" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["CREATED_JSON"])
+if payload.get("title") != os.environ["EXPECTED_TITLE"]:
+    raise SystemExit("Het aangemaakte nieuwsbericht heeft een onverwachte titel.")
+PY
+  news="$(curl "${curl_tls_options[@]}" --fail --silent --show-error "${backend_url}/api/news")"
+  NEWS_JSON="$news" EXPECTED_TITLE="$title" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["NEWS_JSON"])
+if not payload or payload[0].get("title") != os.environ["EXPECTED_TITLE"]:
+    raise SystemExit("Het nieuwe bericht staat niet bovenaan de publieke nieuwslijst.")
+PY
+fi
+
 echo "Baselinecontract groen voor ${application_id}."

@@ -6,9 +6,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 class AdminIdentity {
-  const AdminIdentity(this.email);
+  const AdminIdentity(this.email, {this.requestHeaders = const {}});
 
   final String email;
+  final Map<String, String> requestHeaders;
 }
 
 abstract interface class AdminSessionSource {
@@ -63,10 +64,15 @@ class PreviewAdminSessionSource implements AdminSessionSource {
         )
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
-      throw StateError('Preview admin login rejected (${response.statusCode}).');
+      throw StateError(
+        'Preview admin login rejected (${response.statusCode}).',
+      );
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return AdminIdentity(json['email'] as String);
+    return AdminIdentity(
+      json['email'] as String,
+      requestHeaders: const {'X-HKH-Preview-Admin': 'enabled'},
+    );
   }
 
   @override
@@ -137,7 +143,10 @@ class AdminSessionService implements AdminSessionSource {
       throw StateError('Admin login rejected (${response.statusCode}).');
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return AdminIdentity(json['email'] as String);
+    return AdminIdentity(
+      json['email'] as String,
+      requestHeaders: {'Authorization': 'Bearer $idToken'},
+    );
   }
 
   @override
