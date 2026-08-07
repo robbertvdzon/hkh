@@ -8,6 +8,7 @@ import 'config/app_config.dart';
 import 'google_signin_button_stub.dart'
     if (dart.library.html) 'google_signin_button_web.dart'
     as google_button;
+import 'news/admin_latest_news.dart';
 
 void main() {
   final sessionSource = AppConfig.previewMode
@@ -18,17 +19,24 @@ void main() {
           apiBaseUrl: AppConfig.apiBaseUrl,
           googleClientId: AppConfig.googleClientId,
         );
-  runApp(HkhAdminApp(sessionSource: sessionSource));
+  runApp(
+    HkhAdminApp(
+      sessionSource: sessionSource,
+      newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
+    ),
+  );
 }
 
 class HkhAdminApp extends StatelessWidget {
   const HkhAdminApp({
     required this.sessionSource,
+    required this.newsSource,
     this.googleButtonBuilder,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
+  final AdminLatestNewsSource newsSource;
   final Widget Function()? googleButtonBuilder;
 
   @override
@@ -42,6 +50,7 @@ class HkhAdminApp extends StatelessWidget {
       ),
       home: AdminGate(
         sessionSource: sessionSource,
+        newsSource: newsSource,
         googleButtonBuilder:
             googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
@@ -52,11 +61,13 @@ class HkhAdminApp extends StatelessWidget {
 class AdminGate extends StatefulWidget {
   const AdminGate({
     required this.sessionSource,
+    required this.newsSource,
     required this.googleButtonBuilder,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
+  final AdminLatestNewsSource newsSource;
   final Widget Function() googleButtonBuilder;
 
   @override
@@ -143,7 +154,11 @@ class _AdminGateState extends State<AdminGate> {
     }
     final identity = _identity;
     if (identity != null) {
-      return _AdminHome(identity: identity, onSignOut: _signOut);
+      return _AdminHome(
+        identity: identity,
+        newsSource: widget.newsSource,
+        onSignOut: _signOut,
+      );
     }
     return _LoginScreen(
       configured: widget.sessionSource.configured,
@@ -221,11 +236,61 @@ class _LoginScreen extends StatelessWidget {
   }
 }
 
-class _AdminHome extends StatelessWidget {
-  const _AdminHome({required this.identity, required this.onSignOut});
+class _AdminHome extends StatefulWidget {
+  const _AdminHome({
+    required this.identity,
+    required this.newsSource,
+    required this.onSignOut,
+  });
 
   final AdminIdentity identity;
+  final AdminLatestNewsSource newsSource;
   final VoidCallback onSignOut;
+
+  @override
+  State<_AdminHome> createState() => _AdminHomeState();
+}
+
+class _AdminHomeState extends State<_AdminHome> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _messageController = TextEditingController();
+  bool _saving = false;
+  String? _success;
+  String? _error;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _publish() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _success = null;
+      _error = null;
+    });
+    try {
+      await widget.newsSource.create(
+        identity: widget.identity,
+        title: _titleController.text.trim(),
+        message: _messageController.text.trim(),
+      );
+      if (!mounted) return;
+      _titleController.clear();
+      _messageController.clear();
+      setState(() => _success = 'Het nieuwsbericht is gepubliceerd.');
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Publiceren is mislukt. Probeer het opnieuw.');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,31 +299,109 @@ class _AdminHome extends StatelessWidget {
         title: const Text('HKH Beheer'),
         actions: [
           IconButton(
-            onPressed: onSignOut,
+            onPressed: widget.onSignOut,
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.verified_user_outlined, size: 64),
-              const SizedBox(height: 16),
-              Text(
-                'Beheerder geverifieerd',
-                style: Theme.of(context).textTheme.headlineSmall,
+      body: SingleChildScrollView(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.verified_user_outlined, size: 56),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Beheerder geverifieerd',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(widget.identity.email, textAlign: TextAlign.center),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Nieuw bericht',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Publiceer een bericht dat direct in de HKH-app verschijnt.',
+                  ),
+                  const SizedBox(height: 20),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextFormField(
+                          controller: _titleController,
+                          maxLength: 160,
+                          decoration: const InputDecoration(
+                            labelText: 'Titel',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? 'Vul een titel in.'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _messageController,
+                          minLines: 5,
+                          maxLines: 12,
+                          maxLength: 10000,
+                          decoration: const InputDecoration(
+                            labelText: 'Bericht',
+                            alignLabelWithHint: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? 'Vul een bericht in.'
+                              : null,
+                        ),
+                        if (_success != null) ...[
+                          Text(
+                            _success!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (_error != null) ...[
+                          Text(
+                            _error!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        FilledButton.icon(
+                          onPressed: _saving ? null : _publish,
+                          icon: _saving
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.publish),
+                          label: const Text('Publiceren'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(identity.email),
-              const SizedBox(height: 20),
-              const Text(
-                'Inhoudelijk beheer wordt in een volgende productiteratie toegevoegd.',
-              ),
-            ],
+            ),
           ),
         ),
       ),
