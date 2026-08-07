@@ -3,6 +3,7 @@ kind: Route
 metadata:
   name: frontend
 spec:
+  host: hkh.vdzonsoftware.nl
   to:
     kind: Service
     name: frontend
@@ -10,4 +11,4 @@ spec:
     targetPort: http
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
+    insecureEdgeTerminationPolicy: Allow
