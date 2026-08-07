@@ -10,7 +10,9 @@ import 'google_signin_button_stub.dart'
     as google_button;
 
 void main() {
-  final sessionSource = AppConfig.googleClientId.isEmpty
+  final sessionSource = AppConfig.previewMode
+      ? PreviewAdminSessionSource(apiBaseUrl: AppConfig.apiBaseUrl)
+      : AppConfig.googleClientId.isEmpty
       ? const DisabledAdminSessionSource()
       : AdminSessionService(
           apiBaseUrl: AppConfig.apiBaseUrl,

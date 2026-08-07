@@ -37,6 +37,45 @@ class DisabledAdminSessionSource implements AdminSessionSource {
   void dispose() {}
 }
 
+class PreviewAdminSessionSource implements AdminSessionSource {
+  PreviewAdminSessionSource({required this.apiBaseUrl, http.Client? client})
+    : _client = client ?? http.Client();
+
+  final String apiBaseUrl;
+  final http.Client _client;
+
+  @override
+  bool get configured => true;
+  @override
+  Stream<AdminIdentity> get identities => const Stream.empty();
+
+  @override
+  Future<AdminIdentity?> bootstrap() => _authenticate();
+
+  @override
+  Future<AdminIdentity?> signIn() => _authenticate();
+
+  Future<AdminIdentity> _authenticate() async {
+    final response = await _client
+        .get(
+          Uri.parse('$apiBaseUrl/api/admin/me'),
+          headers: const {'X-HKH-Preview-Admin': 'enabled'},
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw StateError('Preview admin login rejected (${response.statusCode}).');
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdminIdentity(json['email'] as String);
+  }
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  void dispose() => _client.close();
+}
+
 class AdminSessionService implements AdminSessionSource {
   AdminSessionService({
     required this.apiBaseUrl,

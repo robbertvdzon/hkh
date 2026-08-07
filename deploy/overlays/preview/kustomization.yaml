@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - preview-secret.yaml
+patches:
+  - target:
+      group: bitnami.com
+      version: v1alpha1
+      kind: SealedSecret
+      name: hkh-runtime
+    patch: |-
+      $patch: delete
+      apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      metadata:
+        name: hkh-runtime
+  - target:
+      group: route.openshift.io
+      version: v1
+      kind: Route
+      name: backend
+    patch: |-
+      $patch: delete
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: backend
