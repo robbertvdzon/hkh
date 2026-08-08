@@ -121,6 +121,39 @@ jobs:
           cache-from: type=gha,scope=admin
           cache-to: type=gha,mode=max,scope=admin
 
+      # AppConfig.apiBaseUrl (frontend & frontend-admin) and PREVIEW_MODE/GOOGLE_CLIENT_ID (admin)
+      # are compile-time Dart constants (see lib/config/app_config.dart), not runtime env vars.
+      # The regular push build above bakes in the real production API_BASE_URL and requires Google
+      # login (PREVIEW_MODE=false) — reused as-is by the standing acceptance environment, that would
+      # make it silently call the production backend directly (bypassing its own same-origin nginx
+      # proxy) and still show a Google sign-in wall for admin. Build the same preview-flavored
+      # variant PR-previews already get (blank API_BASE_URL so requests stay same-origin, preview
+      # mode on) so the acceptance overlay can pin to it instead.
+      - name: Build and push acceptance user frontend
+        if: github.event_name == 'push' && steps.changes.outputs.frontend == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ steps.metadata.outputs.tag }}-acceptance
+          build-args: API_BASE_URL=
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build and push acceptance admin frontend
+        if: github.event_name == 'push' && steps.changes.outputs.admin == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend-admin
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${{ steps.metadata.outputs.tag }}-acceptance
+          build-args: |
+            API_BASE_URL=
+            GOOGLE_CLIENT_ID=
+            PREVIEW_MODE=true
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+
       - name: Set up Kustomize
         if: github.event_name == 'push'
         uses: imranismail/setup-kustomize@v2
@@ -161,16 +194,19 @@ jobs:
           IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
         run: |
           # Zelfde reden als de OpenShift-overlay hierboven: eerst bijwerken voorkomt een
-          # non-fast-forward push bij de latere GitOps-commit.
+          # non-fast-forward push bij de latere GitOps-commit. Backend heeft geen compile-time
+          # gebakken configuratie en gebruikt daarom gewoon de productie-tag; frontend en admin
+          # krijgen de losse -acceptance-variant (zie de "Build and push acceptance ..." stappen
+          # hierboven) omdat hun API_BASE_URL/PREVIEW_MODE/GOOGLE_CLIENT_ID compile-time vastliggen.
           git pull --rebase origin main
           if [[ "$BACKEND_CHANGED" == "true" ]]; then
             kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
           fi
           if [[ "$FRONTEND_CHANGED" == "true" ]]; then
-            kustomize edit set image frontend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${IMAGE_TAG}
+            kustomize edit set image frontend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${IMAGE_TAG}-acceptance
           fi
           if [[ "$ADMIN_CHANGED" == "true" ]]; then
-            kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}
+            kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}-acceptance
           fi
 
       - name: Commit GitOps image pins
