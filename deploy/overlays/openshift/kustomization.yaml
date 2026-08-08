@@ -13,4 +13,4 @@ images:
   newTag: sha-23bd56c
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-7e37ace
+  newTag: sha-b6cafaa
