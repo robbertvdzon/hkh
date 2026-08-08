@@ -193,12 +193,13 @@ jobs:
           ADMIN_CHANGED: ${{ steps.changes.outputs.admin }}
           IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
         run: |
-          # Zelfde reden als de OpenShift-overlay hierboven: eerst bijwerken voorkomt een
-          # non-fast-forward push bij de latere GitOps-commit. Backend heeft geen compile-time
-          # gebakken configuratie en gebruikt daarom gewoon de productie-tag; frontend en admin
-          # krijgen de losse -acceptance-variant (zie de "Build and push acceptance ..." stappen
-          # hierboven) omdat hun API_BASE_URL/PREVIEW_MODE/GOOGLE_CLIENT_ID compile-time vastliggen.
-          git pull --rebase origin main
+          # Geen eigen "git pull --rebase" hier: de OpenShift-overlaystap hierboven heeft de
+          # working tree al bijgewerkt en laat bewust ongecommitte wijzigingen staan tot de
+          # gezamenlijke commit-stap verderop; een tweede rebase-poging zou daardoor stuklopen op
+          # "unstaged changes". Backend heeft geen compile-time gebakken configuratie en gebruikt
+          # daarom gewoon de productie-tag; frontend en admin krijgen de losse -acceptance-variant
+          # (zie de "Build and push acceptance ..." stappen hierboven) omdat hun
+          # API_BASE_URL/PREVIEW_MODE/GOOGLE_CLIENT_ID compile-time vastliggen.
           if [[ "$BACKEND_CHANGED" == "true" ]]; then
             kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
           fi
