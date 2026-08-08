@@ -41,4 +41,19 @@ class PreviewRuntimeConfigTest {
             PreviewRuntimeConfig(false, "", "jdbc:postgresql://database:5432/hkh", "42")
         }
     }
+
+    @Test
+    fun `accepts the acceptance marker without a pr number`() {
+        val config = PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, "jdbc:postgresql://database:5432/hkh", "")
+
+        assertTrue(config.accepts(PreviewRuntimeConfig.ADMIN_HEADER_VALUE))
+        assertTrue(config.requireSeedingAllowed() == 0)
+    }
+
+    @Test
+    fun `rejects a pr number with the acceptance marker`() {
+        assertFailsWith<IllegalArgumentException> {
+            PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, "jdbc:postgresql://database:5432/hkh", "42")
+        }
+    }
 }
