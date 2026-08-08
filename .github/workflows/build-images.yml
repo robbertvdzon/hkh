@@ -150,15 +150,38 @@ jobs:
             kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}
           fi
 
+      - name: Pin built images in the acceptance overlay
+        if: github.event_name == 'push'
+        shell: bash
+        working-directory: deploy/overlays/acceptance
+        env:
+          BACKEND_CHANGED: ${{ steps.changes.outputs.backend }}
+          FRONTEND_CHANGED: ${{ steps.changes.outputs.frontend }}
+          ADMIN_CHANGED: ${{ steps.changes.outputs.admin }}
+          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          # Zelfde reden als de OpenShift-overlay hierboven: eerst bijwerken voorkomt een
+          # non-fast-forward push bij de latere GitOps-commit.
+          git pull --rebase origin main
+          if [[ "$BACKEND_CHANGED" == "true" ]]; then
+            kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
+          fi
+          if [[ "$FRONTEND_CHANGED" == "true" ]]; then
+            kustomize edit set image frontend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${IMAGE_TAG}
+          fi
+          if [[ "$ADMIN_CHANGED" == "true" ]]; then
+            kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}
+          fi
+
       - name: Commit GitOps image pins
         if: github.event_name == 'push'
         shell: bash
         run: |
-          if git diff --quiet -- deploy/overlays/openshift/kustomization.yaml; then
+          if git diff --quiet -- deploy/overlays/openshift/kustomization.yaml deploy/overlays/acceptance/kustomization.yaml; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add deploy/overlays/openshift/kustomization.yaml
+          git add deploy/overlays/openshift/kustomization.yaml deploy/overlays/acceptance/kustomization.yaml
           git commit -m "deploy: pin images to ${{ steps.metadata.outputs.tag }} [skip ci]"
           git push

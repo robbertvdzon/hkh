@@ -2,60 +2,70 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: hkh-acceptance
 resources:
-  - ../../base
-  - acceptance-secret.yaml
-patches:
+- ../../base
+- acceptance-secret.yaml
   # De acceptatieomgeving is standing, maar heeft geen productieverkeer; 1Gi is ruim voldoende voor de
   # geseede demodata. Zelfde aanpak als deploy/overlays/preview/kustomization.yaml.
-  - target:
-      version: v1
-      kind: PersistentVolumeClaim
-      name: database-data
-    patch: |-
-      - op: replace
-        path: /spec/resources/requests/storage
-        value: 1Gi
-  - target:
-      group: bitnami.com
-      version: v1alpha1
-      kind: SealedSecret
-      name: hkh-runtime
-    patch: |-
-      $patch: delete
-      apiVersion: bitnami.com/v1alpha1
-      kind: SealedSecret
-      metadata:
-        name: hkh-runtime
   # De frontend proxit same-origin naar de backend; een losse externe Route voor de backend is niet
   # nodig (zelfde als preview).
-  - target:
-      group: route.openshift.io
-      version: v1
-      kind: Route
-      name: backend
-    patch: |-
-      $patch: delete
-      apiVersion: route.openshift.io/v1
-      kind: Route
-      metadata:
-        name: backend
   # Vaste hostnamen voor de standing acceptatieomgeving (geen ArgoCD-templating nodig, er is maar één
   # instantie).
-  - target:
-      group: route.openshift.io
-      version: v1
-      kind: Route
-      name: frontend
-    patch: |-
-      - op: replace
-        path: /spec/host
-        value: hkh-acceptance.vdzonsoftware.nl
-  - target:
-      group: route.openshift.io
-      version: v1
-      kind: Route
-      name: admin
-    patch: |-
-      - op: replace
-        path: /spec/host
-        value: hkh-admin-acceptance.vdzonsoftware.nl
+patches:
+- patch: |-
+    - op: replace
+      path: /spec/resources/requests/storage
+      value: 1Gi
+  target:
+    kind: PersistentVolumeClaim
+    name: database-data
+    version: v1
+- patch: |-
+    $patch: delete
+    apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      name: hkh-runtime
+  target:
+    group: bitnami.com
+    kind: SealedSecret
+    name: hkh-runtime
+    version: v1alpha1
+- patch: |-
+    $patch: delete
+    apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: backend
+  target:
+    group: route.openshift.io
+    kind: Route
+    name: backend
+    version: v1
+- patch: |-
+    - op: replace
+      path: /spec/host
+      value: hkh-acceptance.vdzonsoftware.nl
+  target:
+    group: route.openshift.io
+    kind: Route
+    name: frontend
+    version: v1
+- patch: |-
+    - op: replace
+      path: /spec/host
+      value: hkh-admin-acceptance.vdzonsoftware.nl
+  target:
+    group: route.openshift.io
+    kind: Route
+    name: admin
+    version: v1
+images:
+- name: admin-image
+  newName: ghcr.io/robbertvdzon/hkh-admin
+  newTag: sha-7c4ce31
+- name: backend-image
+  newName: ghcr.io/robbertvdzon/hkh-backend
+  newTag: sha-23bd56c
+- name: frontend-image
+  newName: ghcr.io/robbertvdzon/hkh-frontend
+  newTag: sha-b6cafaa
