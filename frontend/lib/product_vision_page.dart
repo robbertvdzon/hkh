@@ -5,7 +5,7 @@ class ProductVisionPage extends StatelessWidget {
 
   static const _visionParagraphs = [
     'De HKH-app maakt de geschiedenis van Heemskerk toegankelijk als onderdeel van een veel grotere historische context.',
-    'De app verbindt de collecties en kennis van de Historische Kring Heemskerk met relevante historische bronnen uit Noord-Holland, Nederland en daarbuiten, zoals archieven, musea, beeldbanken, kranten, kaarten en andere publieke collecties.',
+    'De app verbindt de collecties en kennis van en over Heemskerk met relevante historische bronnen uit Heemskerk, Noord-Holland, Nederland en daarbuiten, zoals archieven, musea, beeldbanken, kranten, kaarten en andere beschikbare online collecties en bronnen.',
     'Mensen moeten vanuit een gewone vraag, een plek, persoon, gebeurtenis of onderwerp op ontdekking kunnen gaan. Zij moeten verbanden kunnen vinden tussen verschillende tijden, gebieden, personen, bronnen en verhalen, zonder vooraf te hoeven weten waar informatie is opgeslagen.',
     'Wij ontsluiten en verbinden historische bronnen, zodat iedereen de geschiedenis van Heemskerk vanuit zijn eigen nieuwsgierigheid kan onderzoeken en beleven binnen de bredere geschiedenis van Noord-Holland, Nederland en de wereld.',
     'Zo ontstaat geen traditioneel digitaal archief, maar een toegankelijke en betrouwbare historische kenniswereld die uitnodigt tot ontdekken, doorvragen, onderzoeken, beleven en het maken van nieuwe verhalen.',

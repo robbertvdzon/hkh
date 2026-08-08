@@ -2,7 +2,7 @@
 
 De HKH-app maakt de geschiedenis van Heemskerk toegankelijk als onderdeel van een veel grotere historische context.
 
-De app verbindt de collecties en kennis van de Historische Kring Heemskerk met relevante historische bronnen uit Noord-Holland, Nederland en daarbuiten, zoals archieven, musea, beeldbanken, kranten, kaarten en andere publieke collecties.
+De app verbindt de collecties en kennis van en over Heemskerk met relevante historische bronnen uit Heemskerk, Noord-Holland, Nederland en daarbuiten, zoals archieven, musea, beeldbanken, kranten, kaarten en andere beschikbare online collecties en bronnen.
 
 Mensen moeten vanuit een gewone vraag, een plek, persoon, gebeurtenis of onderwerp op ontdekking kunnen gaan. Zij moeten verbanden kunnen vinden tussen verschillende tijden, gebieden, personen, bronnen en verhalen, zonder vooraf te hoeven weten waar informatie is opgeslagen.
 
