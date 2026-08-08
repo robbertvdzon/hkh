@@ -47,7 +47,7 @@ class PreviewRuntimeConfigTest {
         val config = PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, "jdbc:postgresql://database:5432/hkh", "")
 
         assertTrue(config.accepts(PreviewRuntimeConfig.ADMIN_HEADER_VALUE))
-        assertTrue(config.requireSeedingAllowed() == 0)
+        assertTrue(config.requireSeedingAllowed() == null)
     }
 
     @Test

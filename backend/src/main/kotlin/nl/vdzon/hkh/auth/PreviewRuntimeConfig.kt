@@ -41,9 +41,10 @@ class PreviewRuntimeConfig(
 
     fun accepts(header: String?): Boolean = enabled && header == ADMIN_HEADER_VALUE
 
-    fun requireSeedingAllowed(): Int {
+    /** Null voor de acceptatieomgeving: die is niet aan een PR gebonden en heeft geen pr_number. */
+    fun requireSeedingAllowed(): Int? {
         require(enabled) { "Preview test data may only be generated inside a verified preview environment" }
-        return prNumber ?: ACCEPTANCE_SEED_ID
+        return prNumber
     }
 
     companion object {
@@ -52,7 +53,6 @@ class PreviewRuntimeConfig(
         const val ADMIN_HEADER = "X-HKH-Preview-Admin"
         const val ADMIN_HEADER_VALUE = "enabled"
         const val ADMIN_EMAIL = "preview-admin@hkh.invalid"
-        private const val ACCEPTANCE_SEED_ID = 0
 
         private val PREVIEW_DATABASE =
             Regex("^jdbc:postgresql://database(?::5432)?/hkh(?:\\?.*)?$")
