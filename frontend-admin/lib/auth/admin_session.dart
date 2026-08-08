@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminIdentity {
   const AdminIdentity(this.email, {this.requestHeaders = const {}});
@@ -112,13 +113,21 @@ class AdminSessionService implements AdminSessionSource {
       StreamController.broadcast();
   StreamSubscription<GoogleSignInAccount?>? _accountSubscription;
 
+  static const _tokenPrefsKey = 'hkh_admin_session_token';
+  static const _emailPrefsKey = 'hkh_admin_session_email';
+
   @override
   bool get configured => true;
   @override
   Stream<AdminIdentity> get identities => _identityController.stream;
 
+  /// Herstelt eerst een eerder bewaard token (geen Google-round trip, dus geen herhaalde
+  /// inlogprompt bij elke pagina-ververs) en valt alleen terug op Google's stille sign-in
+  /// als er niets bewaard is of het bewaarde token niet langer geldig blijkt.
   @override
   Future<AdminIdentity?> bootstrap() async {
+    final stored = await _restoreStoredIdentity();
+    if (stored != null) return stored;
     final account = await _googleSignIn.signInSilently();
     return account == null ? null : _authenticate(account);
   }
@@ -127,6 +136,29 @@ class AdminSessionService implements AdminSessionSource {
   Future<AdminIdentity?> signIn() async {
     final account = await _googleSignIn.signIn();
     return account == null ? null : _authenticate(account);
+  }
+
+  Future<AdminIdentity?> _restoreStoredIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenPrefsKey);
+    final email = prefs.getString(_emailPrefsKey);
+    if (token == null || email == null) return null;
+    if (await _isValid(token)) {
+      return AdminIdentity(email, requestHeaders: {'Authorization': 'Bearer $token'});
+    }
+    await prefs.remove(_tokenPrefsKey);
+    await prefs.remove(_emailPrefsKey);
+    return null;
+  }
+
+  Future<bool> _isValid(String idToken) async {
+    final response = await _client
+        .get(
+          Uri.parse('$apiBaseUrl/api/admin/me'),
+          headers: {'Authorization': 'Bearer $idToken'},
+        )
+        .timeout(const Duration(seconds: 10));
+    return response.statusCode == 200;
   }
 
   Future<AdminIdentity> _authenticate(GoogleSignInAccount account) async {
@@ -143,14 +175,23 @@ class AdminSessionService implements AdminSessionSource {
       throw StateError('Admin login rejected (${response.statusCode}).');
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final email = json['email'] as String;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenPrefsKey, idToken);
+    await prefs.setString(_emailPrefsKey, email);
     return AdminIdentity(
-      json['email'] as String,
+      email,
       requestHeaders: {'Authorization': 'Bearer $idToken'},
     );
   }
 
   @override
-  Future<void> signOut() => _googleSignIn.signOut();
+  Future<void> signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenPrefsKey);
+    await prefs.remove(_emailPrefsKey);
+    await _googleSignIn.signOut();
+  }
 
   @override
   void dispose() {
