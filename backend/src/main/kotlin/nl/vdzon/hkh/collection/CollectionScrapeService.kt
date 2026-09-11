@@ -73,30 +73,34 @@ class CollectionScrapeService(
         }
     }
 
-    /** Snel: alleen de lijstpagina's. Slaat idents over die al bekend zijn (samenvatting of volledig), tenzij force. */
+    /**
+     * Snel: alleen de lijstpagina's. Slaat idents over die al bekend zijn (samenvatting of
+     * volledig), tenzij force. Verwerkt elke lijstpagina zodra hij binnenkomt (i.p.v. pas na
+     * de hele collectie) - bij een grote collectie (bv. 400+ pagina's) blijft de voortgang zo
+     * zichtbaar, en gaat er bij een tijdelijke serverfout onderweg niet alles verloren wat al
+     * wél is opgehaald.
+     */
     private fun scrapeCollectionFast(collection: String, force: Boolean, progress: RunProgress) {
-        val summaries = client.listSummaries(collection)
-        progress.total += summaries.size
         progress.perCollection.putIfAbsent(collection, 0)
-        runs.update(progress)
-
         val existing = if (force) emptySet() else items.existingIdents(collection)
-        for (summary in summaries) {
-            if (!force && summary.ident in existing) {
-                progress.skipped++
-                continue
+        client.listSummaries(collection) { page ->
+            for (summary in page) {
+                progress.total++
+                if (!force && summary.ident in existing) {
+                    progress.skipped++
+                    continue
+                }
+                try {
+                    items.upsertSummary(summary)
+                    progress.processed++
+                    progress.perCollection.merge(collection, 1, Int::plus)
+                } catch (ex: Exception) {
+                    progress.failed++
+                    logger.warn("Samenvatting {}/{} mislukt: {}", collection, summary.ident, ex.message)
+                }
             }
-            try {
-                items.upsertSummary(summary)
-                progress.processed++
-                progress.perCollection.merge(collection, 1, Int::plus)
-            } catch (ex: Exception) {
-                progress.failed++
-                logger.warn("Samenvatting {}/{} mislukt: {}", collection, summary.ident, ex.message)
-            }
-            if (progress.processed % 100 == 0) runs.update(progress)
+            runs.update(progress)
         }
-        runs.update(progress)
     }
 
     /** Volledig: elk record apart, rate-limited. Slaat alleen idents over die al compleet zijn, tenzij force. */

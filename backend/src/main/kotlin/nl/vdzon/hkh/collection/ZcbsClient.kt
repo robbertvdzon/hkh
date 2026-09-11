@@ -5,8 +5,11 @@ import java.net.URI
 import java.time.Duration
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.slf4j.LoggerFactory
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpServerErrorException
+import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.util.UriComponentsBuilder
 
@@ -15,9 +18,11 @@ import org.springframework.web.util.UriComponentsBuilder
  * Pagina's zijn ISO-8859-1 en worden met jsoup geparst.
  */
 @Component
-class ZcbsClient(private val properties: ZcbsProperties) {
+class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: RestClient? = null) {
+    private val logger = LoggerFactory.getLogger(javaClass)
 
-    private val restClient: RestClient = run {
+    /** [restClientOverride] exists so tests can exercise [getWithRetry] against a fake server. */
+    private val restClient: RestClient = restClientOverride ?: run {
         val factory = SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(properties.timeoutSeconds))
             setReadTimeout(Duration.ofSeconds(properties.timeoutSeconds))
@@ -57,15 +62,20 @@ class ZcbsClient(private val properties: ZcbsProperties) {
      * thumbnail en een deel van de detailvelden - maar geen PDF-link en een paar velden die
      * alleen op de detailpagina staan (bv. uitgever, paginanummer). Bedoeld om de collectie
      * binnen enkele minuten doorzoekbaar te maken; [fetchRecord] vult de rest later aan.
+     *
+     * Roept [onPage] aan zodra een pagina geparset is (in plaats van alles pas aan het eind in
+     * één keer terug te geven), zodat een grote collectie (bv. 12.000 foto's, 400+ pagina's)
+     * tussentijds al wordt opgeslagen. Zonder dat zou één tijdelijke serverfout halverwege het
+     * werk van de hele collectie weggooien en de voortgang minutenlang "stil" laten staan.
      */
-    fun listSummaries(collection: String): List<ListSummary> {
-        val summaries = LinkedHashMap<String, ListSummary>()
+    fun listSummaries(collection: String, onPage: (List<ListSummary>) -> Unit) {
         var istart = 1
         var previous = -1
         var pages = 0
         while (pages++ < properties.maxPagesPerCollection && istart != previous) {
             val doc = getListPage(collection, istart)
-            parseListItems(doc, collection).forEach { summaries[it.ident] = it }
+            val items = parseListItems(doc, collection)
+            if (items.isNotEmpty()) onPage(items)
             val html = doc.outerHtml()
             val starts = Regex("""istart=(\d+)""").findAll(html)
                 .map { it.groupValues[1].toInt() }
@@ -76,7 +86,6 @@ class ZcbsClient(private val properties: ZcbsProperties) {
             if (next == null) break
             sleepBetweenPages()
         }
-        return summaries.values.toList()
     }
 
     /**
@@ -149,11 +158,12 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         )
     }
 
-    private fun sleepBetweenPages() {
-        val delay = properties.requestDelayMs
-        if (delay > 0) {
+    private fun sleepBetweenPages() = sleep(properties.requestDelayMs)
+
+    private fun sleep(millis: Long) {
+        if (millis > 0) {
             try {
-                Thread.sleep(delay)
+                Thread.sleep(millis)
             } catch (ex: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
@@ -200,9 +210,30 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         val builder = UriComponentsBuilder.fromUriString(properties.baseUrl).path(path)
         queryParams.forEach { (name, value) -> builder.queryParam(name, value) }
         val uri = builder.build().encode().toUri()
-        val bytes = restClient.get().uri(uri).retrieve().body(ByteArray::class.java)
-            ?: ByteArray(0)
+        val bytes = getWithRetry(uri)
         return Jsoup.parse(ByteArrayInputStream(bytes), "ISO-8859-1", properties.baseUrl)
+    }
+
+    /**
+     * De HKH-server geeft af en toe een tijdelijke 502/503/504 of een verbindingsfout terug
+     * (bv. onder belasting van een lange scrape). Zonder retry gooit dat meteen de hele
+     * lopende scrape-run weg. Drie pogingen met oplopende wachttijd (1s, 2s, 4s).
+     */
+    internal fun getWithRetry(uri: URI): ByteArray {
+        var attempt = 0
+        var delay = 1000L
+        while (true) {
+            try {
+                return restClient.get().uri(uri).retrieve().body(ByteArray::class.java) ?: ByteArray(0)
+            } catch (ex: Exception) {
+                val retryable = ex is HttpServerErrorException || ex is ResourceAccessException
+                attempt++
+                if (!retryable || attempt > MAX_RETRIES) throw ex
+                logger.warn("Verzoek aan {} mislukt (poging {}/{}): {}. Nieuwe poging over {}ms.", uri, attempt, MAX_RETRIES, ex.message, delay)
+                sleep(delay)
+                delay *= 2
+            }
+        }
     }
 
     /** Leest de detailtabel als label:waarde-paren (patroon: [label] [:] [waarde]). */
@@ -272,6 +303,7 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         val YEAR_KEYS = listOf("Verschijningsjaar", "Datering", "Jaar", "Periode", "Datum")
         val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp")
         val LARGE_DIRS = listOf("large", "groot", "original", "origineel", "medium", "middel")
+        const val MAX_RETRIES = 3
         const val LIST_MARKER = "<!-- ZCBS-LIST -->"
         const val LINE_SEP = ""
     }
