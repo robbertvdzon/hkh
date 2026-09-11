@@ -30,3 +30,6 @@ deploy/secrets-cluster.env
 *.log
 logs/
 .factory/work/
+
+.changes.patch
+.build-backend.tgz

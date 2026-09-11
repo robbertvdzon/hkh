@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_admin/auth/admin_session.dart';
 import 'package:hkh_admin/main.dart';
 import 'package:hkh_admin/news/admin_latest_news.dart';
+import 'package:hkh_admin/collection/admin_collection_scrape.dart';
 
 class _NewsSource implements AdminLatestNewsSource {
   String? title;
@@ -17,6 +18,23 @@ class _NewsSource implements AdminLatestNewsSource {
     this.title = title;
     this.message = message;
   }
+}
+
+class _ScrapeSource implements AdminScrapeSource {
+  @override
+  Future<ScrapeStatus?> loadStatus(AdminIdentity identity) async => null;
+  @override
+  Future<ScrapeStatus> start({
+    required AdminIdentity identity,
+    required bool force,
+  }) async => ScrapeStatus.fromJson(const {
+    'status': 'RUNNING',
+    'running': true,
+    'total': 0,
+    'processed': 0,
+    'skipped': 0,
+    'failed': 0,
+  });
 }
 
 class _AuthenticatedSession implements AdminSessionSource {
@@ -43,6 +61,7 @@ void main() {
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
         newsSource: newsSource,
+        scrapeSource: _ScrapeSource(),
       ),
     );
     await tester.pumpAndSettle();
@@ -70,6 +89,7 @@ void main() {
       HkhAdminApp(
         sessionSource: const DisabledAdminSessionSource(),
         newsSource: _NewsSource(),
+        scrapeSource: _ScrapeSource(),
         googleButtonBuilder: () => const SizedBox.shrink(),
       ),
     );

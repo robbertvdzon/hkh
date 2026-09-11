@@ -8,6 +8,7 @@ import 'config/app_config.dart';
 import 'google_signin_button_stub.dart'
     if (dart.library.html) 'google_signin_button_web.dart'
     as google_button;
+import 'collection/admin_collection_scrape.dart';
 import 'news/admin_latest_news.dart';
 
 void main() {
@@ -23,6 +24,7 @@ void main() {
     HkhAdminApp(
       sessionSource: sessionSource,
       newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
+      scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
     ),
   );
 }
@@ -31,12 +33,14 @@ class HkhAdminApp extends StatelessWidget {
   const HkhAdminApp({
     required this.sessionSource,
     required this.newsSource,
+    required this.scrapeSource,
     this.googleButtonBuilder,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
   final AdminLatestNewsSource newsSource;
+  final AdminScrapeSource scrapeSource;
   final Widget Function()? googleButtonBuilder;
 
   @override
@@ -51,6 +55,7 @@ class HkhAdminApp extends StatelessWidget {
       home: AdminGate(
         sessionSource: sessionSource,
         newsSource: newsSource,
+        scrapeSource: scrapeSource,
         googleButtonBuilder:
             googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
@@ -62,12 +67,14 @@ class AdminGate extends StatefulWidget {
   const AdminGate({
     required this.sessionSource,
     required this.newsSource,
+    required this.scrapeSource,
     required this.googleButtonBuilder,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
   final AdminLatestNewsSource newsSource;
+  final AdminScrapeSource scrapeSource;
   final Widget Function() googleButtonBuilder;
 
   @override
@@ -157,6 +164,7 @@ class _AdminGateState extends State<AdminGate> {
       return _AdminHome(
         identity: identity,
         newsSource: widget.newsSource,
+        scrapeSource: widget.scrapeSource,
         onSignOut: _signOut,
       );
     }
@@ -240,11 +248,13 @@ class _AdminHome extends StatefulWidget {
   const _AdminHome({
     required this.identity,
     required this.newsSource,
+    required this.scrapeSource,
     required this.onSignOut,
   });
 
   final AdminIdentity identity;
   final AdminLatestNewsSource newsSource;
+  final AdminScrapeSource scrapeSource;
   final VoidCallback onSignOut;
 
   @override
@@ -324,6 +334,13 @@ class _AdminHomeState extends State<_AdminHome> {
                   const SizedBox(height: 4),
                   Text(widget.identity.email, textAlign: TextAlign.center),
                   const SizedBox(height: 32),
+                  _CollectionScrapeSection(
+                    identity: widget.identity,
+                    source: widget.scrapeSource,
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 20),
                   Text(
                     'Nieuw bericht',
                     style: Theme.of(context).textTheme.headlineSmall,
@@ -407,4 +424,193 @@ class _AdminHomeState extends State<_AdminHome> {
       ),
     );
   }
+}
+
+class _CollectionScrapeSection extends StatefulWidget {
+  const _CollectionScrapeSection({required this.identity, required this.source});
+
+  final AdminIdentity identity;
+  final AdminScrapeSource source;
+
+  @override
+  State<_CollectionScrapeSection> createState() =>
+      _CollectionScrapeSectionState();
+}
+
+class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
+  ScrapeStatus? _status;
+  bool _loading = true;
+  bool _force = false;
+  String? _error;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final status = await widget.source.loadStatus(widget.identity);
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _loading = false;
+        _error = null;
+      });
+      _schedulePolling(status);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Status kon niet worden geladen.';
+      });
+    }
+  }
+
+  void _schedulePolling(ScrapeStatus? status) {
+    _poll?.cancel();
+    if (status != null && status.running) {
+      _poll = Timer(const Duration(seconds: 3), _refresh);
+    }
+  }
+
+  Future<void> _start() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final status = await widget.source.start(
+        identity: widget.identity,
+        force: _force,
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _loading = false;
+      });
+      _schedulePolling(status);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error is StateError ? error.message : 'Starten mislukt.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    final running = status?.running ?? false;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_download_outlined),
+                const SizedBox(width: 8),
+                Text(
+                  'Collectie ophalen (ZCBS)',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Haalt alle metadata uit de ZCBS-beeldbanken op en zet die in de '
+              'zoekdatabase. Beelden blijven op de HKH-webserver staan.',
+            ),
+            const SizedBox(height: 16),
+            if (status != null) _StatusView(status: status),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 12),
+            CheckboxListTile(
+              value: _force,
+              onChanged: running || _loading
+                  ? null
+                  : (value) => setState(() => _force = value ?? false),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Alles opnieuw ophalen (i.p.v. alleen nieuwe)'),
+            ),
+            const SizedBox(height: 4),
+            FilledButton.icon(
+              onPressed: running || _loading ? null : _start,
+              icon: running || _loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_arrow),
+              label: Text(running ? 'Bezig met ophalen…' : 'Start scrape'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusView extends StatelessWidget {
+  const _StatusView({required this.status});
+
+  final ScrapeStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = status.total;
+    final done = status.processed + status.skipped + status.failed;
+    final fraction = total > 0 ? (done / total).clamp(0.0, 1.0) : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Laatste run: ${_label(status.status)}'),
+        if (status.running && status.currentCollection != null) ...[
+          const SizedBox(height: 4),
+          Text('Bezig met: ${status.currentCollection}'),
+        ],
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: status.running ? fraction : (fraction == null ? 0 : fraction)),
+        const SizedBox(height: 8),
+        Text(
+          'Opgehaald: ${status.processed}  ·  Overgeslagen: ${status.skipped}'
+          '  ·  Mislukt: ${status.failed}'
+          '${total > 0 ? '  ·  Totaal: $total' : ''}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (status.message != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            status.message!,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _label(String status) => switch (status) {
+    'RUNNING' => 'bezig',
+    'COMPLETED' => 'voltooid',
+    'FAILED' => 'mislukt',
+    _ => status.toLowerCase(),
+  };
 }
