@@ -64,11 +64,11 @@ class CollectionController(private val service: CollectionSearchService) {
     fun search(
         @RequestParam(name = "q", required = false) query: String?,
         @RequestParam(name = "collection", required = false) collection: String?,
-        @RequestParam(name = "field", required = false) field: String?,
+        @RequestParam(name = "fq", required = false) fieldQueries: List<String>?,
         @RequestParam(name = "page", defaultValue = "0") page: Int,
         @RequestParam(name = "size", defaultValue = "20") size: Int,
     ): SearchResponse {
-        val result = service.search(query, collection, field, page, size)
+        val result = service.search(query, collection, parseFieldQueries(fieldQueries), page, size)
         return SearchResponse(
             items = result.items.map(CollectionItem::toSummary),
             total = result.total,
@@ -76,6 +76,15 @@ class CollectionController(private val service: CollectionSearchService) {
             pageSize = result.pageSize,
         )
     }
+
+    /** Elke `fq`-parameter heeft de vorm `veldnaam:zoekterm`, bv. `fq=Auteur(s):Jansen`. */
+    private fun parseFieldQueries(raw: List<String>?): Map<String, String> =
+        raw.orEmpty()
+            .mapNotNull { entry ->
+                val colon = entry.indexOf(':')
+                if (colon <= 0) null else entry.substring(0, colon) to entry.substring(colon + 1)
+            }
+            .toMap()
 
     /** Namen van velden waarop gericht gezocht kan worden (optioneel beperkt tot één collectie). */
     @GetMapping("/fields")

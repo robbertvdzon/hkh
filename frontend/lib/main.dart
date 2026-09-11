@@ -110,6 +110,8 @@ class _HomeContent extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
+        _HomeSearchSection(source: searchSource),
+        const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -119,17 +121,6 @@ class _HomeContent extends StatelessWidget {
           icon: const Icon(Icons.auto_stories_outlined),
           label: const Text('Lees onze productvisie'),
         ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (context) =>
-                  CollectionSearchPage(source: searchSource),
-            ),
-          ),
-          icon: const Icon(Icons.search),
-          label: const Text('Doorzoek de collectie'),
-        ),
         const SizedBox(height: 28),
         Text(
           'Laatste nieuws',
@@ -138,6 +129,168 @@ class _HomeContent extends StatelessWidget {
         const SizedBox(height: 12),
         _LatestNewsSection(source: newsSource),
       ],
+    );
+  }
+}
+
+/// Zoekbalk direct op de startpagina: toont meteen een paar treffers, met een
+/// link door naar het volledige zoekscherm (incl. uitgebreid zoeken per veld).
+class _HomeSearchSection extends StatefulWidget {
+  const _HomeSearchSection({required this.source});
+
+  final CollectionSearchSource source;
+
+  @override
+  State<_HomeSearchSection> createState() => _HomeSearchSectionState();
+}
+
+class _HomeSearchSectionState extends State<_HomeSearchSection> {
+  final _controller = TextEditingController();
+  List<CollectionItemSummary>? _results;
+  int _total = 0;
+  bool _loading = false;
+  bool _searched = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _controller.text.trim();
+    if (query.isEmpty) return;
+    setState(() {
+      _loading = true;
+      _searched = true;
+    });
+    try {
+      final result = await widget.source.search(query: query, size: 3);
+      if (!mounted) return;
+      setState(() {
+        _results = result.items;
+        _total = result.total;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _results = const [];
+        _loading = false;
+      });
+    }
+  }
+
+  void _openFullSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CollectionSearchPage(
+          source: widget.source,
+          initialQuery: _controller.text.trim().isEmpty
+              ? null
+              : _controller.text.trim(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _search(),
+                decoration: const InputDecoration(
+                  hintText: 'Zoek in de collectie…',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(onPressed: _search, child: const Text('Zoeken')),
+          ],
+        ),
+        if (_loading) ...[
+          const SizedBox(height: 16),
+          const Center(child: CircularProgressIndicator()),
+        ] else if (_searched) ...[
+          const SizedBox(height: 12),
+          if ((_results ?? const []).isEmpty)
+            const Text('Geen resultaten gevonden.')
+          else
+            Column(
+              children: [
+                for (final item in _results!) ...[
+                  _HomeResultTile(item: item, source: widget.source),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+        ],
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _openFullSearch,
+            icon: const Icon(Icons.manage_search),
+            label: Text(
+              _searched && _total > 0
+                  ? 'Alle $_total resultaten en uitgebreid zoeken'
+                  : 'Doorzoek de collectie',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeResultTile extends StatelessWidget {
+  const _HomeResultTile({required this.item, required this.source});
+
+  final CollectionItemSummary item;
+  final CollectionSearchSource source;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: Icon(
+          item.imageUrl != null
+              ? Icons.image_outlined
+              : item.hasPdf
+              ? Icons.picture_as_pdf_outlined
+              : Icons.description_outlined,
+        ),
+        title: Text(
+          item.title.isEmpty ? '(zonder titel)' : item.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          item.description,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CollectionDetailPage(
+              source: source,
+              collection: item.collection,
+              ident: item.ident,
+              title: item.title,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

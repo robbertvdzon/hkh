@@ -14,8 +14,8 @@ interface CollectionItemStore {
     fun counts(): List<CollectionCount>
     fun totalCount(): Long
     fun find(collection: String, ident: String): CollectionItem?
-    fun search(query: String?, collection: String?, field: String?, limit: Int, offset: Int): List<CollectionItem>
-    fun searchCount(query: String?, collection: String?, field: String?): Long
+    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int): List<CollectionItem>
+    fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>): Long
     fun distinctFields(collection: String?): List<String>
 }
 
@@ -123,17 +123,18 @@ class CollectionItemRepository(
             ident,
         ).singleOrNull()
 
-    override fun search(query: String?, collection: String?, field: String?, limit: Int, offset: Int): List<CollectionItem> {
-        val (where, args) = buildWhere(query, collection, field)
+    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int): List<CollectionItem> {
+        val (where, args) = buildWhere(query, collection, fieldQueries)
         val ordering: String
         val orderArgs: List<Any>
-        if (query.isNullOrBlank()) {
+        val rankMatch = rankingMatch(query, fieldQueries)
+        if (rankMatch == null) {
             ordering = "ORDER BY collection, year DESC NULLS LAST, ident"
             orderArgs = emptyList()
         } else {
-            val match = matchClause(field)
+            val (match, matchQuery) = rankMatch
             ordering = "ORDER BY ts_rank(${match.expr}, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST"
-            orderArgs = match.exprArgs + listOf(query)
+            orderArgs = match.exprArgs + listOf(matchQuery)
         }
         val fullArgs = args + orderArgs + listOf(limit, offset)
         return jdbc.query(
@@ -143,13 +144,23 @@ class CollectionItemRepository(
         )
     }
 
-    override fun searchCount(query: String?, collection: String?, field: String?): Long {
-        val (where, args) = buildWhere(query, collection, field)
+    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>): Long {
+        val (where, args) = buildWhere(query, collection, fieldQueries)
         return jdbc.queryForObject(
             "SELECT COUNT(*) FROM collection_item $where",
             Long::class.java,
             *args.toTypedArray(),
         ) ?: 0
+    }
+
+    /** Sorteert op relevantie van de algemene zoekterm, anders van het eerste ingevulde veld, anders niet. */
+    private fun rankingMatch(query: String?, fieldQueries: Map<String, String>): Pair<MatchClause, String>? = when {
+        !query.isNullOrBlank() -> matchClause(null) to query
+        fieldQueries.isNotEmpty() -> {
+            val (field, value) = fieldQueries.entries.first()
+            matchClause(field) to value
+        }
+        else -> null
     }
 
     override fun distinctFields(collection: String?): List<String> =
@@ -175,14 +186,25 @@ class CollectionItemRepository(
 
     private data class MatchClause(val expr: String, val exprArgs: List<Any>)
 
-    private fun buildWhere(query: String?, collection: String?, field: String?): Pair<String, List<Any>> {
+    /**
+     * Combineert de algemene zoekterm (tegen alle velden) met nul of meer losse veld-beperkingen
+     * (elk hun eigen tsvector-match) tot één AND-conditie - zo kan iemand bv. "Rubriek" en
+     * "Auteur(s)" tegelijk invullen, naast of in plaats van de algemene zoekbalk.
+     */
+    private fun buildWhere(query: String?, collection: String?, fieldQueries: Map<String, String>): Pair<String, List<Any>> {
         val clauses = mutableListOf<String>()
         val args = mutableListOf<Any>()
         if (!query.isNullOrBlank()) {
+            val match = matchClause(null)
+            clauses += "${match.expr} @@ websearch_to_tsquery('dutch', ?)"
+            args += query
+        }
+        for ((field, value) in fieldQueries) {
+            if (value.isBlank()) continue
             val match = matchClause(field)
             clauses += "${match.expr} @@ websearch_to_tsquery('dutch', ?)"
             args.addAll(match.exprArgs)
-            args += query
+            args += value
         }
         if (!collection.isNullOrBlank()) {
             clauses += "collection = ?"

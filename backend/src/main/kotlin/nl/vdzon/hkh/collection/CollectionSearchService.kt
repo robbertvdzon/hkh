@@ -14,14 +14,21 @@ class CollectionSearchService(private val store: CollectionItemStore) {
     /** Namen van velden die daadwerkelijk voorkomen (optioneel beperkt tot één collectie), voor de veld-kiezer. */
     fun fields(collection: String?): List<String> = store.distinctFields(collection?.trim()?.takeIf { it.isNotEmpty() })
 
-    fun search(query: String?, collection: String?, field: String?, page: Int, pageSize: Int): SearchResult {
+    /**
+     * [fieldQueries] bevat per opgegeven veld een eigen zoekterm (bv. "Auteur(s)" -> "Jansen"),
+     * ANDed met elkaar en met [query] (dat, indien gezet, over alle velden zoekt).
+     */
+    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, page: Int, pageSize: Int): SearchResult {
         val safePage = page.coerceAtLeast(0)
         val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
         val cleanedQuery = query?.trim()?.takeIf { it.isNotEmpty() }
         val cleanedCollection = collection?.trim()?.takeIf { it.isNotEmpty() }
-        val cleanedField = field?.trim()?.takeIf { it.isNotEmpty() }
-        val items = store.search(cleanedQuery, cleanedCollection, cleanedField, safeSize, safePage * safeSize)
-        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedField)
+        val cleanedFieldQueries = fieldQueries
+            .mapValues { it.value.trim() }
+            .filterKeys { it.isNotBlank() }
+            .filterValues { it.isNotEmpty() }
+        val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize)
+        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries)
         return SearchResult(items, total, safePage, safeSize)
     }
 

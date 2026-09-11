@@ -27,10 +27,10 @@ class CollectionSearchIntegrationTest(
         store.upsert(fullRecord(ident = "1", title = "De brand in de kerk en de toren", description = "Grote schade na de brand"))
         store.upsert(fullRecord(ident = "2", title = "De toren en de kerk", description = "Twee losse woorden, geen brand"))
 
-        val phrase = service.search("\"brand in de kerk\"", null, null, 0, 20)
+        val phrase = service.search("\"brand in de kerk\"", null, emptyMap(), 0, 20)
         assertEquals(listOf("1"), phrase.items.map { it.ident })
 
-        val looseWords = service.search("kerk toren", null, null, 0, 20)
+        val looseWords = service.search("kerk toren", null, emptyMap(), 0, 20)
         assertEquals(setOf("1", "2"), looseWords.items.map { it.ident }.toSet())
     }
 
@@ -74,7 +74,7 @@ class CollectionSearchIntegrationTest(
         val found = store.find("artikelen", "11")
         assertFalse(found!!.isComplete)
 
-        val result = service.search("Snel gevonden", null, null, 0, 20)
+        val result = service.search("Snel gevonden", null, emptyMap(), 0, 20)
         assertTrue(result.items.any { it.ident == "11" })
     }
 
@@ -97,11 +97,35 @@ class CollectionSearchIntegrationTest(
             ),
         )
 
-        val byAuthor = service.search("Jansen", null, "Auteur(s)", 0, 20)
+        val byAuthor = service.search(null, null, mapOf("Auteur(s)" to "Jansen"), 0, 20)
         assertEquals(listOf("20"), byAuthor.items.map { it.ident })
 
-        val byTitle = service.search("Jansen", null, "title", 0, 20)
+        val byTitle = service.search(null, null, mapOf("title" to "Jansen"), 0, 20)
         assertEquals(listOf("21"), byTitle.items.map { it.ident })
+    }
+
+    @Test
+    fun `multiple field filters combine with AND`() {
+        store.upsert(
+            fullRecord(
+                ident = "40",
+                title = "Sporttoernooi 1987",
+                fields = mapOf("Rubriek" to "Sport, recreatie en ontspanning", "Auteur(s)" to "Jansen, Piet"),
+            ),
+        )
+        store.upsert(
+            fullRecord(
+                ident = "41",
+                title = "Sportdag school",
+                fields = mapOf("Rubriek" to "Sport, recreatie en ontspanning", "Auteur(s)" to "Bakker, Klaas"),
+            ),
+        )
+
+        val both = service.search(null, null, mapOf("Rubriek" to "Sport", "Auteur(s)" to "Jansen"), 0, 20)
+        assertEquals(listOf("40"), both.items.map { it.ident })
+
+        val rubriekOnly = service.search(null, null, mapOf("Rubriek" to "Sport"), 0, 20)
+        assertEquals(setOf("40", "41"), rubriekOnly.items.map { it.ident }.toSet())
     }
 
     @Test

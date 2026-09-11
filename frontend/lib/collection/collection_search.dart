@@ -120,10 +120,13 @@ class SearchPage {
 
 abstract interface class CollectionSearchSource {
   Future<CollectionOverview> loadOverview();
+
+  /// [fieldQueries] geeft per veldnaam (bv. "Auteur(s)") een eigen zoekterm; alle
+  /// ingevulde velden gelden als EN, naast [query] (dat over alle velden zoekt).
   Future<SearchPage> search({
     String? query,
     String? collection,
-    String? field,
+    Map<String, String> fieldQueries = const {},
     int page = 0,
     int size = 20,
   });

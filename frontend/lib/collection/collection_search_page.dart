@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'collection_search.dart';
+import 'pdf_embed/pdf_embed.dart';
 
 /// Zoekscherm over alle gescrapete ZCBS-collecties.
 class CollectionSearchPage extends StatefulWidget {
-  const CollectionSearchPage({required this.source, super.key});
+  const CollectionSearchPage({required this.source, this.initialQuery, super.key});
 
   final CollectionSearchSource source;
+
+  /// Vooraf ingevulde zoekterm (bv. vanaf de startpagina); start meteen een zoekopdracht.
+  final String? initialQuery;
 
   @override
   State<CollectionSearchPage> createState() => _CollectionSearchPageState();
 }
 
 class _CollectionSearchPageState extends State<CollectionSearchPage> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialQuery);
   final _scrollController = ScrollController();
+  final Map<String, TextEditingController> _fieldControllers = {};
 
   CollectionOverview? _overview;
   String? _collectionFilter;
-  String? _fieldFilter;
-  List<String> _availableFields = const [];
+  bool _advancedOpen = false;
   final List<CollectionItemSummary> _results = [];
   int _page = 0;
   int _total = 0;
@@ -33,12 +38,18 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     super.initState();
     _loadOverview();
     _loadFields();
+    if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+      _runSearch();
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    for (final c in _fieldControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -58,15 +69,27 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       );
       if (!mounted) return;
       setState(() {
-        _availableFields = fields;
-        if (_fieldFilter != null && !_availableFields.contains(_fieldFilter)) {
-          _fieldFilter = null;
+        // Controllers van velden die niet meer bestaan (na wisselen van collectie)
+        // opruimen; nieuwe velden krijgen een lege controller.
+        final stale = _fieldControllers.keys
+            .where((f) => !fields.contains(f))
+            .toList(growable: false);
+        for (final f in stale) {
+          _fieldControllers.remove(f)?.dispose();
+        }
+        for (final f in fields) {
+          _fieldControllers.putIfAbsent(f, TextEditingController.new);
         }
       });
     } catch (_) {
       // Veld-kiezer is niet kritiek; "alle velden" blijft altijd werken.
     }
   }
+
+  Map<String, String> get _fieldQueries => {
+    for (final entry in _fieldControllers.entries)
+      if (entry.value.text.trim().isNotEmpty) entry.key: entry.value.text.trim(),
+  };
 
   Future<void> _runSearch({bool reset = true}) async {
     if (reset) {
@@ -84,7 +107,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       final result = await widget.source.search(
         query: _controller.text,
         collection: _collectionFilter,
-        field: _fieldFilter,
+        fieldQueries: _fieldQueries,
         page: _page,
         size: 20,
       );
@@ -117,10 +140,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     if (_searched) _runSearch();
   }
 
-  void _selectField(String? field) {
-    setState(() => _fieldFilter = field);
-    if (_searched) _runSearch();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,12 +165,20 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
-                  _FieldSelector(
-                    fields: _availableFields,
-                    selected: _fieldFilter,
-                    onSelect: _selectField,
+                  TextButton.icon(
+                    onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
+                    icon: Icon(_advancedOpen ? Icons.expand_less : Icons.expand_more),
+                    label: const Text('Uitgebreid zoeken'),
                   ),
-                  const SizedBox(height: 12),
+                  if (_advancedOpen) ...[
+                    const SizedBox(height: 4),
+                    _AdvancedSearchPanel(
+                      fieldControllers: _fieldControllers,
+                      onSubmit: () => _runSearch(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 4),
                   _CollectionChips(
                     overview: _overview,
                     selected: _collectionFilter,
@@ -284,39 +311,67 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _FieldSelector extends StatelessWidget {
-  const _FieldSelector({
-    required this.fields,
-    required this.selected,
-    required this.onSelect,
+/// Lijst van alle bekende velden onder elkaar, elk met een eigen invulveld.
+/// Ingevulde velden gelden als EN, naast de algemene zoekbalk; leeg = geen
+/// beperking op dat veld.
+class _AdvancedSearchPanel extends StatelessWidget {
+  const _AdvancedSearchPanel({
+    required this.fieldControllers,
+    required this.onSubmit,
   });
 
-  final List<String> fields;
-  final String? selected;
-  final ValueChanged<String?> onSelect;
+  final Map<String, TextEditingController> fieldControllers;
+  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text('Zoeken in:', style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(width: 8),
-        DropdownButton<String?>(
-          value: selected,
-          isDense: true,
-          items: [
-            const DropdownMenuItem(value: null, child: Text('Alle velden')),
-            const DropdownMenuItem(value: 'title', child: Text('Titel')),
-            const DropdownMenuItem(
-              value: 'description',
-              child: Text('Beschrijving'),
-            ),
-            for (final field in fields)
-              DropdownMenuItem(value: field, child: Text(field)),
+    if (fieldControllers.isEmpty) {
+      return const Text('Geen aparte velden bekend voor deze selectie.');
+    }
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          children: [
+            for (final entry in fieldControllers.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: Text(
+                        entry.key,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        key: Key('advanced-field-${entry.key}'),
+                        controller: entry.value,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => onSubmit(),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
-          onChanged: onSelect,
         ),
-      ],
+      ),
     );
   }
 }
@@ -512,45 +567,44 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 820),
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    if (detail.imageUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          detail.imageUrl!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stack) =>
-                              const SizedBox.shrink(),
+                child: SelectionArea(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (detail.imageUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            detail.imageUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stack) =>
+                                const SizedBox.shrink(),
+                          ),
                         ),
-                      ),
-                    const SizedBox(height: 16),
-                    Text(
-                      detail.title.isEmpty ? '(zonder titel)' : detail.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    if (detail.description.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(detail.description),
-                    ],
-                    const SizedBox(height: 16),
-                    _FieldsTable(fields: detail.fields),
-                    const SizedBox(height: 16),
-                    if (detail.pdfUrl != null) ...[
+                      const SizedBox(height: 16),
                       Text(
-                        'PDF:',
+                        detail.title.isEmpty ? '(zonder titel)' : detail.title,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      if (detail.description.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(detail.description),
+                      ],
+                      if (detail.pdfUrl != null) ...[
+                        const SizedBox(height: 16),
+                        _PdfBlock(url: detail.pdfUrl!),
+                      ],
+                      const SizedBox(height: 16),
+                      _FieldsTable(fields: detail.fields),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Bron op de HKH-website:',
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
-                      SelectableText(detail.pdfUrl!),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      _LinkText(url: detail.detailUrl),
                     ],
-                    Text(
-                      'Bron op de HKH-website:',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    SelectableText(detail.detailUrl),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -593,6 +647,81 @@ class _FieldsTable extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+/// Toont de PDF ingesloten in de pagina (op web), met daaronder knoppen om 'm
+/// in een nieuw tabblad te openen of te downloaden. Op platforms zonder
+/// ingesloten weergave (nog) blijven alleen de knoppen over.
+class _PdfBlock extends StatelessWidget {
+  const _PdfBlock({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (supportsEmbeddedPdf)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              height: 600,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: buildEmbeddedPdf(url),
+            ),
+          ),
+        SizedBox(height: supportsEmbeddedPdf ? 8 : 0),
+        SelectionContainer.disabled(
+          child: Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () =>
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open in nieuwe pagina'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Download'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Klikbare bron-URL. Selectie staat hier bewust uit (SelectionContainer.disabled)
+/// zodat een tik betrouwbaar de link opent i.p.v. tekst te selecteren.
+class _LinkText extends StatelessWidget {
+  const _LinkText({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectionContainer.disabled(
+      child: InkWell(
+        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        child: Text(
+          url,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      ),
     );
   }
 }

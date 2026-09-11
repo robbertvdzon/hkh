@@ -43,16 +43,20 @@ class BackendClient implements LatestNewsSource, CollectionSearchSource {
   Future<SearchPage> search({
     String? query,
     String? collection,
-    String? field,
+    Map<String, String> fieldQueries = const {},
     int page = 0,
     int size = 20,
   }) async {
-    final params = <String, String>{'page': '$page', 'size': '$size'};
+    final params = <String, dynamic>{'page': '$page', 'size': '$size'};
     if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
     if (collection != null && collection.isNotEmpty) {
       params['collection'] = collection;
     }
-    if (field != null && field.isNotEmpty) params['field'] = field;
+    final fq = fieldQueries.entries
+        .where((e) => e.value.trim().isNotEmpty)
+        .map((e) => '${e.key}:${e.value.trim()}')
+        .toList(growable: false);
+    if (fq.isNotEmpty) params['fq'] = fq;
     final uri = Uri.parse(
       '$apiBaseUrl/api/collections/search',
     ).replace(queryParameters: params);

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/main.dart';
 import 'package:hkh_app/news/latest_news.dart';
@@ -17,6 +18,10 @@ class _NewsSource implements LatestNewsSource {
 }
 
 class _SearchSource implements CollectionSearchSource {
+  _SearchSource({this.results = const []});
+
+  final List<CollectionItemSummary> results;
+
   @override
   Future<CollectionOverview> loadOverview() async =>
       const CollectionOverview(total: 0, collections: []);
@@ -24,10 +29,15 @@ class _SearchSource implements CollectionSearchSource {
   Future<SearchPage> search({
     String? query,
     String? collection,
-    String? field,
+    Map<String, String> fieldQueries = const {},
     int page = 0,
     int size = 20,
-  }) async => const SearchPage(items: [], total: 0, page: 0, pageSize: 20);
+  }) async => SearchPage(
+    items: results,
+    total: results.length,
+    page: 0,
+    pageSize: size,
+  );
   @override
   Future<List<String>> loadFields({String? collection}) async => const [];
   @override
@@ -106,5 +116,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Er zijn nog geen nieuwsberichten.'), findsOneWidget);
+  });
+
+  testWidgets('the homepage search box shows results without leaving the page', (
+    tester,
+  ) async {
+    final searchSource = _SearchSource(
+      results: const [
+        CollectionItemSummary(
+          collection: 'beeldbank',
+          ident: '10001',
+          title: 'Straten Maerten van Heemskerckstraat',
+          description: 'Dorpsweg vanaf Beverwijk. Ansichtkaart uit 1900.',
+          year: 1900,
+          imageUrl: null,
+          hasPdf: false,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      HkhApp(newsSource: _NewsSource([_news]), searchSource: searchSource),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'ansichtkaart');
+    await tester.tap(find.text('Zoeken'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Straten Maerten van Heemskerckstraat'), findsOneWidget);
+    expect(find.text('Alle 1 resultaten en uitgebreid zoeken'), findsOneWidget);
   });
 }
