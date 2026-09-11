@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository
 import tools.jackson.databind.ObjectMapper
 
 interface ScrapeRunStore {
-    fun start(startedBy: String, force: Boolean): Long
+    fun start(startedBy: String, mode: ScrapeMode, force: Boolean): Long
     fun update(run: RunProgress)
     fun finish(id: Long, status: ScrapeStatus, message: String?)
     fun latest(): ScrapeRun?
@@ -31,15 +31,16 @@ class ScrapeRunRepository(
     private val objectMapper: ObjectMapper,
 ) : ScrapeRunStore {
 
-    override fun start(startedBy: String, force: Boolean): Long =
+    override fun start(startedBy: String, mode: ScrapeMode, force: Boolean): Long =
         jdbc.queryForObject(
             """
-            INSERT INTO scrape_run (status, started_by, force_rescrape)
-            VALUES ('RUNNING', ?, ?)
+            INSERT INTO scrape_run (status, started_by, mode, force_rescrape)
+            VALUES ('RUNNING', ?, ?, ?)
             RETURNING id
             """.trimIndent(),
             Long::class.java,
             startedBy,
+            mode.name,
             force,
         )!!
 
@@ -86,6 +87,7 @@ class ScrapeRunRepository(
             id = rs.getLong("id"),
             status = ScrapeStatus.valueOf(rs.getString("status")),
             startedBy = rs.getString("started_by"),
+            mode = ScrapeMode.valueOf(rs.getString("mode")),
             force = rs.getBoolean("force_rescrape"),
             startedAt = rs.getTimestamp("started_at").toInstant(),
             finishedAt = rs.getTimestamp("finished_at")?.toInstant(),

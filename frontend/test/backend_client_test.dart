@@ -34,4 +34,57 @@ void main() {
 
     await expectLater(client.loadLatestNews(), throwsStateError);
   });
+
+  test('passes a quoted phrase and the selected field to the search API', () async {
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/collections/search');
+        expect(request.url.queryParameters['q'], '"de brand in de kerk"');
+        expect(request.url.queryParameters['field'], 'Auteur(s)');
+        expect(request.url.queryParameters['collection'], 'artikelen');
+        return http.Response(
+          '{"items":[],"total":0,"page":0,"pageSize":20}',
+          200,
+        );
+      }),
+    );
+
+    await client.search(
+      query: '"de brand in de kerk"',
+      collection: 'artikelen',
+      field: 'Auteur(s)',
+    );
+  });
+
+  test('leaves field and collection off the query when unset', () async {
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        expect(request.url.queryParameters.containsKey('field'), isFalse);
+        expect(request.url.queryParameters.containsKey('collection'), isFalse);
+        return http.Response(
+          '{"items":[],"total":0,"page":0,"pageSize":20}',
+          200,
+        );
+      }),
+    );
+
+    await client.search(query: 'kerk toren');
+  });
+
+  test('loads the distinct field names for a collection', () async {
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/collections/fields');
+        expect(request.url.queryParameters['collection'], 'artikelen');
+        return http.Response('{"fields":["Auteur(s)","Rubriek"]}', 200);
+      }),
+    );
+
+    final fields = await client.loadFields(collection: 'artikelen');
+
+    expect(fields, ['Auteur(s)', 'Rubriek']);
+  });
 }

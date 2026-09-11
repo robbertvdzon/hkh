@@ -24,9 +24,12 @@ class _SearchSource implements CollectionSearchSource {
   Future<SearchPage> search({
     String? query,
     String? collection,
+    String? field,
     int page = 0,
     int size = 20,
   }) async => const SearchPage(items: [], total: 0, page: 0, pageSize: 20);
+  @override
+  Future<List<String>> loadFields({String? collection}) async => const [];
   @override
   Future<CollectionItemDetail> loadDetail(String collection, String ident) async =>
       const CollectionItemDetail(

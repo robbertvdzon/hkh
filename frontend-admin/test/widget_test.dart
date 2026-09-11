@@ -26,10 +26,12 @@ class _ScrapeSource implements AdminScrapeSource {
   @override
   Future<ScrapeStatus> start({
     required AdminIdentity identity,
+    required ScrapeMode mode,
     required bool force,
-  }) async => ScrapeStatus.fromJson(const {
+  }) async => ScrapeStatus.fromJson({
     'status': 'RUNNING',
     'running': true,
+    'mode': mode.apiValue,
     'total': 0,
     'processed': 0,
     'skipped': 0,

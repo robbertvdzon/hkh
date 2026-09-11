@@ -8,6 +8,7 @@ data class ScrapeRun(
     val id: Long,
     val status: ScrapeStatus,
     val startedBy: String,
+    val mode: ScrapeMode,
     val force: Boolean,
     val startedAt: Instant,
     val finishedAt: Instant?,

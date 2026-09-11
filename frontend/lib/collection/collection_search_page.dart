@@ -18,6 +18,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   CollectionOverview? _overview;
   String? _collectionFilter;
+  String? _fieldFilter;
+  List<String> _availableFields = const [];
   final List<CollectionItemSummary> _results = [];
   int _page = 0;
   int _total = 0;
@@ -30,6 +32,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   void initState() {
     super.initState();
     _loadOverview();
+    _loadFields();
   }
 
   @override
@@ -45,6 +48,23 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       if (mounted) setState(() => _overview = overview);
     } catch (_) {
       // Overzicht is niet kritiek; het zoeken werkt ook zonder.
+    }
+  }
+
+  Future<void> _loadFields() async {
+    try {
+      final fields = await widget.source.loadFields(
+        collection: _collectionFilter,
+      );
+      if (!mounted) return;
+      setState(() {
+        _availableFields = fields;
+        if (_fieldFilter != null && !_availableFields.contains(_fieldFilter)) {
+          _fieldFilter = null;
+        }
+      });
+    } catch (_) {
+      // Veld-kiezer is niet kritiek; "alle velden" blijft altijd werken.
     }
   }
 
@@ -64,6 +84,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       final result = await widget.source.search(
         query: _controller.text,
         collection: _collectionFilter,
+        field: _fieldFilter,
         page: _page,
         size: 20,
       );
@@ -92,6 +113,12 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   void _selectCollection(String? collection) {
     setState(() => _collectionFilter = collection);
+    _loadFields();
+    if (_searched) _runSearch();
+  }
+
+  void _selectField(String? field) {
+    setState(() => _fieldFilter = field);
     if (_searched) _runSearch();
   }
 
@@ -111,6 +138,18 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                   _SearchBar(
                     controller: _controller,
                     onSubmit: () => _runSearch(),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Los woorden voor een EN-zoekopdracht, of zet een zin '
+                    'tussen "aanhalingstekens" voor een exacte frase.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  _FieldSelector(
+                    fields: _availableFields,
+                    selected: _fieldFilter,
+                    onSelect: _selectField,
                   ),
                   const SizedBox(height: 12),
                   _CollectionChips(
@@ -241,6 +280,43 @@ class _SearchBar extends StatelessWidget {
           onPressed: onSubmit,
         ),
       ),
+    );
+  }
+}
+
+class _FieldSelector extends StatelessWidget {
+  const _FieldSelector({
+    required this.fields,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<String> fields;
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('Zoeken in:', style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(width: 8),
+        DropdownButton<String?>(
+          value: selected,
+          isDense: true,
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Alle velden')),
+            const DropdownMenuItem(value: 'title', child: Text('Titel')),
+            const DropdownMenuItem(
+              value: 'description',
+              child: Text('Beschrijving'),
+            ),
+            for (final field in fields)
+              DropdownMenuItem(value: field, child: Text(field)),
+          ],
+          onChanged: onSelect,
+        ),
+      ],
     );
   }
 }

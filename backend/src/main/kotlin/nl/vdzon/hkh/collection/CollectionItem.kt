@@ -18,6 +18,7 @@ data class CollectionItem(
     val pdfUrl: String?,
     val detailUrl: String,
     val fields: Map<String, String>,
+    val isComplete: Boolean,
     val scrapedAt: Instant,
 )
 

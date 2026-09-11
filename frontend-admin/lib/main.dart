@@ -482,7 +482,7 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start(ScrapeMode mode) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -490,6 +490,7 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
     try {
       final status = await widget.source.start(
         identity: widget.identity,
+        mode: mode,
         force: _force,
       );
       if (!mounted) return;
@@ -549,18 +550,45 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
                   : (value) => setState(() => _force = value ?? false),
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Alles opnieuw ophalen (i.p.v. alleen nieuwe)'),
+              title: const Text('Alles opnieuw ophalen (i.p.v. alleen nieuwe/onvolledige)'),
             ),
             const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: running || _loading ? null : () => _start(ScrapeMode.fast),
+              icon: running || _loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.bolt_outlined),
+              label: const Text('Snel ophalen (overzicht, 30 tegelijk)'),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Snel gebruikt alleen de lijstpagina\'s: titel, korte beschrijving en een '
+              'paar velden - geen beeld/PDF-link.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: running || _loading ? null : _start,
+              onPressed: running || _loading ? null : () => _start(ScrapeMode.full),
               icon: running || _loading
                   ? const SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.play_arrow),
-              label: Text(running ? 'Bezig met ophalen…' : 'Start scrape'),
+              label: Text(
+                running
+                    ? 'Bezig met ophalen (${status?.mode == ScrapeMode.fast ? 'snel' : 'volledig'})…'
+                    : 'Volledig ophalen (langzaam, alle gegevens)',
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Volledig haalt elk record apart op (± 2 uur voor de hele collectie) en '
+              'vult zo ook het beeld/PDF en de overige velden aan.',
+              style: TextStyle(fontSize: 12),
             ),
           ],
         ),
@@ -582,7 +610,10 @@ class _StatusView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Laatste run: ${_label(status.status)}'),
+        Text(
+          'Laatste run: ${_label(status.status)} '
+          '(${status.mode == ScrapeMode.fast ? 'snel' : 'volledig'})',
+        ),
         if (status.running && status.currentCollection != null) ...[
           const SizedBox(height: 4),
           Text('Bezig met: ${status.currentCollection}'),

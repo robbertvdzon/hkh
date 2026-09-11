@@ -123,8 +123,13 @@ abstract interface class CollectionSearchSource {
   Future<SearchPage> search({
     String? query,
     String? collection,
+    String? field,
     int page = 0,
     int size = 20,
   });
   Future<CollectionItemDetail> loadDetail(String collection, String ident);
+
+  /// Namen van velden waarop gericht gezocht kan worden (optioneel beperkt tot
+  /// één collectie). `null`/leeg betekent: alle collecties samen.
+  Future<List<String>> loadFields({String? collection});
 }

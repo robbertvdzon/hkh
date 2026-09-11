@@ -5,6 +5,7 @@ import nl.vdzon.hkh.auth.AdminAuthenticator
 import nl.vdzon.hkh.auth.PreviewRuntimeConfig
 import nl.vdzon.hkh.collection.CollectionScrapeService
 import nl.vdzon.hkh.collection.ScrapeAlreadyRunningException
+import nl.vdzon.hkh.collection.ScrapeMode
 import nl.vdzon.hkh.collection.ScrapeRun
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -21,6 +22,7 @@ data class ScrapeRunResponse(
     val status: String,
     val running: Boolean,
     val startedBy: String,
+    val mode: String,
     val force: Boolean,
     val startedAt: Instant,
     val finishedAt: Instant?,
@@ -42,13 +44,19 @@ class AdminScrapeController(
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     fun start(
+        @RequestParam(name = "mode", defaultValue = "FULL") mode: String,
         @RequestParam(name = "force", defaultValue = "false") force: Boolean,
         @RequestHeader("Authorization", required = false) authorization: String?,
         @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
     ): ScrapeRunResponse {
         val admin = authenticator.authenticate(authorization, previewHeader)
+        val scrapeMode = try {
+            ScrapeMode.valueOf(mode.uppercase())
+        } catch (ex: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Onbekende modus: $mode")
+        }
         return try {
-            service.start(admin.email, force).toResponse(running = true)
+            service.start(admin.email, scrapeMode, force).toResponse(running = true)
         } catch (ex: ScrapeAlreadyRunningException) {
             throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
         }
@@ -69,6 +77,7 @@ private fun ScrapeRun.toResponse(running: Boolean) = ScrapeRunResponse(
     status = status.name,
     running = running,
     startedBy = startedBy,
+    mode = mode.name,
     force = force,
     startedAt = startedAt,
     finishedAt = finishedAt,

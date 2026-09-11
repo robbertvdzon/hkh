@@ -4,11 +4,29 @@ import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
 
+/// Snel (alleen lijstpagina's, geen beeld/PDF-link) of volledig (elk record
+/// apart, alle velden) - zie [AdminScrapeSource.start].
+enum ScrapeMode {
+  fast,
+  full;
+
+  String get apiValue => switch (this) {
+    ScrapeMode.fast => 'FAST',
+    ScrapeMode.full => 'FULL',
+  };
+
+  static ScrapeMode fromApiValue(String? value) => switch (value) {
+    'FAST' => ScrapeMode.fast,
+    _ => ScrapeMode.full,
+  };
+}
+
 /// Status van een scrape-run zoals de backend die teruggeeft.
 class ScrapeStatus {
   const ScrapeStatus({
     required this.status,
     required this.running,
+    required this.mode,
     required this.total,
     required this.processed,
     required this.skipped,
@@ -23,6 +41,7 @@ class ScrapeStatus {
   factory ScrapeStatus.fromJson(Map<String, dynamic> json) => ScrapeStatus(
     status: json['status'] as String? ?? 'UNKNOWN',
     running: json['running'] as bool? ?? false,
+    mode: ScrapeMode.fromApiValue(json['mode'] as String?),
     total: json['total'] as int? ?? 0,
     processed: json['processed'] as int? ?? 0,
     skipped: json['skipped'] as int? ?? 0,
@@ -42,6 +61,7 @@ class ScrapeStatus {
 
   final String status;
   final bool running;
+  final ScrapeMode mode;
   final int total;
   final int processed;
   final int skipped;
@@ -57,6 +77,7 @@ abstract interface class AdminScrapeSource {
   Future<ScrapeStatus?> loadStatus(AdminIdentity identity);
   Future<ScrapeStatus> start({
     required AdminIdentity identity,
+    required ScrapeMode mode,
     required bool force,
   });
 }
@@ -88,12 +109,14 @@ class AdminScrapeClient implements AdminScrapeSource {
   @override
   Future<ScrapeStatus> start({
     required AdminIdentity identity,
+    required ScrapeMode mode,
     required bool force,
   }) async {
     final response = await _client
         .post(
           Uri.parse(
-            '$apiBaseUrl/api/admin/collections/scrape?force=$force',
+            '$apiBaseUrl/api/admin/collections/scrape'
+            '?mode=${mode.apiValue}&force=$force',
           ),
           headers: identity.requestHeaders,
         )

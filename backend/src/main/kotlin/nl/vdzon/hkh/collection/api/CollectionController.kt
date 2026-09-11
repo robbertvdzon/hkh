@@ -47,6 +47,8 @@ data class SearchResponse(
     val pageSize: Int,
 )
 
+data class FieldsResponse(val fields: List<String>)
+
 @RestController
 @RequestMapping("/api/collections")
 class CollectionController(private val service: CollectionSearchService) {
@@ -62,10 +64,11 @@ class CollectionController(private val service: CollectionSearchService) {
     fun search(
         @RequestParam(name = "q", required = false) query: String?,
         @RequestParam(name = "collection", required = false) collection: String?,
+        @RequestParam(name = "field", required = false) field: String?,
         @RequestParam(name = "page", defaultValue = "0") page: Int,
         @RequestParam(name = "size", defaultValue = "20") size: Int,
     ): SearchResponse {
-        val result = service.search(query, collection, page, size)
+        val result = service.search(query, collection, field, page, size)
         return SearchResponse(
             items = result.items.map(CollectionItem::toSummary),
             total = result.total,
@@ -73,6 +76,11 @@ class CollectionController(private val service: CollectionSearchService) {
             pageSize = result.pageSize,
         )
     }
+
+    /** Namen van velden waarop gericht gezocht kan worden (optioneel beperkt tot één collectie). */
+    @GetMapping("/fields")
+    fun fields(@RequestParam(name = "collection", required = false) collection: String?): FieldsResponse =
+        FieldsResponse(service.fields(collection))
 
     @GetMapping("/{collection}/{ident}")
     fun detail(

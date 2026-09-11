@@ -50,6 +50,107 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         return idents.toList()
     }
 
+    /**
+     * Snelle route: parset de "toon alles"-lijstpagina's zelf (30 records/pagina) in plaats
+     * van elk record apart op te halen. Geeft per record titel, korte beschrijving, een
+     * thumbnail en een deel van de detailvelden - maar geen PDF-link en een paar velden die
+     * alleen op de detailpagina staan (bv. uitgever, paginanummer). Bedoeld om de collectie
+     * binnen enkele minuten doorzoekbaar te maken; [fetchRecord] vult de rest later aan.
+     */
+    fun listSummaries(collection: String): List<ListSummary> {
+        val summaries = LinkedHashMap<String, ListSummary>()
+        var istart = 1
+        var previous = -1
+        var pages = 0
+        while (pages++ < properties.maxPagesPerCollection && istart != previous) {
+            val doc = get("/cgi-bin/$collection.pl?search=%25&veld=all&display=list&istart=$istart")
+            parseListItems(doc, collection).forEach { summaries[it.ident] = it }
+            val html = doc.outerHtml()
+            val starts = Regex("""istart=(\d+)""").findAll(html)
+                .map { it.groupValues[1].toInt() }
+                .toSortedSet()
+            val next = starts.firstOrNull { it > istart }
+            previous = istart
+            istart = next ?: istart
+            if (next == null) break
+            sleepBetweenPages()
+        }
+        return summaries.values.toList()
+    }
+
+    /** Elk lijstitem staat in de HTML als `<!-- ident -->` gevolgd door zijn tabelblok. */
+    private fun parseListItems(doc: Document, collection: String): List<ListSummary> {
+        val html = doc.outerHtml()
+        val markerIndex = html.indexOf(LIST_MARKER)
+        if (markerIndex < 0) return emptyList()
+        val body = html.substring(markerIndex + LIST_MARKER.length)
+        val identComments = Regex("""<!--\s*([A-Za-z0-9_.-]+)\s*-->""").findAll(body).toList()
+        val items = mutableListOf<ListSummary>()
+        for (i in identComments.indices) {
+            val ident = identComments[i].groupValues[1]
+            val chunkStart = identComments[i].range.last + 1
+            val chunkEnd = if (i + 1 < identComments.size) identComments[i + 1].range.first else body.length
+            items += parseListItem(collection, ident, body.substring(chunkStart, chunkEnd))
+        }
+        return items
+    }
+
+    private fun parseListItem(collection: String, ident: String, chunkHtml: String): ListSummary {
+        val fragment = Jsoup.parseBodyFragment(chunkHtml)
+        fragment.select("br, tr, p").forEach { it.appendText(LINE_SEP) }
+        val fields = LinkedHashMap<String, String>()
+        val looseLines = mutableListOf<String>()
+        for (rawLine in fragment.body().text().split(LINE_SEP)) {
+            val line = rawLine.trim()
+            if (line.isEmpty()) continue
+            var matchedAny = false
+            for (segment in line.split(Regex("""\s+--\s+"""))) {
+                val trimmed = segment.trim()
+                val colon = trimmed.indexOf(':')
+                if (colon in 1..40) {
+                    val label = trimmed.substring(0, colon).trim()
+                    val value = trimmed.substring(colon + 1).trim()
+                    if (label.length in 1..40 && label.any { it.isLetter() } && value.isNotBlank() && !fields.containsKey(label)) {
+                        fields[label] = value
+                        matchedAny = true
+                    }
+                }
+            }
+            if (!matchedAny) looseLines += line
+        }
+        val imageUrl = fragment.select("img[src]").map { it.attr("src") }
+            .firstOrNull { it.contains("/$collection/", ignoreCase = true) }
+            ?.let { absolute(it) }
+        val title = firstNonBlank(fields, TITLE_KEYS).ifBlank {
+            looseLines.firstOrNull { it.length in 3..160 } ?: ""
+        }
+        val description = firstNonBlank(fields, DESCRIPTION_KEYS).ifBlank {
+            looseLines.filterNot { it == title }.joinToString(" ").trim().take(2000)
+        }
+        val path = "/cgi-bin/$collection.pl?ident=$ident"
+        return ListSummary(
+            collection = collection,
+            ident = ident,
+            title = title,
+            description = description,
+            year = extractYear(fields),
+            imageUrl = imageUrl,
+            detailUrl = properties.baseUrl + path,
+            fields = fields,
+        )
+    }
+
+    private fun sleepBetweenPages() {
+        val delay = properties.requestDelayMs
+        if (delay > 0) {
+            try {
+                Thread.sleep(delay)
+            } catch (ex: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+    }
+
     /** Haalt één recordpagina op en parset die naar velden + beeld/PDF-verwijzingen. */
     fun fetchRecord(collection: String, ident: String): ScrapedRecord {
         val path = "/cgi-bin/$collection.pl?ident=$ident"
@@ -146,5 +247,19 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         val YEAR_KEYS = listOf("Verschijningsjaar", "Datering", "Jaar", "Periode", "Datum")
         val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp")
         val LARGE_DIRS = listOf("large", "groot", "original", "origineel", "medium", "middel")
+        const val LIST_MARKER = "<!-- ZCBS-LIST -->"
+        const val LINE_SEP = ""
     }
 }
+
+/** Samenvatting van één record zoals die al op de lijstpagina staat (geen PDF-link). */
+data class ListSummary(
+    val collection: String,
+    val ident: String,
+    val title: String,
+    val description: String,
+    val year: Int?,
+    val imageUrl: String?,
+    val detailUrl: String,
+    val fields: Map<String, String>,
+)
