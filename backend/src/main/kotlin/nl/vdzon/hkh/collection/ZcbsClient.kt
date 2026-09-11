@@ -8,6 +8,7 @@ import org.jsoup.nodes.Document
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.util.UriComponentsBuilder
 
 /**
  * Praat met de ZCBS Perl-scripts (cgi-bin/<collectie>.pl) op de HKH-webserver.
@@ -36,7 +37,7 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         var pages = 0
         val identPattern = Regex("""$collection\.pl\?ident=([^"&#]+)""")
         while (pages++ < properties.maxPagesPerCollection && istart != previous) {
-            val doc = get("/cgi-bin/$collection.pl?search=%25&veld=all&display=list&istart=$istart")
+            val doc = getListPage(collection, istart)
             val html = doc.outerHtml()
             identPattern.findAll(html).forEach { idents.add(it.groupValues[1]) }
             val starts = Regex("""istart=(\d+)""").findAll(html)
@@ -63,7 +64,7 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         var previous = -1
         var pages = 0
         while (pages++ < properties.maxPagesPerCollection && istart != previous) {
-            val doc = get("/cgi-bin/$collection.pl?search=%25&veld=all&display=list&istart=$istart")
+            val doc = getListPage(collection, istart)
             parseListItems(doc, collection).forEach { summaries[it.ident] = it }
             val html = doc.outerHtml()
             val starts = Regex("""istart=(\d+)""").findAll(html)
@@ -78,16 +79,24 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         return summaries.values.toList()
     }
 
-    /** Elk lijstitem staat in de HTML als `<!-- ident -->` gevolgd door zijn tabelblok. */
-    private fun parseListItems(doc: Document, collection: String): List<ListSummary> {
+    /**
+     * Elk lijstitem staat in de HTML als `<!-- ident -->` gevolgd door zijn tabelblok. De hele
+     * lijst zit tussen een openend en een sluitend `<!-- ZCBS-LIST -->`-marker; alleen dat
+     * middenstuk wordt gescand zodat de sluitmarker zelf (en de paginafooter erna) nooit als
+     * een extra "record" wordt gelezen.
+     */
+    internal fun parseListItems(doc: Document, collection: String): List<ListSummary> {
         val html = doc.outerHtml()
-        val markerIndex = html.indexOf(LIST_MARKER)
-        if (markerIndex < 0) return emptyList()
-        val body = html.substring(markerIndex + LIST_MARKER.length)
+        val start = html.indexOf(LIST_MARKER)
+        if (start < 0) return emptyList()
+        val bodyStart = start + LIST_MARKER.length
+        val end = html.indexOf(LIST_MARKER, bodyStart)
+        val body = if (end >= 0) html.substring(bodyStart, end) else html.substring(bodyStart)
         val identComments = Regex("""<!--\s*([A-Za-z0-9_.-]+)\s*-->""").findAll(body).toList()
         val items = mutableListOf<ListSummary>()
         for (i in identComments.indices) {
             val ident = identComments[i].groupValues[1]
+            if (ident == "ZCBS-LIST") continue
             val chunkStart = identComments[i].range.last + 1
             val chunkEnd = if (i + 1 < identComments.size) identComments[i + 1].range.first else body.length
             items += parseListItem(collection, ident, body.substring(chunkStart, chunkEnd))
@@ -154,7 +163,7 @@ class ZcbsClient(private val properties: ZcbsProperties) {
     /** Haalt één recordpagina op en parset die naar velden + beeld/PDF-verwijzingen. */
     fun fetchRecord(collection: String, ident: String): ScrapedRecord {
         val path = "/cgi-bin/$collection.pl?ident=$ident"
-        val doc = get(path)
+        val doc = get("/cgi-bin/$collection.pl", mapOf("ident" to ident))
         val fields = parseFields(doc)
         val title = firstNonBlank(fields, TITLE_KEYS)
         val description = firstNonBlank(fields, DESCRIPTION_KEYS)
@@ -174,8 +183,24 @@ class ZcbsClient(private val properties: ZcbsProperties) {
         )
     }
 
-    private fun get(path: String): Document {
-        val bytes = restClient.get().uri(path).retrieve().body(ByteArray::class.java)
+    /** Lijstpagina voor een collectie: "toon alles" (search=%) met istart-paginering. */
+    private fun getListPage(collection: String, istart: Int): Document =
+        get(
+            "/cgi-bin/$collection.pl",
+            mapOf("search" to "%", "veld" to "all", "display" to "list", "istart" to istart),
+        )
+
+    /**
+     * Bouwt de URI zelf via [UriComponentsBuilder] en geeft die als [java.net.URI] mee aan
+     * RestClient. RestClient.uri(String) behandelt een pad als template en encodeert het
+     * nogmaals - een letterlijke `%` in bv. `search=%` zou dan dubbel encoderen tot `%25`
+     * (waardoor de HKH-server naar de tekst "%25" zoekt in plaats van naar "alles").
+     */
+    private fun get(path: String, queryParams: Map<String, Any> = emptyMap()): Document {
+        val builder = UriComponentsBuilder.fromUriString(properties.baseUrl).path(path)
+        queryParams.forEach { (name, value) -> builder.queryParam(name, value) }
+        val uri = builder.build().encode().toUri()
+        val bytes = restClient.get().uri(uri).retrieve().body(ByteArray::class.java)
             ?: ByteArray(0)
         return Jsoup.parse(ByteArrayInputStream(bytes), "ISO-8859-1", properties.baseUrl)
     }
