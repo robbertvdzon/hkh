@@ -376,7 +376,7 @@ class _Thumbnail extends StatelessWidget {
         fit: BoxFit.cover,
         loadingBuilder: (context, child, progress) =>
             progress == null ? child : const Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-        errorBuilder: (context, error, stack) => Container(
+        errorBuilder: (context, error, stack) => ColoredBox(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Icon(
             Icons.broken_image_outlined,
