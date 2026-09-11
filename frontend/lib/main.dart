@@ -4,24 +4,19 @@ import 'package:flutter/material.dart';
 import 'backend/backend_client.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
+import 'collection/img_embed/img_embed.dart';
+import 'collection/search_controls.dart';
 import 'config/app_config.dart';
-import 'news/latest_news.dart';
-import 'product_vision_page.dart';
 import 'self_update_prompt.dart';
 
 void main() {
   final backend = BackendClient(AppConfig.apiBaseUrl);
-  runApp(HkhApp(newsSource: backend, searchSource: backend));
+  runApp(HkhApp(searchSource: backend));
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({
-    required this.newsSource,
-    required this.searchSource,
-    super.key,
-  });
+  const HkhApp({required this.searchSource, super.key});
 
-  final LatestNewsSource newsSource;
   final CollectionSearchSource searchSource;
 
   @override
@@ -36,19 +31,14 @@ class HkhApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: HomePage(newsSource: newsSource, searchSource: searchSource),
+      home: HomePage(searchSource: searchSource),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({
-    required this.newsSource,
-    required this.searchSource,
-    super.key,
-  });
+  const HomePage({required this.searchSource, super.key});
 
-  final LatestNewsSource newsSource;
   final CollectionSearchSource searchSource;
 
   @override
@@ -76,10 +66,7 @@ class _HomePageState extends State<HomePage> {
             constraints: const BoxConstraints(maxWidth: 680),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: _HomeContent(
-                newsSource: widget.newsSource,
-                searchSource: widget.searchSource,
-              ),
+              child: _HomeContent(searchSource: widget.searchSource),
             ),
           ),
         ),
@@ -89,9 +76,8 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.newsSource, required this.searchSource});
+  const _HomeContent({required this.searchSource});
 
-  final LatestNewsSource newsSource;
   final CollectionSearchSource searchSource;
 
   @override
@@ -111,30 +97,13 @@ class _HomeContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _HomeSearchSection(source: searchSource),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (context) => const ProductVisionPage(),
-            ),
-          ),
-          icon: const Icon(Icons.auto_stories_outlined),
-          label: const Text('Lees onze productvisie'),
-        ),
-        const SizedBox(height: 28),
-        Text(
-          'Laatste nieuws',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 12),
-        _LatestNewsSection(source: newsSource),
       ],
     );
   }
 }
 
-/// Zoekbalk direct op de startpagina: toont meteen een paar treffers, met een
-/// link door naar het volledige zoekscherm (incl. uitgebreid zoeken per veld).
+/// Zoekbalk direct op de startpagina, mét "Uitgebreid zoeken": toont meteen een
+/// paar treffers, met een link door naar het volledige zoekscherm.
 class _HomeSearchSection extends StatefulWidget {
   const _HomeSearchSection({required this.source});
 
@@ -146,6 +115,8 @@ class _HomeSearchSection extends StatefulWidget {
 
 class _HomeSearchSectionState extends State<_HomeSearchSection> {
   final _controller = TextEditingController();
+  final _fieldControllers = SearchFieldControllers();
+  bool _advancedOpen = false;
   List<CollectionItemSummary>? _results;
   int _total = 0;
   bool _loading = false;
@@ -154,18 +125,26 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
   @override
   void dispose() {
     _controller.dispose();
+    _fieldControllers.dispose();
     super.dispose();
   }
 
   Future<void> _search() async {
     final query = _controller.text.trim();
-    if (query.isEmpty) return;
+    final fieldQueries = _fieldControllers.fieldQueries;
+    final year = _fieldControllers.yearValue;
+    if (query.isEmpty && fieldQueries.isEmpty && year == null) return;
     setState(() {
       _loading = true;
       _searched = true;
     });
     try {
-      final result = await widget.source.search(query: query, size: 3);
+      final result = await widget.source.search(
+        query: query,
+        fieldQueries: fieldQueries,
+        year: year,
+        size: 3,
+      );
       if (!mounted) return;
       setState(() {
         _results = result.items;
@@ -189,6 +168,8 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
           initialQuery: _controller.text.trim().isEmpty
               ? null
               : _controller.text.trim(),
+          initialFieldQueries: _fieldControllers.fieldQueries,
+          initialYear: _fieldControllers.yearValue,
         ),
       ),
     );
@@ -217,6 +198,22 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
             FilledButton(onPressed: _search, child: const Text('Zoeken')),
           ],
         ),
+        const SizedBox(height: 4),
+        Text(
+          'Los woorden voor een EN-zoekopdracht, of zet een zin tussen '
+          '"aanhalingstekens" voor een exacte frase.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
+          icon: Icon(_advancedOpen ? Icons.expand_less : Icons.expand_more),
+          label: const Text('Uitgebreid zoeken'),
+        ),
+        if (_advancedOpen) ...[
+          const SizedBox(height: 4),
+          AdvancedSearchFields(controllers: _fieldControllers, onSubmit: _search),
+        ],
         if (_loading) ...[
           const SizedBox(height: 16),
           const Center(child: CircularProgressIndicator()),
@@ -242,7 +239,7 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
             icon: const Icon(Icons.manage_search),
             label: Text(
               _searched && _total > 0
-                  ? 'Alle $_total resultaten en uitgebreid zoeken'
+                  ? 'Alle $_total resultaten'
                   : 'Doorzoek de collectie',
             ),
           ),
@@ -263,12 +260,19 @@ class _HomeResultTile extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: Icon(
-          item.imageUrl != null
-              ? Icons.image_outlined
-              : item.hasPdf
-              ? Icons.picture_as_pdf_outlined
-              : Icons.description_outlined,
+        leading: SizedBox(
+          width: 40,
+          height: 40,
+          child: item.imageUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: buildNetworkImage(item.imageUrl!, fit: BoxFit.cover),
+                )
+              : Icon(
+                  item.hasPdf
+                      ? Icons.picture_as_pdf_outlined
+                      : Icons.description_outlined,
+                ),
         ),
         title: Text(
           item.title.isEmpty ? '(zonder titel)' : item.title,
@@ -292,111 +296,5 @@ class _HomeResultTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _LatestNewsSection extends StatefulWidget {
-  const _LatestNewsSection({required this.source});
-
-  final LatestNewsSource source;
-
-  @override
-  State<_LatestNewsSection> createState() => _LatestNewsSectionState();
-}
-
-class _LatestNewsSectionState extends State<_LatestNewsSection> {
-  late Future<List<LatestNewsItem>> _news;
-
-  @override
-  void initState() {
-    super.initState();
-    _news = widget.source.loadLatestNews();
-  }
-
-  @override
-  void didUpdateWidget(covariant _LatestNewsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.source, widget.source)) {
-      _news = widget.source.loadLatestNews();
-    }
-  }
-
-  void _retry() => setState(() => _news = widget.source.loadLatestNews());
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<LatestNewsItem>>(
-      future: _news,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  const Text('Het laatste nieuws kon niet worden geladen.'),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Opnieuw proberen'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        final news = snapshot.requireData;
-        if (news.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Text('Er zijn nog geen nieuwsberichten.'),
-            ),
-          );
-        }
-        return Column(
-          children: news
-              .map(
-                (item) => Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          item.title,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatDate(item.publishedAt),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(item.message),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-              .toList(growable: false),
-        );
-      },
-    );
-  }
-
-  String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}-'
-        '${local.month.toString().padLeft(2, '0')}-${local.year}';
   }
 }

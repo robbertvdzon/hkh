@@ -2,16 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'collection_search.dart';
+import 'img_embed/img_embed.dart';
 import 'pdf_embed/pdf_embed.dart';
+import 'search_controls.dart';
 
 /// Zoekscherm over alle gescrapete ZCBS-collecties.
 class CollectionSearchPage extends StatefulWidget {
-  const CollectionSearchPage({required this.source, this.initialQuery, super.key});
+  const CollectionSearchPage({
+    required this.source,
+    this.initialQuery,
+    this.initialFieldQueries = const {},
+    this.initialYear,
+    super.key,
+  });
 
   final CollectionSearchSource source;
 
   /// Vooraf ingevulde zoekterm (bv. vanaf de startpagina); start meteen een zoekopdracht.
   final String? initialQuery;
+  final Map<String, String> initialFieldQueries;
+  final int? initialYear;
 
   @override
   State<CollectionSearchPage> createState() => _CollectionSearchPageState();
@@ -20,11 +30,14 @@ class CollectionSearchPage extends StatefulWidget {
 class _CollectionSearchPageState extends State<CollectionSearchPage> {
   late final _controller = TextEditingController(text: widget.initialQuery);
   final _scrollController = ScrollController();
-  final Map<String, TextEditingController> _fieldControllers = {};
+  late final _fieldControllers = SearchFieldControllers()
+    ..title.text = widget.initialFieldQueries['title'] ?? ''
+    ..description.text = widget.initialFieldQueries['description'] ?? ''
+    ..year.text = widget.initialYear?.toString() ?? '';
 
   CollectionOverview? _overview;
   String? _collectionFilter;
-  bool _advancedOpen = false;
+  late bool _advancedOpen = widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
   final List<CollectionItemSummary> _results = [];
   int _page = 0;
   int _total = 0;
@@ -37,8 +50,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   void initState() {
     super.initState();
     _loadOverview();
-    _loadFields();
-    if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
+    final hasInitialQuery = widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty;
+    if (hasInitialQuery || _advancedOpen) {
       _runSearch();
     }
   }
@@ -47,9 +60,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    for (final c in _fieldControllers.values) {
-      c.dispose();
-    }
+    _fieldControllers.dispose();
     super.dispose();
   }
 
@@ -61,35 +72,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       // Overzicht is niet kritiek; het zoeken werkt ook zonder.
     }
   }
-
-  Future<void> _loadFields() async {
-    try {
-      final fields = await widget.source.loadFields(
-        collection: _collectionFilter,
-      );
-      if (!mounted) return;
-      setState(() {
-        // Controllers van velden die niet meer bestaan (na wisselen van collectie)
-        // opruimen; nieuwe velden krijgen een lege controller.
-        final stale = _fieldControllers.keys
-            .where((f) => !fields.contains(f))
-            .toList(growable: false);
-        for (final f in stale) {
-          _fieldControllers.remove(f)?.dispose();
-        }
-        for (final f in fields) {
-          _fieldControllers.putIfAbsent(f, TextEditingController.new);
-        }
-      });
-    } catch (_) {
-      // Veld-kiezer is niet kritiek; "alle velden" blijft altijd werken.
-    }
-  }
-
-  Map<String, String> get _fieldQueries => {
-    for (final entry in _fieldControllers.entries)
-      if (entry.value.text.trim().isNotEmpty) entry.key: entry.value.text.trim(),
-  };
 
   Future<void> _runSearch({bool reset = true}) async {
     if (reset) {
@@ -107,7 +89,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       final result = await widget.source.search(
         query: _controller.text,
         collection: _collectionFilter,
-        fieldQueries: _fieldQueries,
+        fieldQueries: _fieldControllers.fieldQueries,
+        year: _fieldControllers.yearValue,
         page: _page,
         size: 20,
       );
@@ -136,7 +119,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   void _selectCollection(String? collection) {
     setState(() => _collectionFilter = collection);
-    _loadFields();
     if (_searched) _runSearch();
   }
 
@@ -172,8 +154,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                   ),
                   if (_advancedOpen) ...[
                     const SizedBox(height: 4),
-                    _AdvancedSearchPanel(
-                      fieldControllers: _fieldControllers,
+                    AdvancedSearchFields(
+                      controllers: _fieldControllers,
                       onSubmit: () => _runSearch(),
                     ),
                     const SizedBox(height: 8),
@@ -314,68 +296,6 @@ class _SearchBar extends StatelessWidget {
 /// Lijst van alle bekende velden onder elkaar, elk met een eigen invulveld.
 /// Ingevulde velden gelden als EN, naast de algemene zoekbalk; leeg = geen
 /// beperking op dat veld.
-class _AdvancedSearchPanel extends StatelessWidget {
-  const _AdvancedSearchPanel({
-    required this.fieldControllers,
-    required this.onSubmit,
-  });
-
-  final Map<String, TextEditingController> fieldControllers;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    if (fieldControllers.isEmpty) {
-      return const Text('Geen aparte velden bekend voor deze selectie.');
-    }
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            for (final entry in fieldControllers.entries)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        entry.key,
-                        style: Theme.of(context).textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        key: Key('advanced-field-${entry.key}'),
-                        controller: entry.value,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => onSubmit(),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CollectionChips extends StatelessWidget {
   const _CollectionChips({
     required this.overview,
@@ -502,12 +422,10 @@ class _Thumbnail extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: Image.network(
+      child: buildNetworkImage(
         url!,
         fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) =>
-            progress == null ? child : const Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-        errorBuilder: (context, error, stack) => ColoredBox(
+        placeholder: (context) => ColoredBox(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Icon(
             Icons.broken_image_outlined,
@@ -574,11 +492,12 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
                       if (detail.imageUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            detail.imageUrl!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stack) =>
-                                const SizedBox.shrink(),
+                          child: SizedBox(
+                            height: 420,
+                            child: buildNetworkImage(
+                              detail.imageUrl!,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                       const SizedBox(height: 16),

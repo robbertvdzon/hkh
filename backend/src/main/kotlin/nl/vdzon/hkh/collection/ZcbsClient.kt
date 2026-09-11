@@ -115,6 +115,10 @@ class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: Res
 
     private fun parseListItem(collection: String, ident: String, chunkHtml: String): ListSummary {
         val fragment = Jsoup.parseBodyFragment(chunkHtml)
+        // De grijze volgorde-teller ("1.", "2.", ...) staat in dezelfde <tr> als de
+        // inhoud, zonder scheidingsteken ertussen - zonder deze te verwijderen plakt
+        // hij aan het eerste veld vast (bv. "100. Objectnummer" i.p.v. "Objectnummer").
+        fragment.select("font[color=gray]").remove()
         fragment.select("br, tr, p").forEach { it.appendText(LINE_SEP) }
         val fields = LinkedHashMap<String, String>()
         val looseLines = mutableListOf<String>()

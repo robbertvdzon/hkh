@@ -14,9 +14,8 @@ interface CollectionItemStore {
     fun counts(): List<CollectionCount>
     fun totalCount(): Long
     fun find(collection: String, ident: String): CollectionItem?
-    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int): List<CollectionItem>
-    fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>): Long
-    fun distinctFields(collection: String?): List<String>
+    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int? = null): List<CollectionItem>
+    fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int? = null): Long
 }
 
 @Repository
@@ -123,8 +122,8 @@ class CollectionItemRepository(
             ident,
         ).singleOrNull()
 
-    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int): List<CollectionItem> {
-        val (where, args) = buildWhere(query, collection, fieldQueries)
+    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?): List<CollectionItem> {
+        val (where, args) = buildWhere(query, collection, fieldQueries, year)
         val ordering: String
         val orderArgs: List<Any>
         val rankMatch = rankingMatch(query, fieldQueries)
@@ -144,8 +143,8 @@ class CollectionItemRepository(
         )
     }
 
-    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>): Long {
-        val (where, args) = buildWhere(query, collection, fieldQueries)
+    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?): Long {
+        val (where, args) = buildWhere(query, collection, fieldQueries, year)
         return jdbc.queryForObject(
             "SELECT COUNT(*) FROM collection_item $where",
             Long::class.java,
@@ -163,18 +162,6 @@ class CollectionItemRepository(
         else -> null
     }
 
-    override fun distinctFields(collection: String?): List<String> =
-        if (collection.isNullOrBlank()) {
-            jdbc.query(
-                "SELECT DISTINCT key FROM collection_item, jsonb_object_keys(fields) AS key ORDER BY key LIMIT 200",
-            ) { rs, _ -> rs.getString(1) }
-        } else {
-            jdbc.query(
-                "SELECT DISTINCT key FROM collection_item, jsonb_object_keys(fields) AS key WHERE collection = ? ORDER BY key LIMIT 200",
-                { rs, _ -> rs.getString(1) },
-                collection,
-            )
-        }
 
     /** Bepaalt tegen welke tsvector-expressie gezocht wordt: alles, een vaste kolom, of één los veld uit [fields]. */
     private fun matchClause(field: String?): MatchClause = when {
@@ -191,7 +178,7 @@ class CollectionItemRepository(
      * (elk hun eigen tsvector-match) tot één AND-conditie - zo kan iemand bv. "Rubriek" en
      * "Auteur(s)" tegelijk invullen, naast of in plaats van de algemene zoekbalk.
      */
-    private fun buildWhere(query: String?, collection: String?, fieldQueries: Map<String, String>): Pair<String, List<Any>> {
+    private fun buildWhere(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?): Pair<String, List<Any>> {
         val clauses = mutableListOf<String>()
         val args = mutableListOf<Any>()
         if (!query.isNullOrBlank()) {
@@ -209,6 +196,10 @@ class CollectionItemRepository(
         if (!collection.isNullOrBlank()) {
             clauses += "collection = ?"
             args += collection
+        }
+        if (year != null) {
+            clauses += "year = ?"
+            args += year
         }
         val where = if (clauses.isEmpty()) "" else "WHERE " + clauses.joinToString(" AND ")
         return where to args

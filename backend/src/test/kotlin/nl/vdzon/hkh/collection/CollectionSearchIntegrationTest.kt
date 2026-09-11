@@ -7,20 +7,15 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 
 @Testcontainers
 @SpringBootTest
-@AutoConfigureMockMvc
 class CollectionSearchIntegrationTest(
     @param:Autowired private val store: CollectionItemStore,
     @param:Autowired private val service: CollectionSearchService,
-    @param:Autowired private val mockMvc: MockMvc,
 ) {
     @Test
     fun `websearch syntax supports quoted phrases and loose words`() {
@@ -129,26 +124,27 @@ class CollectionSearchIntegrationTest(
     }
 
     @Test
-    fun `fields endpoint lists the distinct field names for a collection`() {
-        store.upsert(fullRecord(ident = "30", fields = mapOf("Fotograaf" to "W. Seignette")))
+    fun `year is an exact match, not a text search`() {
+        store.upsert(fullRecord(ident = "50", title = "Kroniek", year = 1954))
+        store.upsert(fullRecord(ident = "51", title = "Andere kroniek", year = 1961))
 
-        mockMvc.get("/api/collections/fields") { param("collection", "artikelen") }.andExpect {
-            status { isOk() }
-            jsonPath("$.fields") { value(org.hamcrest.Matchers.hasItem("Fotograaf")) }
-        }
+        val result = service.search(null, null, emptyMap(), 0, 20, year = 1954)
+
+        assertEquals(listOf("50"), result.items.map { it.ident })
     }
 
     private fun fullRecord(
         ident: String,
         title: String = "Titel $ident",
         description: String = "Beschrijving $ident",
+        year: Int? = null,
         fields: Map<String, String> = emptyMap(),
     ) = ScrapedRecord(
         collection = "artikelen",
         ident = ident,
         title = title,
         description = description,
-        year = null,
+        year = year,
         imageUrl = null,
         pdfUrl = null,
         detailUrl = "https://example.org/$ident",

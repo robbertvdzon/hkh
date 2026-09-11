@@ -11,14 +11,19 @@ class CollectionSearchService(private val store: CollectionItemStore) {
 
     fun detail(collection: String, ident: String): CollectionItem? = store.find(collection, ident)
 
-    /** Namen van velden die daadwerkelijk voorkomen (optioneel beperkt tot één collectie), voor de veld-kiezer. */
-    fun fields(collection: String?): List<String> = store.distinctFields(collection?.trim()?.takeIf { it.isNotEmpty() })
-
     /**
      * [fieldQueries] bevat per opgegeven veld een eigen zoekterm (bv. "Auteur(s)" -> "Jansen"),
-     * ANDed met elkaar en met [query] (dat, indien gezet, over alle velden zoekt).
+     * ANDed met elkaar en met [query] (dat, indien gezet, over alle velden zoekt). [year] is een
+     * exacte match op het jaartal (geen tekst-zoekopdracht).
      */
-    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, page: Int, pageSize: Int): SearchResult {
+    fun search(
+        query: String?,
+        collection: String?,
+        fieldQueries: Map<String, String>,
+        page: Int,
+        pageSize: Int,
+        year: Int? = null,
+    ): SearchResult {
         val safePage = page.coerceAtLeast(0)
         val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
         val cleanedQuery = query?.trim()?.takeIf { it.isNotEmpty() }
@@ -27,8 +32,8 @@ class CollectionSearchService(private val store: CollectionItemStore) {
             .mapValues { it.value.trim() }
             .filterKeys { it.isNotBlank() }
             .filterValues { it.isNotEmpty() }
-        val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize)
-        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries)
+        val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize, year)
+        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries, year)
         return SearchResult(items, total, safePage, safeSize)
     }
 

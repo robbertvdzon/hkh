@@ -121,18 +121,16 @@ class SearchPage {
 abstract interface class CollectionSearchSource {
   Future<CollectionOverview> loadOverview();
 
-  /// [fieldQueries] geeft per veldnaam (bv. "Auteur(s)") een eigen zoekterm; alle
-  /// ingevulde velden gelden als EN, naast [query] (dat over alle velden zoekt).
+  /// [fieldQueries] geeft per veldnaam ("title"/"description") een eigen zoekterm;
+  /// alle ingevulde velden gelden als EN, naast [query] (dat over alle velden
+  /// zoekt). [year] is een exacte match, geen tekst-zoekopdracht.
   Future<SearchPage> search({
     String? query,
     String? collection,
     Map<String, String> fieldQueries = const {},
+    int? year,
     int page = 0,
     int size = 20,
   });
   Future<CollectionItemDetail> loadDetail(String collection, String ident);
-
-  /// Namen van velden waarop gericht gezocht kan worden (optioneel beperkt tot
-  /// één collectie). `null`/leeg betekent: alle collecties samen.
-  Future<List<String>> loadFields({String? collection});
 }

@@ -24,4 +24,23 @@ class ZcbsListParsingTest {
         assertFalse(items.any { it.ident == "ZCBS-LIST" })
         assertEquals("Gemeentedag zaterdag 23 september 1995", items[0].title)
     }
+
+    @Test
+    fun `the grey sequence number never leaks into a field label`() {
+        // Elk item staat in dezelfde <tr> als een <font color="gray">N.</font>-teller,
+        // zonder scheidingsteken ertussen; die mag nooit aan het eerste veld plakken
+        // (bv. "1. Documentnummer" i.p.v. "Documentnummer").
+        val html = javaClass.classLoader.getResource("zcbs-sample-list-archief-full.html")!!.readText(Charsets.ISO_8859_1)
+        val doc = Jsoup.parse(html, "https://www.historischekringheemskerk.nl")
+        val client = ZcbsClient(ZcbsProperties())
+
+        val items = client.parseListItems(doc, "archief")
+
+        for (item in items) {
+            assertFalse(
+                item.fields.keys.any { it.matches(Regex("""^\d+\.\s.*""")) },
+                "veld begint met een cijfer-teller: ${item.fields.keys}",
+            )
+        }
+    }
 }
