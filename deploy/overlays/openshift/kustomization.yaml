@@ -10,7 +10,7 @@ images:
   newTag: sha-fbbc5ff
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-4afc905
+  newTag: sha-ec65ee3
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-fbbc5ff
