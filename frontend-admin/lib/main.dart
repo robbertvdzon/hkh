@@ -588,7 +588,7 @@ class _StatusView extends StatelessWidget {
           Text('Bezig met: ${status.currentCollection}'),
         ],
         const SizedBox(height: 8),
-        LinearProgressIndicator(value: status.running ? fraction : (fraction == null ? 0 : fraction)),
+        LinearProgressIndicator(value: status.running ? fraction : (fraction ?? 0.0)),
         const SizedBox(height: 8),
         Text(
           'Opgehaald: ${status.processed}  ·  Overgeslagen: ${status.skipped}'
