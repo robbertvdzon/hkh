@@ -193,11 +193,17 @@ class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: Res
         )
     }
 
-    /** Lijstpagina voor een collectie: "toon alles" (search=%) met istart-paginering. */
+    /**
+     * Lijstpagina voor een collectie, met istart-paginering. Gebruikt het ZCBS-systeemcommando
+     * "ALL" (zie de technische documentatie, §6.2.1) i.p.v. de gewone wildcard "%": dat geeft tot
+     * 1000 resultaten per pagina in plaats van de standaard 30, dus veel minder HTTP-verzoeken
+     * per collectie (beeldbank: 401 -> 13 pagina's) en dus ook minder kans op een tijdelijke
+     * serverfout onderweg.
+     */
     private fun getListPage(collection: String, istart: Int): Document =
         get(
             "/cgi-bin/$collection.pl",
-            mapOf("search" to "%", "veld" to "all", "display" to "list", "istart" to istart),
+            mapOf("search" to "ALL", "veld" to "all", "display" to "list", "istart" to istart),
         )
 
     /**
