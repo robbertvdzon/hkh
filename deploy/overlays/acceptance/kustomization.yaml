@@ -65,7 +65,7 @@ images:
   newTag: sha-fbbc5ff-acceptance
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-688dd82
+  newTag: sha-4afc905
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-fbbc5ff-acceptance
