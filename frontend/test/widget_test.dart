@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/main.dart';
 import 'package:hkh_app/news/latest_news.dart';
+import 'package:hkh_app/collection/collection_search.dart';
 
 class _NewsSource implements LatestNewsSource {
   _NewsSource(this.items, {this.error = false});
@@ -15,6 +16,32 @@ class _NewsSource implements LatestNewsSource {
   }
 }
 
+class _SearchSource implements CollectionSearchSource {
+  @override
+  Future<CollectionOverview> loadOverview() async =>
+      const CollectionOverview(total: 0, collections: []);
+  @override
+  Future<SearchPage> search({
+    String? query,
+    String? collection,
+    int page = 0,
+    int size = 20,
+  }) async => const SearchPage(items: [], total: 0, page: 0, pageSize: 20);
+  @override
+  Future<CollectionItemDetail> loadDetail(String collection, String ident) async =>
+      const CollectionItemDetail(
+        collection: '',
+        ident: '',
+        title: '',
+        description: '',
+        year: null,
+        imageUrl: null,
+        pdfUrl: null,
+        detailUrl: '',
+        fields: {},
+      );
+}
+
 final _news = LatestNewsItem(
   id: 1,
   title: 'Nieuwe historische ontdekking',
@@ -24,7 +51,7 @@ final _news = LatestNewsItem(
 
 void main() {
   testWidgets('shows the introduction and the latest news', (tester) async {
-    await tester.pumpWidget(HkhApp(newsSource: _NewsSource([_news])));
+    await tester.pumpWidget(HkhApp(newsSource: _NewsSource([_news]), searchSource: _SearchSource()));
     await tester.pumpAndSettle();
 
     expect(
@@ -49,7 +76,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      HkhApp(newsSource: _NewsSource(const [], error: true)),
+      HkhApp(
+        newsSource: _NewsSource(const [], error: true),
+        searchSource: _SearchSource(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -69,7 +99,7 @@ void main() {
   });
 
   testWidgets('shows an empty state when there is no news', (tester) async {
-    await tester.pumpWidget(HkhApp(newsSource: _NewsSource(const [])));
+    await tester.pumpWidget(HkhApp(newsSource: _NewsSource(const []), searchSource: _SearchSource()));
     await tester.pumpAndSettle();
 
     expect(find.text('Er zijn nog geen nieuwsberichten.'), findsOneWidget);

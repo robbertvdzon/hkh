@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'backend/backend_client.dart';
+import 'collection/collection_search.dart';
+import 'collection/collection_search_page.dart';
 import 'config/app_config.dart';
 import 'news/latest_news.dart';
 import 'product_vision_page.dart';
@@ -9,13 +11,18 @@ import 'self_update_prompt.dart';
 
 void main() {
   final backend = BackendClient(AppConfig.apiBaseUrl);
-  runApp(HkhApp(newsSource: backend));
+  runApp(HkhApp(newsSource: backend, searchSource: backend));
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({required this.newsSource, super.key});
+  const HkhApp({
+    required this.newsSource,
+    required this.searchSource,
+    super.key,
+  });
 
   final LatestNewsSource newsSource;
+  final CollectionSearchSource searchSource;
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +36,20 @@ class HkhApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: HomePage(newsSource: newsSource),
+      home: HomePage(newsSource: newsSource, searchSource: searchSource),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.newsSource, super.key});
+  const HomePage({
+    required this.newsSource,
+    required this.searchSource,
+    super.key,
+  });
 
   final LatestNewsSource newsSource;
+  final CollectionSearchSource searchSource;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -64,7 +76,10 @@ class _HomePageState extends State<HomePage> {
             constraints: const BoxConstraints(maxWidth: 680),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: _HomeContent(newsSource: widget.newsSource),
+              child: _HomeContent(
+                newsSource: widget.newsSource,
+                searchSource: widget.searchSource,
+              ),
             ),
           ),
         ),
@@ -74,9 +89,10 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.newsSource});
+  const _HomeContent({required this.newsSource, required this.searchSource});
 
   final LatestNewsSource newsSource;
+  final CollectionSearchSource searchSource;
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +118,17 @@ class _HomeContent extends StatelessWidget {
           ),
           icon: const Icon(Icons.auto_stories_outlined),
           label: const Text('Lees onze productvisie'),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) =>
+                  CollectionSearchPage(source: searchSource),
+            ),
+          ),
+          icon: const Icon(Icons.search),
+          label: const Text('Doorzoek de collectie'),
         ),
         const SizedBox(height: 28),
         Text(
