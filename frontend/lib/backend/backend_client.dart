@@ -4,19 +4,40 @@ import 'package:http/http.dart' as http;
 
 import '../collection/collection_search.dart';
 import '../ai_search/ai_search.dart';
+import '../dossier/dossier.dart';
 import 'http_client_factory.dart';
 
-class BackendClient implements CollectionSearchSource, AiSearchSource {
-  BackendClient(this.apiBaseUrl, {http.Client? client})
-    : _client = client ?? createHttpClient();
+class BackendClient
+    implements CollectionSearchSource, AiSearchSource, DossierSource {
+  BackendClient(
+    this.apiBaseUrl, {
+    http.Client? client,
+    this.tokenProvider,
+    this.onUnauthorized,
+  }) : _client = client ?? createHttpClient();
 
   final String apiBaseUrl;
   final http.Client _client;
 
+  /// Levert het HKH-sessietoken van de ingelogde gebruiker, of null. Als er een token is,
+  /// gaat het als `Authorization: Bearer` mee met elk verzoek (ook AI-zoeken en collectie).
+  final String? Function()? tokenProvider;
+
+  /// Wordt aangeroepen als een dossierroute 401 geeft: de sessie is verlopen of ingetrokken.
+  final void Function()? onUnauthorized;
+
+  static const _dossierTimeout = Duration(seconds: 20);
+
+  Map<String, String>? _headers([Map<String, String>? extra]) {
+    final token = tokenProvider?.call();
+    if (token == null || token.isEmpty) return extra;
+    return {...?extra, 'Authorization': 'Bearer $token'};
+  }
+
   @override
   Future<CollectionOverview> loadOverview() async {
     final response = await _client
-        .get(Uri.parse('$apiBaseUrl/api/collections'))
+        .get(Uri.parse('$apiBaseUrl/api/collections'), headers: _headers())
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw StateError('De collectie kon niet worden geladen.');
@@ -50,7 +71,7 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
       '$apiBaseUrl/api/collections/search',
     ).replace(queryParameters: params);
     final response = await _client
-        .get(uri)
+        .get(uri, headers: _headers())
         .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw StateError('Zoeken is mislukt.');
@@ -66,7 +87,10 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
     String ident,
   ) async {
     final response = await _client
-        .get(Uri.parse('$apiBaseUrl/api/collections/$collection/$ident'))
+        .get(
+          Uri.parse('$apiBaseUrl/api/collections/$collection/$ident'),
+          headers: _headers(),
+        )
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw StateError('Dit item kon niet worden geladen.');
@@ -79,7 +103,10 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   @override
   Future<List<AiSearchSummary>> listAiSearches() async {
     final response = await _client
-        .get(Uri.parse('$apiBaseUrl/api/ai-search/sessions'))
+        .get(
+          Uri.parse('$apiBaseUrl/api/ai-search/sessions'),
+          headers: _headers(),
+        )
         .timeout(const Duration(seconds: 15));
     final decoded = _decodeAiResponse(response);
     if (decoded is! List<dynamic>) {
@@ -101,7 +128,10 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   @override
   Future<AiSearchSession> loadAiSearch(String sessionId) async {
     final response = await _client
-        .get(Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId'))
+        .get(
+          Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId'),
+          headers: _headers(),
+        )
         .timeout(const Duration(seconds: 15));
     return _parseAiResponse(response);
   }
@@ -109,7 +139,10 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async {
     final response = await _client
-        .post(Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId/cancel'))
+        .post(
+          Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId/cancel'),
+          headers: _headers(),
+        )
         .timeout(const Duration(seconds: 15));
     return _parseAiResponse(response);
   }
@@ -117,7 +150,10 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   @override
   Future<void> deleteAiSearch(String sessionId) async {
     final response = await _client
-        .delete(Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId'))
+        .delete(
+          Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId'),
+          headers: _headers(),
+        )
         .timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _decodeAiResponse(response);
@@ -128,7 +164,7 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
     final response = await _client
         .post(
           Uri.parse('$apiBaseUrl$path'),
-          headers: const {'Content-Type': 'application/json'},
+          headers: _headers(const {'Content-Type': 'application/json'}),
           body: jsonEncode({'question': question}),
         )
         .timeout(const Duration(seconds: 15));
@@ -159,5 +195,376 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
       throw StateError(message ?? 'De archiefvraag kon niet worden verwerkt.');
     }
     return decoded;
+  }
+
+  // ---- Dossiers ----
+
+  @override
+  Future<List<DossierSummary>> listDossiers() async => _decodeList(
+    await _request('GET', '/api/dossiers'),
+    DossierSummary.fromJson,
+  );
+
+  @override
+  Future<DossierDetail> createDossier({
+    required String title,
+    required String goal,
+  }) async => DossierDetail.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/dossiers', {'title': title, 'goal': goal}),
+    ),
+  );
+
+  @override
+  Future<DossierDetail> loadDossier(String dossierId) async =>
+      DossierDetail.fromJson(
+        _decodeMap(await _request('GET', '/api/dossiers/$dossierId')),
+      );
+
+  @override
+  Future<DossierDetail> updateDossier(
+    String dossierId, {
+    required String title,
+    required String goal,
+  }) async => DossierDetail.fromJson(
+    _decodeMap(
+      await _request('PUT', '/api/dossiers/$dossierId', {
+        'title': title,
+        'goal': goal,
+      }),
+    ),
+  );
+
+  @override
+  Future<void> deleteDossier(String dossierId) async {
+    _decodeDossierResponse(
+      await _request('DELETE', '/api/dossiers/$dossierId'),
+    );
+  }
+
+  @override
+  Future<DossierDetail> setMember(
+    String dossierId,
+    String email,
+    DossierRole role,
+  ) async => DossierDetail.fromJson(
+    _decodeMap(
+      await _request(
+        'PUT',
+        '/api/dossiers/$dossierId/members/${Uri.encodeComponent(email)}',
+        {'role': role.wireName},
+      ),
+    ),
+  );
+
+  @override
+  Future<void> removeMember(String dossierId, String email) async {
+    _decodeDossierResponse(
+      await _request(
+        'DELETE',
+        '/api/dossiers/$dossierId/members/${Uri.encodeComponent(email)}',
+      ),
+    );
+  }
+
+  @override
+  Future<DossierDetail> updateFactSheet(
+    String dossierId,
+    String markdown,
+  ) async => DossierDetail.fromJson(
+    _decodeMap(
+      await _request('PUT', '/api/dossiers/$dossierId/fact-sheet', {
+        'markdown': markdown,
+      }),
+    ),
+  );
+
+  @override
+  Future<DossierDetail> refreshFactSheet(String dossierId) async =>
+      DossierDetail.fromJson(
+        _decodeMap(
+          await _request('POST', '/api/dossiers/$dossierId/fact-sheet/refresh'),
+        ),
+      );
+
+  @override
+  Future<List<AiSearchSummary>> listQuestions(String dossierId) async =>
+      _decodeList(
+        await _request('GET', '/api/dossiers/$dossierId/questions'),
+        AiSearchSummary.fromJson,
+      );
+
+  @override
+  Future<AiSearchSession> askQuestion(
+    String dossierId,
+    String question,
+  ) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/dossiers/$dossierId/questions', {
+        'question': question,
+      }),
+    ),
+  );
+
+  @override
+  Future<AiSearchSession> loadQuestion(
+    String dossierId,
+    String sessionId,
+  ) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request('GET', '/api/dossiers/$dossierId/questions/$sessionId'),
+    ),
+  );
+
+  @override
+  Future<AiSearchSession> askFollowUpQuestion(
+    String dossierId,
+    String sessionId,
+    String question,
+  ) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/dossiers/$dossierId/questions/$sessionId/questions',
+        {'question': question},
+      ),
+    ),
+  );
+
+  @override
+  Future<AiSearchSession> cancelQuestion(
+    String dossierId,
+    String sessionId,
+  ) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/dossiers/$dossierId/questions/$sessionId/cancel',
+      ),
+    ),
+  );
+
+  @override
+  Future<void> deleteQuestion(String dossierId, String sessionId) async {
+    _decodeDossierResponse(
+      await _request('DELETE', '/api/dossiers/$dossierId/questions/$sessionId'),
+    );
+  }
+
+  @override
+  Future<AiSearchSession> adoptSearch(
+    String dossierId,
+    String sessionId,
+  ) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/dossiers/$dossierId/questions/adopt', {
+        'sessionId': sessionId,
+      }),
+    ),
+  );
+
+  // ---- Artikelen ----
+
+  @override
+  Future<List<ArticleSummary>> listArticles(String dossierId) async =>
+      _decodeList(
+        await _request('GET', '/api/dossiers/$dossierId/articles'),
+        ArticleSummary.fromJson,
+      );
+
+  @override
+  Future<ArticleDetail> createArticle(
+    String dossierId, {
+    required String title,
+    required String contentMarkdown,
+  }) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/dossiers/$dossierId/articles', {
+        'title': title,
+        'contentMarkdown': contentMarkdown,
+      }),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> generateArticle(
+    String dossierId, {
+    required String title,
+    required String instruction,
+  }) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/dossiers/$dossierId/articles/generate', {
+        'title': title,
+        'instruction': instruction,
+      }),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> loadArticle(String articleId) async =>
+      ArticleDetail.fromJson(
+        _decodeMap(await _request('GET', '/api/articles/$articleId')),
+      );
+
+  @override
+  Future<ArticleDetail> saveArticle(
+    String articleId, {
+    required String title,
+    required String contentMarkdown,
+    required String basedOnVersionId,
+  }) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request('PUT', '/api/articles/$articleId', {
+        'title': title,
+        'contentMarkdown': contentMarkdown,
+        'basedOnVersionId': basedOnVersionId,
+      }),
+    ),
+  );
+
+  @override
+  Future<void> deleteArticle(String articleId) async {
+    _decodeDossierResponse(
+      await _request('DELETE', '/api/articles/$articleId'),
+    );
+  }
+
+  @override
+  Future<List<VersionSummary>> listVersions(String articleId) async =>
+      _decodeList(
+        await _request('GET', '/api/articles/$articleId/versions'),
+        VersionSummary.fromJson,
+      );
+
+  @override
+  Future<ArticleVersion> loadVersion(
+    String articleId,
+    int versionNumber,
+  ) async => ArticleVersion.fromJson(
+    _decodeMap(
+      await _request('GET', '/api/articles/$articleId/versions/$versionNumber'),
+    ),
+  );
+
+  @override
+  Future<ArticleDiff> loadDiff(
+    String articleId, {
+    required int versionNumber,
+    required int against,
+  }) async => ArticleDiff.fromJson(
+    _decodeMap(
+      await _request(
+        'GET',
+        '/api/articles/$articleId/versions/$versionNumber/diff',
+        null,
+        {'against': '$against'},
+      ),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> restoreVersion(
+    String articleId,
+    int versionNumber,
+  ) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/articles/$articleId/versions/$versionNumber/restore',
+      ),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> proposeChange(
+    String articleId, {
+    required String instruction,
+    required String basedOnVersionId,
+  }) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request('POST', '/api/articles/$articleId/proposals', {
+        'instruction': instruction,
+        'basedOnVersionId': basedOnVersionId,
+      }),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> acceptProposal(
+    String articleId,
+    String versionId,
+  ) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/articles/$articleId/proposals/$versionId/accept',
+      ),
+    ),
+  );
+
+  @override
+  Future<ArticleDetail> rejectProposal(
+    String articleId,
+    String versionId,
+  ) async => ArticleDetail.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/articles/$articleId/proposals/$versionId/reject',
+      ),
+    ),
+  );
+
+  // ---- Hulpmethodes voor dossierroutes ----
+
+  Future<http.Response> _request(
+    String method,
+    String path, [
+    Map<String, Object?>? body,
+    Map<String, String>? query,
+  ]) async {
+    var uri = Uri.parse('$apiBaseUrl$path');
+    if (query != null) uri = uri.replace(queryParameters: query);
+    final headers = _headers(
+      body == null ? null : const {'Content-Type': 'application/json'},
+    );
+    final encoded = body == null ? null : jsonEncode(body);
+    final future = switch (method) {
+      'GET' => _client.get(uri, headers: headers),
+      'POST' => _client.post(uri, headers: headers, body: encoded),
+      'PUT' => _client.put(uri, headers: headers, body: encoded),
+      'DELETE' => _client.delete(uri, headers: headers),
+      _ => throw ArgumentError.value(method, 'method'),
+    };
+    return future.timeout(_dossierTimeout);
+  }
+
+  Map<String, dynamic> _decodeMap(http.Response response) {
+    final decoded = _decodeDossierResponse(response);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
+    }
+    return decoded;
+  }
+
+  List<T> _decodeList<T>(
+    http.Response response,
+    T Function(Map<String, dynamic>) parse,
+  ) {
+    final decoded = _decodeDossierResponse(response);
+    if (decoded is! List<dynamic>) {
+      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
+    }
+    return decoded
+        .map((item) => parse(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Object? _decodeDossierResponse(http.Response response) {
+    if (response.statusCode == 401) {
+      onUnauthorized?.call();
+      throw StateError('Je sessie is verlopen. Log opnieuw in.');
+    }
+    return _decodeAiResponse(response);
   }
 }

@@ -7,11 +7,53 @@ import 'package:url_launcher/url_launcher.dart';
 import '../collection/img_embed/img_embed.dart';
 import 'ai_search.dart';
 
+/// Zet een afgeronde anonieme zoekopdracht in een dossier. Geeft de titel van het gekozen
+/// dossier terug, of null als de gebruiker annuleert.
+typedef AdoptSearchHandler =
+    Future<String?> Function(BuildContext context, String sessionId);
+
 class AiSearchPage extends StatefulWidget {
-  const AiSearchPage({required this.source, this.initialQuestion, super.key});
+  const AiSearchPage({
+    required this.source,
+    this.initialQuestion,
+    this.title,
+    this.overviewTitle = 'Mijn zoekopdrachten',
+    this.emptyMessage = 'Je hebt in deze browser nog geen AI-zoekopdrachten.',
+    this.introduction,
+    this.embedded = false,
+    this.canAsk = true,
+    this.readOnlyMessage =
+        'Je kunt in dit dossier meelezen, maar geen vragen stellen.',
+    this.onAdopt,
+    super.key,
+  });
 
   final AiSearchSource source;
   final String? initialQuestion;
+
+  /// Titel in de AppBar; standaard afhankelijk van overzicht of open zoekopdracht.
+  final String? title;
+
+  /// Kop boven de lijst met zoekopdrachten.
+  final String overviewTitle;
+
+  /// Tekst als er nog geen zoekopdrachten zijn.
+  final String emptyMessage;
+
+  /// Vervangt de standaardintroductie boven het overzicht.
+  final Widget? introduction;
+
+  /// Zonder eigen Scaffold en AppBar, voor gebruik in een tabblad.
+  final bool embedded;
+
+  /// Of de gebruiker vragen mag stellen en zoekopdrachten mag verwijderen.
+  final bool canAsk;
+
+  /// Melding in plaats van het invoerveld als [canAsk] false is.
+  final String readOnlyMessage;
+
+  /// Actie "In dossier zetten" per afgeronde zoekopdracht; alleen zichtbaar als gezet.
+  final AdoptSearchHandler? onAdopt;
 
   @override
   State<AiSearchPage> createState() => _AiSearchPageState();
@@ -194,6 +236,24 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  Future<void> _adoptSearch(AiSearchSummary search) async {
+    final handler = widget.onAdopt;
+    if (handler == null) return;
+    try {
+      final dossierTitle = await handler(context, search.id);
+      if (!mounted || dossierTitle == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Zoekopdracht toegevoegd aan dossier "$dossierTitle".'),
+        ),
+      );
+      await _loadSearches();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -208,102 +268,108 @@ class _AiSearchPageState extends State<AiSearchPage> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          session == null ? 'AI-zoekopdrachten' : 'Vraag het archief',
-        ),
-        actions: [
-          if (session != null)
-            IconButton(
-              onPressed: _showOverview,
-              icon: const Icon(Icons.history),
-              tooltip: 'Mijn zoekopdrachten',
-            ),
-          if (session == null)
-            IconButton(
-              onPressed: () => _loadSearches(showLoading: true),
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Vernieuwen',
-            ),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 880),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    children: [
-                      if (session == null) ...[
-                        const _Introduction(),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Mijn zoekopdrachten',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ),
-                            if (_loadingSearches)
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (!_loadingSearches && (_searches?.isEmpty ?? true))
-                          const Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(18),
-                              child: Text(
-                                'Je hebt in deze browser nog geen AI-zoekopdrachten.',
-                              ),
-                            ),
-                          ),
-                        for (final search in _searches ?? const []) ...[
-                          _SearchSummaryCard(
-                            search: search,
-                            onOpen: () => _openSearch(search.id),
-                            onDelete: () => _deleteSearch(search),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ],
-                      if (session != null)
-                        for (final turn in session.turns) ...[
-                          _QuestionCard(question: turn.question),
-                          const SizedBox(height: 10),
-                          _TurnCard(
-                            turn: turn,
-                            elapsed: _turnDurationLabel(turn),
-                            onCancel: turn.isActive ? _cancel : null,
-                            onSuggestedQuestion: _submit,
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            _error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ),
-                    ],
+    final body = SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: Column(
+            children: [
+              if (widget.embedded && session != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                    child: TextButton.icon(
+                      onPressed: _showOverview,
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(widget.overviewTitle),
+                    ),
                   ),
                 ),
+              Expanded(
+                child: ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  children: [
+                    if (session == null) ...[
+                      widget.introduction ?? const _Introduction(),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.overviewTitle,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
+                          if (_loadingSearches)
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          else if (widget.embedded)
+                            IconButton(
+                              onPressed: () => _loadSearches(showLoading: true),
+                              icon: const Icon(Icons.refresh),
+                              tooltip: 'Vernieuwen',
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (!_loadingSearches && (_searches?.isEmpty ?? true))
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Text(widget.emptyMessage),
+                          ),
+                        ),
+                      for (final search in _searches ?? const []) ...[
+                        _SearchSummaryCard(
+                          search: search,
+                          onOpen: () => _openSearch(search.id),
+                          onDelete: widget.canAsk
+                              ? () => _deleteSearch(search)
+                              : null,
+                          onAdopt:
+                              widget.onAdopt != null &&
+                                  search.status == 'SUCCEEDED'
+                              ? () => _adoptSearch(search)
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                    if (session != null)
+                      for (final turn in session.turns) ...[
+                        _QuestionCard(question: turn.question),
+                        const SizedBox(height: 10),
+                        _TurnCard(
+                          turn: turn,
+                          elapsed: _turnDurationLabel(turn),
+                          onCancel: turn.isActive && widget.canAsk
+                              ? _cancel
+                              : null,
+                          onSuggestedQuestion: widget.canAsk ? _submit : null,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (widget.canAsk)
                 _QuestionComposer(
                   controller: _questionController,
                   enabled:
@@ -313,12 +379,51 @@ class _AiSearchPageState extends State<AiSearchPage> {
                       ? 'Start een nieuwe zoekopdracht'
                       : 'Stel een vervolgvraag',
                   onSubmit: _submit,
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_outline, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.readOnlyMessage,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
+    );
+    if (widget.embedded) return body;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.title ??
+              (session == null ? 'AI-zoekopdrachten' : 'Vraag het archief'),
+        ),
+        actions: [
+          if (session != null)
+            IconButton(
+              onPressed: _showOverview,
+              icon: const Icon(Icons.history),
+              tooltip: widget.overviewTitle,
+            ),
+          if (session == null)
+            IconButton(
+              onPressed: () => _loadSearches(showLoading: true),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Vernieuwen',
+            ),
+        ],
+      ),
+      body: body,
     );
   }
 
@@ -395,11 +500,13 @@ class _SearchSummaryCard extends StatelessWidget {
     required this.search,
     required this.onOpen,
     required this.onDelete,
+    this.onAdopt,
   });
 
   final AiSearchSummary search;
   final VoidCallback onOpen;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
+  final VoidCallback? onAdopt;
 
   @override
   Widget build(BuildContext context) {
@@ -479,11 +586,18 @@ class _SearchSummaryCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Zoekopdracht verwijderen',
-              ),
+              if (onAdopt != null)
+                IconButton(
+                  onPressed: onAdopt,
+                  icon: const Icon(Icons.folder_open_outlined),
+                  tooltip: 'In dossier zetten',
+                ),
+              if (onDelete != null)
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Zoekopdracht verwijderen',
+                ),
             ],
           ),
         ),
@@ -520,7 +634,7 @@ class _TurnCard extends StatelessWidget {
   final AiSearchTurn turn;
   final String? elapsed;
   final VoidCallback? onCancel;
-  final ValueChanged<String> onSuggestedQuestion;
+  final ValueChanged<String>? onSuggestedQuestion;
 
   @override
   Widget build(BuildContext context) {
@@ -560,11 +674,12 @@ class _TurnCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: onCancel,
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('Stoppen'),
-                  ),
+                  if (onCancel != null)
+                    TextButton.icon(
+                      onPressed: onCancel,
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      label: const Text('Stoppen'),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -666,7 +781,8 @@ class _TurnCard extends StatelessWidget {
               ),
               textStyle: Theme.of(context).textTheme.bodyLarge,
             ),
-            if (turn.suggestedFollowUps.isNotEmpty) ...[
+            if (turn.suggestedFollowUps.isNotEmpty &&
+                onSuggestedQuestion != null) ...[
               const SizedBox(height: 18),
               Text(
                 'Misschien wil je ook weten:',
@@ -680,7 +796,7 @@ class _TurnCard extends StatelessWidget {
                   for (final question in turn.suggestedFollowUps)
                     ActionChip(
                       label: Text(question),
-                      onPressed: () => onSuggestedQuestion(question),
+                      onPressed: () => onSuggestedQuestion!(question),
                     ),
                 ],
               ),

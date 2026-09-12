@@ -34,10 +34,15 @@ class DossierAiJobs(
         if (!runtime.isConfigured()) return
         repository.activeJobVersions().forEach { scheduleArticleJob(it.id) }
         repository.runningFactSheetDossierIds().forEach { dossierId ->
-            // Een lopende feitenlijst-job zonder bewaarde job-id is bij de herstart verloren gegaan.
             val dossier = repository.find(dossierId) ?: return@forEach
-            if (dossier.factSheetJobId == null) repository.finishFactSheetJob(dossierId, null, "Onderbroken door een herstart")
-            submit("factsheet-$dossierId") { runFactSheet(dossierId, newTurnId = null, existingJobId = dossier.factSheetJobId) }
+            val jobId = dossier.factSheetJobId
+            if (jobId == null) {
+                // De job was nog niet aangemaakt toen de backend stopte: opnieuw claimen en volledig bijwerken.
+                repository.finishFactSheetJob(dossierId, null, "Onderbroken door een herstart")
+                scheduleFactSheetRefresh(dossierId, newTurnId = null)
+            } else {
+                submit("factsheet-$dossierId") { runFactSheet(dossierId, newTurnId = null, existingJobId = jobId) }
+            }
         }
     }
 

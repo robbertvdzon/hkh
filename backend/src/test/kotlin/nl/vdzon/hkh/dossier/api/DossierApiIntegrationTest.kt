@@ -40,6 +40,7 @@ class DossierApiIntegrationTest(
     @param:Autowired private val mockMvc: MockMvc,
     @param:Autowired private val objectMapper: ObjectMapper,
     @param:Autowired private val jdbc: JdbcTemplate,
+    @param:Autowired private val aiSearch: nl.vdzon.hkh.aisearch.AiSearchService,
 ) {
     @TestConfiguration
     class FakeGoogle {
@@ -219,6 +220,11 @@ class DossierApiIntegrationTest(
         mockMvc.post("/api/dossiers/$dossierId/questions/adopt") {
             auth(owner); cookie(cookie); contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
         }.andExpect { status { isNotFound() } }
+
+        // Het geadopteerde antwoord is beschikbaar als AI-context voor het dossier.
+        val answers = aiSearch.dossierAnswers(dossierId)
+        kotlin.test.assertEquals(listOf("Wie woonde er?"), answers.map { it.question })
+        kotlin.test.assertEquals(1, aiSearch.dossierAnswers(dossierId, limit = 1).size)
     }
 
     private fun seedCollectionItem(collection: String, ident: String, title: String) {

@@ -1,7 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hkh_app/auth/user_session.dart';
 import 'package:hkh_app/main.dart';
 import 'package:hkh_app/collection/collection_search.dart';
+
+import 'dossier_test_support.dart';
+
+class _SignedInSession extends UserSessionController {
+  UserIdentity? _identity = const UserIdentity(
+    email: 'jan@example.com',
+    displayName: 'Jan Jansen',
+    isAdmin: false,
+    token: 'sess-1',
+  );
+  int signOutCalls = 0;
+
+  @override
+  bool get configured => true;
+  @override
+  UserIdentity? get identity => _identity;
+  @override
+  bool get busy => false;
+  @override
+  String? get error => null;
+  @override
+  Future<void> bootstrap() async {}
+  @override
+  Future<void> signIn() async {}
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    _identity = null;
+    notifyListeners();
+  }
+}
 
 class _SearchSource implements CollectionSearchSource {
   _SearchSource({this.results = const []});
@@ -90,6 +122,55 @@ void main() {
 
       expect(find.text('Straten Maerten van Heemskerckstraat'), findsOneWidget);
       expect(find.text('Alle 1 resultaten'), findsOneWidget);
+    },
+  );
+
+  testWidgets('shows no login button when Google login is not configured', (
+    tester,
+  ) async {
+    await tester.pumpWidget(HkhApp(searchSource: _SearchSource()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inloggen'), findsNothing);
+  });
+
+  testWidgets(
+    'a signed-in user gets an account menu with dossiers and logout',
+    (tester) async {
+      final session = _SignedInSession();
+      await tester.pumpWidget(
+        HkhApp(
+          searchSource: _SearchSource(),
+          dossierSource: FakeDossierSource(),
+          session: session,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jan Jansen'), findsOneWidget);
+      expect(find.text('Inloggen'), findsNothing);
+
+      await tester.tap(find.text('Jan Jansen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mijn dossiers'), findsOneWidget);
+      expect(find.text('Uitloggen'), findsOneWidget);
+
+      await tester.tap(find.text('Mijn dossiers'));
+      await tester.pumpAndSettle();
+      expect(find.text('De Kerklaan'), findsOneWidget);
+      expect(find.text('Nieuw dossier'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Jan Jansen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Uitloggen'));
+      await tester.pumpAndSettle();
+
+      expect(session.signOutCalls, 1);
+      expect(find.text('Jan Jansen'), findsNothing);
+      expect(find.text('Inloggen'), findsOneWidget);
     },
   );
 }

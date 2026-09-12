@@ -6,7 +6,10 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
 ARG API_BASE_URL=
-RUN flutter build web --release --pwa-strategy=none --dart-define=API_BASE_URL=${API_BASE_URL}
+ARG GOOGLE_CLIENT_ID=
+RUN flutter build web --release --pwa-strategy=none \
+    --dart-define=API_BASE_URL=${API_BASE_URL} \
+    --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 
 # Flutter gebruikt standaard een vaste main.dart.js-naam. Geef iedere inhoud een eigen URL,
 # zodat browsers en Cloudflare nooit een oude app-bundle onder dezelfde naam kunnen serveren.

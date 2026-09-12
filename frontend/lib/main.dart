@@ -1,6 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import 'auth/google_login_dialog.dart';
+import 'auth/google_signin_button_stub.dart'
+    if (dart.library.html) 'auth/google_signin_button_web.dart'
+    as google_button;
+import 'auth/user_session.dart';
 import 'backend/backend_client.dart';
 import 'ai_search/ai_search.dart';
 import 'ai_search/ai_search_page.dart';
@@ -9,18 +16,55 @@ import 'collection/collection_search_page.dart';
 import 'collection/img_embed/img_embed.dart';
 import 'collection/search_controls.dart';
 import 'config/app_config.dart';
+import 'dossier/dossier.dart';
+import 'dossier/dossier_dialogs.dart';
+import 'dossier/dossier_list_page.dart';
 import 'self_update_prompt.dart';
 
 void main() {
-  final backend = BackendClient(AppConfig.apiBaseUrl);
-  runApp(HkhApp(searchSource: backend, aiSearchSource: backend));
+  final UserSessionController session = AppConfig.googleClientId.isEmpty
+      ? DisabledUserSession()
+      : GoogleUserSession(
+          apiBaseUrl: AppConfig.apiBaseUrl,
+          googleClientId: AppConfig.googleClientId,
+        );
+  final backend = BackendClient(
+    AppConfig.apiBaseUrl,
+    tokenProvider: () => session.token,
+    // Een 401 op een dossierroute betekent een verlopen of ingetrokken sessie.
+    onUnauthorized: () => unawaited(session.signOut()),
+  );
+  // Niet blokkerend: de app start anoniem en toont de sessie zodra die hersteld is.
+  unawaited(session.bootstrap());
+  runApp(
+    HkhApp(
+      searchSource: backend,
+      aiSearchSource: backend,
+      dossierSource: backend,
+      session: session,
+    ),
+  );
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({required this.searchSource, this.aiSearchSource, super.key});
+  const HkhApp({
+    required this.searchSource,
+    this.aiSearchSource,
+    this.dossierSource,
+    this.session,
+    this.googleButtonBuilder,
+    super.key,
+  });
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+
+  /// Zonder dossierbron ontbreekt "Mijn dossiers" in het accountmenu.
+  final DossierSource? dossierSource;
+
+  /// Optionele login; zonder controller draait de app anoniem (zoals in tests).
+  final UserSessionController? session;
+  final Widget Function()? googleButtonBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -37,25 +81,44 @@ class HkhApp extends StatelessWidget {
       home: HomePage(
         searchSource: searchSource,
         aiSearchSource: aiSearchSource,
+        dossierSource: dossierSource,
+        session: session,
+        googleButtonBuilder:
+            googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.searchSource, this.aiSearchSource, super.key});
+  const HomePage({
+    required this.searchSource,
+    this.aiSearchSource,
+    this.dossierSource,
+    this.session,
+    this.googleButtonBuilder,
+    super.key,
+  });
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+  final DossierSource? dossierSource;
+  final UserSessionController? session;
+  final Widget Function()? googleButtonBuilder;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  late final UserSessionController _session =
+      widget.session ?? DisabledUserSession();
+  String? _shownError;
+
   @override
   void initState() {
     super.initState();
+    _session.addListener(_onSessionChanged);
     if (!kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) maybePromptSelfUpdate(context);
@@ -64,9 +127,57 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void dispose() {
+    _session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    final error = _session.error;
+    if (!mounted || error == null || error == _shownError) {
+      if (error == null) _shownError = null;
+      return;
+    }
+    _shownError = error;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  Future<void> _signIn() => startSignIn(
+    context,
+    _session,
+    googleButtonBuilder:
+        widget.googleButtonBuilder ?? google_button.renderGoogleButton,
+  );
+
+  void _openDossiers() {
+    final dossierSource = widget.dossierSource;
+    if (dossierSource == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DossierListPage(
+          source: dossierSource,
+          session: _session,
+          googleButtonBuilder:
+              widget.googleButtonBuilder ?? google_button.renderGoogleButton,
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Historisch Heemskerk')),
+      appBar: AppBar(
+        title: const Text('Historisch Heemskerk'),
+        actions: [
+          _SessionAction(
+            session: _session,
+            onSignIn: _signIn,
+            onOpenDossiers: widget.dossierSource == null ? null : _openDossiers,
+            onSignOut: _session.signOut,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -76,6 +187,8 @@ class _HomePageState extends State<HomePage> {
               child: _HomeContent(
                 searchSource: widget.searchSource,
                 aiSearchSource: widget.aiSearchSource,
+                dossierSource: widget.dossierSource,
+                session: _session,
               ),
             ),
           ),
@@ -89,10 +202,14 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.searchSource,
     required this.aiSearchSource,
+    required this.dossierSource,
+    required this.session,
   });
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+  final DossierSource? dossierSource;
+  final UserSessionController session;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +228,11 @@ class _HomeContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         if (aiSearchSource != null) ...[
-          _AiHomeCard(source: aiSearchSource!),
+          _AiHomeCard(
+            source: aiSearchSource!,
+            dossierSource: dossierSource,
+            session: session,
+          ),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -135,8 +256,14 @@ class _HomeContent extends StatelessWidget {
 }
 
 class _AiHomeCard extends StatefulWidget {
-  const _AiHomeCard({required this.source});
+  const _AiHomeCard({
+    required this.source,
+    required this.dossierSource,
+    required this.session,
+  });
   final AiSearchSource source;
+  final DossierSource? dossierSource;
+  final UserSessionController session;
 
   @override
   State<_AiHomeCard> createState() => _AiHomeCardState();
@@ -151,6 +278,14 @@ class _AiHomeCardState extends State<_AiHomeCard> {
     super.dispose();
   }
 
+  /// "In dossier zetten" is er alleen voor ingelogde gebruikers met een dossierbron.
+  AdoptSearchHandler? get _onAdopt {
+    final dossierSource = widget.dossierSource;
+    if (dossierSource == null || !widget.session.signedIn) return null;
+    return (context, sessionId) =>
+        showAdoptToDossierDialog(context, dossierSource, sessionId);
+  }
+
   void _open() {
     final question = _controller.text.trim();
     Navigator.of(context).push(
@@ -158,6 +293,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
         builder: (_) => AiSearchPage(
           source: widget.source,
           initialQuestion: question.isEmpty ? null : question,
+          onAdopt: _onAdopt,
         ),
       ),
     );
@@ -166,7 +302,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
   void _openHistory() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AiSearchPage(source: widget.source),
+        builder: (_) => AiSearchPage(source: widget.source, onAdopt: _onAdopt),
       ),
     );
   }
@@ -425,6 +561,95 @@ class _HomeResultTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+enum _AccountMenuItem { dossiers, signOut }
+
+/// Knop rechtsboven: "Inloggen" als dat kan, een accountmenu als iemand is ingelogd, en
+/// niets als Google-login niet is geconfigureerd.
+class _SessionAction extends StatelessWidget {
+  const _SessionAction({
+    required this.session,
+    required this.onSignIn,
+    required this.onOpenDossiers,
+    required this.onSignOut,
+  });
+
+  final UserSessionController session;
+  final VoidCallback onSignIn;
+  final VoidCallback? onOpenDossiers;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) {
+        final identity = session.identity;
+        if (identity != null) {
+          return PopupMenuButton<_AccountMenuItem>(
+            tooltip: 'Account',
+            onSelected: (item) => switch (item) {
+              _AccountMenuItem.dossiers => onOpenDossiers?.call(),
+              _AccountMenuItem.signOut => onSignOut(),
+            },
+            itemBuilder: (_) => [
+              if (onOpenDossiers != null)
+                const PopupMenuItem(
+                  value: _AccountMenuItem.dossiers,
+                  child: ListTile(
+                    leading: Icon(Icons.folder_outlined),
+                    title: Text('Mijn dossiers'),
+                  ),
+                ),
+              const PopupMenuItem(
+                value: _AccountMenuItem.signOut,
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Uitloggen'),
+                ),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.account_circle_outlined),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      identity.label,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          );
+        }
+        if (!session.configured) return const SizedBox.shrink();
+        if (session.busy) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        return TextButton.icon(
+          onPressed: onSignIn,
+          icon: const Icon(Icons.login),
+          label: const Text('Inloggen'),
+        );
+      },
     );
   }
 }
