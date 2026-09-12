@@ -111,13 +111,21 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   }
 
   AiSearchSession _parseAiResponse(http.Response response) {
-    final decoded = jsonDecode(response.body);
+    Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      decoded = null;
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded is Map<String, dynamic>
           ? (decoded['detail'] ?? decoded['message'])?.toString()
           : null;
       throw StateError(message ?? 'De archiefvraag kon niet worden verwerkt.');
     }
-    return AiSearchSession.fromJson(decoded as Map<String, dynamic>);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
+    }
+    return AiSearchSession.fromJson(decoded);
   }
 }
