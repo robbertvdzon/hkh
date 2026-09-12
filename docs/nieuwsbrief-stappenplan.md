@@ -12,12 +12,50 @@ Een afvinkbare versie van dit document staat als artifact op
 | Onderwerp | Besluit |
 | --- | --- |
 | Verzendplatform | Laposta, gratis account (tot 2.000 relaties, 12.000 mailings per maand). |
+| Mailchimp | Afgevallen: gratis tot 250 contacten, en het abonnement loopt door in maanden zonder verzending. |
 | Grondslag | Bestaande relatie (lidmaatschap), Telecommunicatiewet art. 11.7. |
 | Verzenddomein | Subdomein `nieuws.historischekringheemskerk.nl`, niet het hoofddomein. |
 | Tempo | 100 per dag, met controle op bounces tussen de batches door. |
 | Mailcredits | Pas overwegen ná de eerste nieuwsbrief; het gratis account vervalt bij aankoop. |
 
-## 1. Nulmeting van het domein
+## 1. Keuze van het platform: Laposta, niet Mailchimp
+
+Mailchimp is in de bespreking geopperd. Dat is een begrijpelijk voorstel — het is de bekendste
+nieuwsbriefdienst ter wereld, jarenlang de standaardkeuze voor kleine verenigingen. Het is hier
+toch niet gekozen, en dat heeft drie concrete redenen.
+
+**Het gratis account is te klein geworden.** Mailchimp was ooit gratis tot 2.000 contacten, wat
+het juist voor verenigingen aantrekkelijk maakte. Die grens is stapsgewijs teruggebracht: 2.000 in
+2022, 500 in 2023, en sinds februari 2026 nog 250 contacten en 500 mails per maand. Met circa
+1.600 leden valt de kring daar ruim buiten en is een betaald abonnement verplicht.
+
+**Het prijsmodel past niet bij hoe de kring mailt.** Mailchimp rekent per contact per maand,
+ongeacht of er iets verstuurd wordt. Bij een nieuwsbrief die twee keer per jaar uitgaat, betaalt de
+kring twaalf maanden voor twee zendingen. Laposta's mailcredits werken omgekeerd: je betaalt per
+verzonden bericht en ongebruikt tegoed verloopt nooit.
+
+**Amerikaanse dienst, extra AVG-werk.** Mailchimp is sinds 2021 eigendom van Intuit, is
+Engelstalig en slaat gegevens buiten de EU op. Dat is juridisch werkbaar onder het EU-VS Data
+Privacy Framework, maar de verwerkersovereenkomst moet zelf worden opgevraagd en de doorgifte naar
+de Verenigde Staten moet in de privacyverklaring worden verantwoord. Bij Laposta staan de gegevens
+in Nederland en zit de verwerkersovereenkomst standaard in het account.
+
+| | Laposta | Mailchimp |
+| --- | --- | --- |
+| Gratis tot | 2.000 relaties | 250 contacten |
+| Rekenwijze | Per verzonden bericht, tegoed verloopt niet | Per contact per maand, ook zonder verzending |
+| Kosten bij 1.600 leden, 2x per jaar | €0, of ~€60 per jaar aan credits | Abonnement het hele jaar door |
+| Gegevens | Nederland | Buiten de EU |
+| Verwerkersovereenkomst | Standaard inbegrepen | Zelf opvragen |
+| Taal | Nederlands, met Nederlandse support | Engels |
+
+Functioneel doen de twee hetzelfde: lijstbeheer, een opmaakeditor, afmeldlinks, bounceverwerking
+en statistieken. Mailchimp heeft daarbovenop veel dat de kring niet gebruikt — automatiseringen,
+webshopkoppelingen, advertentiebeheer. Het is geen slecht product, maar een verkeerde match: voor
+deze omvang en dit verzendritme is het duurder, ingewikkelder en juridisch omslachtiger zonder dat
+er iets tegenover staat.
+
+## 2. Nulmeting van het domein
 
 Gemeten op het DNS van `historischekringheemskerk.nl`. Twee van de drie e-mailcontroles staan
 goed; één is stuk en blokkeert de rest van het plan.
@@ -44,7 +82,7 @@ RFC 7489 schrijft voor dat een ontvanger die méér dan één DMARC-record vindt
 behandelt alsof er helemaal geen DMARC is. De kring denkt dus beschermd te zijn, maar Gmail en
 Outlook zien niets — en dat is precies de controle die grote providers bij bulkmail uitvoeren.
 
-## 2. Stap 1 — repareer het DMARC-record
+## 3. Stap 1 — repareer het DMARC-record
 
 Doe dit eerst, in het DNS-beheer bij ZXCS/b-smarthosting. Er moet één record overblijven:
 
@@ -61,7 +99,7 @@ v=DMARC1; p=none; sp=none; fo=1; rua=mailto:hkhadmin@historischekringheemskerk.n
 dat alle legitieme post goed doorkomt, gaat het beleid naar `p=quarantine`. Andersom blokkeert de
 kring haar eigen ledenadministratie.
 
-## 3. Stap 2 — Laposta inrichten
+## 4. Stap 2 — Laposta inrichten
 
 Laposta regelt de afmeldlink, de `List-Unsubscribe`-header die Gmail bovenaan de mail toont, en
 de bounceverwerking. Dat hoeft niet zelf gebouwd te worden.
@@ -78,9 +116,9 @@ dat niet de mail op `@historischekringheemskerk.nl` zelf.
 
 Op het gratis account staat onderaan elke nieuwsbrief de regel "Deze e-mail is verzonden met het
 nieuwsbriefprogramma Laposta". Wil het bestuur die weg, dan zijn mailcredits nodig — maar
-daarmee vervalt het gratis account. Zie paragraaf 8.
+daarmee vervalt het gratis account. Zie paragraaf 9.
 
-## 4. Stap 3 — de ledenlijst opschonen
+## 5. Stap 3 — de ledenlijst opschonen
 
 Dit is de belangrijkste maatregel tegen een blacklist. Een bouncepercentage boven ongeveer 3% bij
 de eerste zending is precies waar Spamhaus en Microsoft op reageren. Werk van gratis naar betaald.
@@ -97,7 +135,7 @@ de eerste zending is precies waar Spamhaus en Microsoft op reageren. Werk van gr
 Een validatiedienst doet een MX-check en een SMTP-handshake zonder een mail te versturen. Reken
 erop dat van de 1.600 adressen er 1.300 tot 1.450 bruikbaar overblijven; dat is normaal.
 
-## 5. Stap 4 — de nieuwsbrief bouwen
+## 6. Stap 4 — de nieuwsbrief bouwen
 
 - [ ] Afmeldlink die met één klik werkt, zonder inloggen (Laposta zet deze standaard in)
 - [ ] Volledige verenigingsnaam én fysiek postadres in de voettekst
@@ -111,7 +149,7 @@ Klik- en openingsregistratie is verwerking van persoonsgegevens en moet in de pr
 benoemd staan. Wie zich niet kan afmelden drukt op "spam", en dat beschadigt de reputatie het
 snelst.
 
-## 6. Stap 5 — testen
+## 7. Stap 5 — testen
 
 - [ ] Testmail naar mail-tester.com; streven naar een 9 of hoger
 - [ ] Testmail naar een Gmail-, een Outlook- én een Ziggo- of KPN-adres
@@ -123,7 +161,7 @@ snelst.
 
 Staat die afmeldknop niet bovenin Gmail, dan is de domeinkoppeling uit stap 2 niet af.
 
-## 7. Stap 6 en 7 — verzenden en nazorg
+## 8. Stap 6 en 7 — verzenden en nazorg
 
 Een domein dat nog nooit nieuwsbrieven verstuurde en ineens 1.600 berichten uitspuugt, is per
 definitie verdacht. Met 100 per dag wordt rustig reputatie opgebouwd en is er elke dag een moment
@@ -151,7 +189,7 @@ Gmail hanteert een grens van 0,3% spamklachten. Bij 1.600 adressen zijn dat onge
 Openingspercentages zijn onbruikbaar geworden door Apple Mail Privacy Protection: Apple opent elke
 mail preventief, dus de statistiek toont fantoom-opens. Kliks zijn wel een echt signaal.
 
-## 8. Juridische grondslag en kosten
+## 9. Juridische grondslag en kosten
 
 De Telecommunicatiewet (art. 11.7) staat e-mail toe bij toestemming óf bij een bestaande relatie.
 Leden vallen onder dat tweede: er is een lidmaatschapsrelatie, en een nieuwsbrief over de
