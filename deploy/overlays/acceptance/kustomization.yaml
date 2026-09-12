@@ -68,4 +68,4 @@ images:
   newTag: sha-c1394c4
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-c1394c4-acceptance
+  newTag: sha-ac324d2-acceptance
