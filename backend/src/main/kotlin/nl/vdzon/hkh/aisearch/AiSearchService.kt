@@ -2,6 +2,8 @@ package nl.vdzon.hkh.aisearch
 
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import org.jsoup.Jsoup
@@ -27,37 +29,51 @@ class AiSearchService(
     @PreDestroy
     fun close() = executor.shutdownNow()
 
-    fun start(question: String): AiSearchSessionView {
+    fun start(visitorId: String, question: String): AiSearchSessionView {
         ensureAvailable()
         ensureCapacity()
         val cleaned = validateQuestion(question)
-        val sessionId = repository.createSession()
+        val sessionId = repository.createSession(visitorId)
         schedule(repository.createTurn(sessionId, cleaned))
-        return get(sessionId)
+        return get(visitorId, sessionId)
     }
 
-    fun followUp(sessionId: String, question: String): AiSearchSessionView {
+    fun list(visitorId: String): List<AiSearchSummaryView> = repository.sessionIds(visitorId).mapNotNull { sessionId ->
+        val turns = repository.turns(sessionId)
+        if (turns.isEmpty()) null else turns.toSummary(sessionId)
+    }
+
+    fun followUp(visitorId: String, sessionId: String, question: String): AiSearchSessionView {
         ensureAvailable()
-        if (!repository.sessionExists(sessionId)) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Gesprek niet gevonden")
+        requireSession(visitorId, sessionId)
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         val previous = repository.turns(sessionId)
         if (previous.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
         schedule(repository.createTurn(sessionId, validateQuestion(question)))
-        return get(sessionId)
+        return get(visitorId, sessionId)
     }
 
-    fun get(sessionId: String): AiSearchSessionView {
-        if (!repository.sessionExists(sessionId)) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Gesprek niet gevonden")
+    fun get(visitorId: String, sessionId: String): AiSearchSessionView {
+        requireSession(visitorId, sessionId)
         return AiSearchSessionView(sessionId, repository.turns(sessionId).map(AiSearchTurn::toView))
     }
 
-    fun cancel(sessionId: String): AiSearchSessionView {
+    fun cancel(visitorId: String, sessionId: String): AiSearchSessionView {
+        requireSession(visitorId, sessionId)
         val turn = repository.turns(sessionId).lastOrNull { it.status in ACTIVE_STATUSES }
-            ?: return get(sessionId)
+            ?: return get(visitorId, sessionId)
         turn.runtimeJobId?.let { runCatching { runtime.cancel(it) } }
         repository.fail(turn.id, "Het onderzoek is op verzoek gestopt.", cancelled = true)
-        return get(sessionId)
+        return get(visitorId, sessionId)
+    }
+
+    fun delete(visitorId: String, sessionId: String) {
+        requireSession(visitorId, sessionId)
+        repository.turns(sessionId).lastOrNull { it.status in ACTIVE_STATUSES }
+            ?.runtimeJobId
+            ?.let { runCatching { runtime.cancel(it) } }
+        repository.deleteSession(sessionId, visitorId)
     }
 
     private fun schedule(turn: AiSearchTurn) {
@@ -75,10 +91,17 @@ class AiSearchService(
         try {
             var turn = repository.findTurn(turnId) ?: return
             if (turn.status !in ACTIVE_STATUSES) return
-            val jobId = turn.runtimeJobId ?: runtime.createJob(
-                idempotencyKey = "hkh-ai-${turn.id}",
-                instruction = buildPrompt(turn),
-            ).id.also { repository.attachJob(turn.id, it) }
+            val jobId = turn.runtimeJobId ?: run {
+                val createdJobId = runtime.createJob(
+                    idempotencyKey = "hkh-ai-${turn.id}",
+                    instruction = buildPrompt(turn),
+                ).id
+                if (!repository.attachJob(turn.id, createdJobId)) {
+                    runCatching { runtime.cancel(createdJobId) }
+                    return
+                }
+                createdJobId
+            }
 
             var eventCursor = 0L
             var visibleActivity: String? = null
@@ -185,6 +208,12 @@ class AiSearchService(
         }
     }
 
+    private fun requireSession(visitorId: String, sessionId: String) {
+        if (!repository.sessionExists(sessionId, visitorId)) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
+        }
+    }
+
     private fun validateQuestion(question: String): String {
         val cleaned = question.trim()
         if (cleaned.length < 3) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Stel een iets uitgebreidere vraag")
@@ -199,6 +228,20 @@ class AiSearchService(
 }
 
 data class AiSearchSessionView(val id: String, val turns: List<AiSearchTurnView>)
+
+data class AiSearchSummaryView(
+    val id: String,
+    val question: String,
+    val title: String?,
+    val status: AiTurnStatus,
+    val progressPercent: Int?,
+    val progressMessage: String?,
+    val turnCount: Int,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val completedAt: Instant?,
+    val durationSeconds: Long,
+)
 
 data class AiSearchTurnView(
     val id: String,
@@ -215,9 +258,31 @@ data class AiSearchTurnView(
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
+    val durationSeconds: Long,
 )
 
-private fun AiSearchTurn.toView() = AiSearchTurnView(
+private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView(
     id, turnNumber, question, status, progressPercent, progressMessage, title, answerHtml,
-    sources, suggestedFollowUps, errorMessage, createdAt, updatedAt, completedAt,
+    sources, suggestedFollowUps, errorMessage, createdAt, updatedAt, completedAt, durationSeconds(now),
 )
+
+private fun List<AiSearchTurn>.toSummary(sessionId: String, now: Instant = Instant.now()): AiSearchSummaryView {
+    val first = first()
+    val last = last()
+    return AiSearchSummaryView(
+        id = sessionId,
+        question = first.question,
+        title = first.title ?: last.title,
+        status = last.status,
+        progressPercent = last.progressPercent,
+        progressMessage = last.progressMessage,
+        turnCount = size,
+        createdAt = first.createdAt,
+        updatedAt = last.updatedAt,
+        completedAt = last.completedAt,
+        durationSeconds = last.durationSeconds(now),
+    )
+}
+
+private fun AiSearchTurn.durationSeconds(now: Instant): Long =
+    Duration.between(createdAt, completedAt ?: now).seconds.coerceAtLeast(0)

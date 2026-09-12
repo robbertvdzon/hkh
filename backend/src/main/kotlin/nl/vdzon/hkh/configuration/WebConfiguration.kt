@@ -14,5 +14,6 @@ class WebConfiguration(
             .allowedOriginPatterns(*allowedOriginPatterns.split(',').map(String::trim).toTypedArray())
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
+            .allowCredentials(true)
     }
 }

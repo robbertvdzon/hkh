@@ -26,66 +26,70 @@ class _SearchSource implements CollectionSearchSource {
     pageSize: size,
   );
   @override
-  Future<CollectionItemDetail> loadDetail(String collection, String ident) async =>
-      const CollectionItemDetail(
-        collection: '',
-        ident: '',
-        title: '',
-        description: '',
-        year: null,
-        imageUrl: null,
-        pdfUrl: null,
-        detailUrl: '',
-        fields: {},
-      );
+  Future<CollectionItemDetail> loadDetail(
+    String collection,
+    String ident,
+  ) async => const CollectionItemDetail(
+    collection: '',
+    ident: '',
+    title: '',
+    description: '',
+    year: null,
+    imageUrl: null,
+    pdfUrl: null,
+    detailUrl: '',
+    fields: {},
+  );
 }
 
 void main() {
-  testWidgets('shows the introduction and a search box with uitgebreid zoeken', (
-    tester,
-  ) async {
-    await tester.pumpWidget(HkhApp(searchSource: _SearchSource()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'shows the introduction and a search box with uitgebreid zoeken',
+    (tester) async {
+      await tester.pumpWidget(HkhApp(searchSource: _SearchSource()));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining(
-        'Ontdek de geschiedenis van Heemskerk vanuit een vraag',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Zoeken'), findsOneWidget);
-    expect(find.text('Uitgebreid zoeken'), findsOneWidget);
-
-    await tester.tap(find.text('Uitgebreid zoeken'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Jaar'), findsOneWidget);
-  });
-
-  testWidgets('the homepage search box shows results without leaving the page', (
-    tester,
-  ) async {
-    final searchSource = _SearchSource(
-      results: const [
-        CollectionItemSummary(
-          collection: 'beeldbank',
-          ident: '10001',
-          title: 'Straten Maerten van Heemskerckstraat',
-          description: 'Dorpsweg vanaf Beverwijk. Ansichtkaart uit 1900.',
-          year: 1900,
-          imageUrl: null,
-          hasPdf: false,
+      expect(
+        find.textContaining(
+          'Ontdek de geschiedenis van Heemskerk vanuit een vraag',
         ),
-      ],
-    );
-    await tester.pumpWidget(HkhApp(searchSource: searchSource));
-    await tester.pumpAndSettle();
+        findsOneWidget,
+      );
+      expect(find.text('Zoeken'), findsOneWidget);
+      expect(find.text('Uitgebreid zoeken'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'ansichtkaart');
-    await tester.tap(find.text('Zoeken'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Uitgebreid zoeken'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Straten Maerten van Heemskerckstraat'), findsOneWidget);
-    expect(find.text('Alle 1 resultaten'), findsOneWidget);
-  });
+      expect(find.text('Jaar'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the homepage search box shows results without leaving the page',
+    (tester) async {
+      final searchSource = _SearchSource(
+        results: const [
+          CollectionItemSummary(
+            collection: 'beeldbank',
+            ident: '10001',
+            title: 'Straten Maerten van Heemskerckstraat',
+            description: 'Dorpsweg vanaf Beverwijk. Ansichtkaart uit 1900.',
+            year: 1900,
+            imageUrl: null,
+            hasPdf: false,
+          ),
+        ],
+      );
+      await tester.pumpWidget(HkhApp(searchSource: searchSource));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'ansichtkaart');
+      await tester.tap(find.text('Zoeken'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Straten Maerten van Heemskerckstraat'), findsOneWidget);
+      expect(find.text('Alle 1 resultaten'), findsOneWidget);
+    },
+  );
 }

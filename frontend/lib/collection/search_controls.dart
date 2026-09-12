@@ -11,7 +11,8 @@ class SearchFieldControllers {
 
   Map<String, String> get fieldQueries => {
     if (title.text.trim().isNotEmpty) 'title': title.text.trim(),
-    if (description.text.trim().isNotEmpty) 'description': description.text.trim(),
+    if (description.text.trim().isNotEmpty)
+      'description': description.text.trim(),
   };
 
   int? get yearValue => int.tryParse(year.text.trim());
@@ -82,7 +83,10 @@ class AdvancedSearchFields extends StatelessWidget {
               decoration: const InputDecoration(
                 isDense: true,
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
               ),
             ),
           ),

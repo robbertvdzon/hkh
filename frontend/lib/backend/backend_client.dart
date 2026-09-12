@@ -4,10 +4,11 @@ import 'package:http/http.dart' as http;
 
 import '../collection/collection_search.dart';
 import '../ai_search/ai_search.dart';
+import 'http_client_factory.dart';
 
 class BackendClient implements CollectionSearchSource, AiSearchSource {
   BackendClient(this.apiBaseUrl, {http.Client? client})
-    : _client = client ?? http.Client();
+    : _client = client ?? createHttpClient();
 
   final String apiBaseUrl;
   final http.Client _client;
@@ -76,6 +77,20 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   }
 
   @override
+  Future<List<AiSearchSummary>> listAiSearches() async {
+    final response = await _client
+        .get(Uri.parse('$apiBaseUrl/api/ai-search/sessions'))
+        .timeout(const Duration(seconds: 15));
+    final decoded = _decodeAiResponse(response);
+    if (decoded is! List<dynamic>) {
+      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
+    }
+    return decoded
+        .map((item) => AiSearchSummary.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  @override
   Future<AiSearchSession> startAiSearch(String question) =>
       _postAi('/api/ai-search/sessions', question);
 
@@ -99,6 +114,16 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
     return _parseAiResponse(response);
   }
 
+  @override
+  Future<void> deleteAiSearch(String sessionId) async {
+    final response = await _client
+        .delete(Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeAiResponse(response);
+    }
+  }
+
   Future<AiSearchSession> _postAi(String path, String question) async {
     final response = await _client
         .post(
@@ -111,11 +136,21 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
   }
 
   AiSearchSession _parseAiResponse(http.Response response) {
+    final decoded = _decodeAiResponse(response);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
+    }
+    return AiSearchSession.fromJson(decoded);
+  }
+
+  Object? _decodeAiResponse(http.Response response) {
     Object? decoded;
-    try {
-      decoded = jsonDecode(response.body);
-    } on FormatException {
-      decoded = null;
+    if (response.body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
+      }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded is Map<String, dynamic>
@@ -123,9 +158,6 @@ class BackendClient implements CollectionSearchSource, AiSearchSource {
           : null;
       throw StateError(message ?? 'De archiefvraag kon niet worden verwerkt.');
     }
-    if (decoded is! Map<String, dynamic>) {
-      throw StateError('De archiefdienst gaf een ongeldig antwoord.');
-    }
-    return AiSearchSession.fromJson(decoded);
+    return decoded;
   }
 }

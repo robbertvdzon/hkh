@@ -12,14 +12,41 @@ class AiSearchRepository(
     private val jdbc: JdbcTemplate,
     private val objectMapper: ObjectMapper,
 ) {
-    fun createSession(): String {
+    fun createSession(visitorId: String): String {
         val id = UUID.randomUUID().toString()
-        jdbc.update("INSERT INTO ai_search_session (id) VALUES (?::uuid)", id)
+        jdbc.update(
+            "INSERT INTO ai_search_session (id, visitor_id) VALUES (?::uuid, ?::uuid)",
+            id,
+            visitorId,
+        )
         return id
     }
 
-    fun sessionExists(id: String): Boolean =
-        jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid)", Boolean::class.java, id) == true
+    fun sessionExists(id: String, visitorId: String): Boolean = jdbc.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid)",
+        Boolean::class.java,
+        id,
+        visitorId,
+    ) == true
+
+    fun sessionIds(visitorId: String): List<String> = jdbc.queryForList(
+        """
+        SELECT session.id::text
+        FROM ai_search_session session
+        LEFT JOIN ai_search_turn turn_item ON turn_item.session_id = session.id
+        WHERE session.visitor_id = ?::uuid
+        GROUP BY session.id, session.created_at
+        ORDER BY COALESCE(MAX(turn_item.updated_at), session.created_at) DESC
+        """.trimIndent(),
+        String::class.java,
+        visitorId,
+    )
+
+    fun deleteSession(id: String, visitorId: String): Boolean = jdbc.update(
+        "DELETE FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid",
+        id,
+        visitorId,
+    ) > 0
 
     fun createTurn(sessionId: String, question: String): AiSearchTurn {
         val id = UUID.randomUUID().toString()
@@ -66,12 +93,10 @@ class AiSearchRepository(
         sessionId,
     ) == true
 
-    fun attachJob(id: String, jobId: String) {
-        jdbc.update(
-            "UPDATE ai_search_turn SET runtime_job_id = ?, status = 'QUEUED', progress_percent = 5, progress_message = 'Het onderzoek staat klaar', updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid",
+    fun attachJob(id: String, jobId: String): Boolean = jdbc.update(
+            "UPDATE ai_search_turn SET runtime_job_id = ?, status = 'QUEUED', progress_percent = 5, progress_message = 'Het onderzoek staat klaar', updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid AND status = 'SUBMITTING'",
             jobId, id,
-        )
-    }
+        ) > 0
 
     fun updateProgress(id: String, status: AiTurnStatus, percent: Int?, message: String?) {
         jdbc.update(

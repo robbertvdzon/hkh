@@ -28,18 +28,20 @@ class _RecordingSearchSource implements CollectionSearchSource {
   }
 
   @override
-  Future<CollectionItemDetail> loadDetail(String collection, String ident) async =>
-      const CollectionItemDetail(
-        collection: '',
-        ident: '',
-        title: '',
-        description: '',
-        year: null,
-        imageUrl: null,
-        pdfUrl: null,
-        detailUrl: '',
-        fields: {},
-      );
+  Future<CollectionItemDetail> loadDetail(
+    String collection,
+    String ident,
+  ) async => const CollectionItemDetail(
+    collection: '',
+    ident: '',
+    title: '',
+    description: '',
+    year: null,
+    imageUrl: null,
+    pdfUrl: null,
+    detailUrl: '',
+    fields: {},
+  );
 }
 
 void main() {
@@ -89,7 +91,10 @@ void main() {
     final source = _RecordingSearchSource();
     await tester.pumpWidget(
       MaterialApp(
-        home: CollectionSearchPage(source: source, initialQuery: 'ansichtkaart'),
+        home: CollectionSearchPage(
+          source: source,
+          initialQuery: 'ansichtkaart',
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -97,23 +102,24 @@ void main() {
     expect(source.lastQuery, 'ansichtkaart');
   });
 
-  testWidgets('initial field queries and year open the advanced panel pre-filled', (
-    tester,
-  ) async {
-    final source = _RecordingSearchSource();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CollectionSearchPage(
-          source: source,
-          initialFieldQueries: const {'title': 'Kerk'},
-          initialYear: 1900,
+  testWidgets(
+    'initial field queries and year open the advanced panel pre-filled',
+    (tester) async {
+      final source = _RecordingSearchSource();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CollectionSearchPage(
+            source: source,
+            initialFieldQueries: const {'title': 'Kerk'},
+            initialYear: 1900,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(source.lastFieldQueries, {'title': 'Kerk'});
-    expect(source.lastYear, 1900);
-    expect(find.text('Titel'), findsOneWidget);
-  });
+      expect(source.lastFieldQueries, {'title': 'Kerk'});
+      expect(source.lastYear, 1900);
+      expect(find.text('Titel'), findsOneWidget);
+    },
+  );
 }

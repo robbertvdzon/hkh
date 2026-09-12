@@ -163,6 +163,14 @@ class _AiHomeCardState extends State<_AiHomeCard> {
     );
   }
 
+  void _openHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AiSearchPage(source: widget.source),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Card(
     color: Theme.of(
@@ -188,7 +196,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Stel een vrije vraag. De digitale onderzoeker zoekt zelf de relevante bronnen, verhalen en afbeeldingen bij elkaar.',
+            'Start een AI-zoekopdracht met een vrije vraag. De digitale onderzoeker zoekt zelf de relevante bronnen, verhalen en afbeeldingen bij elkaar. Dit kan enkele minuten duren.',
           ),
           const SizedBox(height: 14),
           TextField(
@@ -204,6 +212,15 @@ class _AiHomeCardState extends State<_AiHomeCard> {
                 icon: const Icon(Icons.arrow_forward),
                 tooltip: 'Vraag stellen',
               ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _openHistory,
+              icon: const Icon(Icons.history),
+              label: const Text('Mijn AI-zoekopdrachten'),
             ),
           ),
         ],

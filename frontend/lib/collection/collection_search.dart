@@ -80,8 +80,9 @@ class CollectionItemDetail {
         imageUrl: json['imageUrl'] as String?,
         pdfUrl: json['pdfUrl'] as String?,
         detailUrl: json['detailUrl'] as String? ?? '',
-        fields: (json['fields'] as Map<String, dynamic>? ?? const {})
-            .map((key, value) => MapEntry(key, value?.toString() ?? '')),
+        fields: (json['fields'] as Map<String, dynamic>? ?? const {}).map(
+          (key, value) => MapEntry(key, value?.toString() ?? ''),
+        ),
       );
 
   final String collection;

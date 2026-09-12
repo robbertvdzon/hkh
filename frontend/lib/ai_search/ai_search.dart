@@ -24,6 +24,9 @@ class AiSearchTurn {
     required this.suggestedFollowUps,
     required this.errorMessage,
     required this.createdAt,
+    required this.updatedAt,
+    required this.completedAt,
+    required this.durationSeconds,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -44,6 +47,11 @@ class AiSearchTurn {
             .toList(growable: false),
     errorMessage: json['errorMessage'] as String?,
     createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+    completedAt: json['completedAt'] == null
+        ? null
+        : DateTime.parse(json['completedAt'] as String),
+    durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
   );
 
   final String id;
@@ -58,6 +66,57 @@ class AiSearchTurn {
   final List<String> suggestedFollowUps;
   final String? errorMessage;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? completedAt;
+  final int durationSeconds;
+
+  bool get isActive =>
+      const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
+}
+
+class AiSearchSummary {
+  const AiSearchSummary({
+    required this.id,
+    required this.question,
+    required this.title,
+    required this.status,
+    required this.progressPercent,
+    required this.progressMessage,
+    required this.turnCount,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.completedAt,
+    required this.durationSeconds,
+  });
+
+  factory AiSearchSummary.fromJson(Map<String, dynamic> json) =>
+      AiSearchSummary(
+        id: json['id'] as String,
+        question: json['question'] as String,
+        title: json['title'] as String?,
+        status: json['status'] as String,
+        progressPercent: (json['progressPercent'] as num?)?.toInt(),
+        progressMessage: json['progressMessage'] as String?,
+        turnCount: (json['turnCount'] as num).toInt(),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        updatedAt: DateTime.parse(json['updatedAt'] as String),
+        completedAt: json['completedAt'] == null
+            ? null
+            : DateTime.parse(json['completedAt'] as String),
+        durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
+      );
+
+  final String id;
+  final String question;
+  final String? title;
+  final String status;
+  final int? progressPercent;
+  final String? progressMessage;
+  final int turnCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? completedAt;
+  final int durationSeconds;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -79,8 +138,10 @@ class AiSearchSession {
 }
 
 abstract interface class AiSearchSource {
+  Future<List<AiSearchSummary>> listAiSearches();
   Future<AiSearchSession> startAiSearch(String question);
   Future<AiSearchSession> loadAiSearch(String sessionId);
   Future<AiSearchSession> askFollowUp(String sessionId, String question);
   Future<AiSearchSession> cancelAiSearch(String sessionId);
+  Future<void> deleteAiSearch(String sessionId);
 }

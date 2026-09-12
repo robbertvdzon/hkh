@@ -40,4 +40,17 @@ GET http://localhost:8080/swagger-ui.html
 mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 ```
 
+## AI-zoekopdrachten
+
+De publieke frontend behandelt iedere vrije archiefvraag als een duurzame zoekopdracht. De backend
+slaat de vraag, voortgang, antwoorden, bronnen, vervolgvragen en looptijden op in PostgreSQL. Een
+HttpOnly-cookie met een anonieme bezoeker-ID koppelt een browser maximaal één jaar aan zijn eigen
+zoekopdrachten; de cookie bevat geen antwoorden of persoonsgegevens. Daardoor zijn lopende en
+afgeronde opdrachten ook in een andere tab terug te vinden. Wie browsercookies wist, verliest de
+koppeling met de opgeslagen opdrachten.
+
+De publieke API ondersteunt het overzicht en beheer via `GET /api/ai-search/sessions`,
+`GET /api/ai-search/sessions/{id}` en `DELETE /api/ai-search/sessions/{id}`. De backend controleert
+bij iedere detail-, vervolg-, annuleer- en verwijderactie of de opdracht bij de cookie hoort.
+
 Echte secrets, lokale overrides, buildoutput en IDE-bestanden worden niet gecommit.

@@ -75,7 +75,7 @@ void main() {
           'question': 'Wat gebeurde er aan de Kerklaan?',
         });
         return http.Response(
-          '{"id":"s1","turns":[{"id":"t1","turnNumber":1,"question":"Wat gebeurde er aan de Kerklaan?","status":"QUEUED","progressPercent":5,"progressMessage":"Klaar","title":null,"answerHtml":null,"sources":[],"suggestedFollowUps":[],"errorMessage":null,"createdAt":"2026-09-12T00:00:00Z"}]}',
+          '{"id":"s1","turns":[{"id":"t1","turnNumber":1,"question":"Wat gebeurde er aan de Kerklaan?","status":"QUEUED","progressPercent":5,"progressMessage":"Klaar","title":null,"answerHtml":null,"sources":[],"suggestedFollowUps":[],"errorMessage":null,"createdAt":"2026-09-12T00:00:00Z","updatedAt":"2026-09-12T00:00:05Z","completedAt":null,"durationSeconds":5}]}',
           202,
         );
       }),
@@ -87,5 +87,27 @@ void main() {
 
     expect(session.id, 's1');
     expect(session.turns.single.status, 'QUEUED');
+  });
+
+  test('lists and deletes persisted AI searches', () async {
+    final requests = <http.Request>[];
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'DELETE') return http.Response('', 204);
+        return http.Response(
+          '[{"id":"s1","question":"Kerklaan","title":"Geschiedenis","status":"SUCCEEDED","progressPercent":100,"progressMessage":"Onderzoek afgerond","turnCount":1,"createdAt":"2026-09-12T00:00:00Z","updatedAt":"2026-09-12T00:01:05Z","completedAt":"2026-09-12T00:01:05Z","durationSeconds":65}]',
+          200,
+        );
+      }),
+    );
+
+    final searches = await client.listAiSearches();
+    await client.deleteAiSearch('s1');
+
+    expect(searches.single.durationSeconds, 65);
+    expect(requests[0].method, 'GET');
+    expect(requests[1].method, 'DELETE');
   });
 }

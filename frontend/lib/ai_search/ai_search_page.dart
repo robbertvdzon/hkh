@@ -23,25 +23,29 @@ class _AiSearchPageState extends State<AiSearchPage> {
   );
   final ScrollController _scrollController = ScrollController();
   AiSearchSession? _session;
+  List<AiSearchSummary>? _searches;
   Timer? _pollTimer;
-  Timer? _clockTimer;
-  DateTime? _activeSince;
   bool _submitting = false;
+  bool _loadingSearches = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     final question = widget.initialQuestion?.trim() ?? '';
-    if (question.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _submit());
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (question.isNotEmpty) {
+        _submit();
+      } else {
+        _loadSearches(showLoading: true);
+        _startOverviewPolling();
+      }
+    });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _clockTimer?.cancel();
     _questionController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -63,7 +67,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
         _session = session;
         _submitting = false;
         _questionController.clear();
-        _activeSince = DateTime.now();
       });
       _startPolling();
       _scrollToBottom();
@@ -78,11 +81,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _clockTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
     _poll();
   }
 
@@ -96,8 +95,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
       final isActive = session.turns.lastOrNull?.isActive ?? false;
       if (!isActive) {
         _pollTimer?.cancel();
-        _clockTimer?.cancel();
-        _activeSince = null;
       }
     } catch (_) {
       // Een tijdelijke pollfout beëindigt een lopend onderzoek niet.
@@ -110,11 +107,91 @@ class _AiSearchPageState extends State<AiSearchPage> {
     final session = await widget.source.cancelAiSearch(sessionId);
     if (!mounted) return;
     _pollTimer?.cancel();
-    _clockTimer?.cancel();
+    setState(() => _session = session);
+  }
+
+  Future<void> _loadSearches({bool showLoading = false}) async {
+    if (showLoading && mounted) setState(() => _loadingSearches = true);
+    try {
+      final searches = await widget.source.listAiSearches();
+      if (!mounted || _session != null) return;
+      setState(() {
+        _searches = searches;
+        _loadingSearches = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted || _session != null) return;
+      setState(() {
+        _loadingSearches = false;
+        _error = error.toString().replaceFirst('Bad state: ', '');
+      });
+    }
+  }
+
+  void _startOverviewPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadSearches(),
+    );
+  }
+
+  Future<void> _showOverview() async {
+    _pollTimer?.cancel();
     setState(() {
-      _session = session;
-      _activeSince = null;
+      _session = null;
+      _error = null;
     });
+    await _loadSearches(showLoading: _searches == null);
+    if (mounted && _session == null) _startOverviewPolling();
+  }
+
+  Future<void> _openSearch(String sessionId) async {
+    _pollTimer?.cancel();
+    setState(() => _error = null);
+    try {
+      final session = await widget.source.loadAiSearch(sessionId);
+      if (!mounted) return;
+      setState(() => _session = session);
+      if (session.turns.lastOrNull?.isActive ?? false) _startPolling();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+      _startOverviewPolling();
+    }
+  }
+
+  Future<void> _deleteSearch(AiSearchSummary search) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Zoekopdracht verwijderen?'),
+        content: Text(
+          search.isActive
+              ? 'Deze zoekopdracht loopt nog. Het onderzoek wordt gestopt en het resultaat wordt verwijderd.'
+              : 'De vraag, het antwoord en de vervolgvragen worden verwijderd.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuleren'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Verwijderen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.source.deleteAiSearch(search.id);
+      await _loadSearches();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+    }
   }
 
   void _scrollToBottom() {
@@ -132,7 +209,25 @@ class _AiSearchPageState extends State<AiSearchPage> {
   Widget build(BuildContext context) {
     final session = _session;
     return Scaffold(
-      appBar: AppBar(title: const Text('Vraag het archief')),
+      appBar: AppBar(
+        title: Text(
+          session == null ? 'AI-zoekopdrachten' : 'Vraag het archief',
+        ),
+        actions: [
+          if (session != null)
+            IconButton(
+              onPressed: _showOverview,
+              icon: const Icon(Icons.history),
+              tooltip: 'Mijn zoekopdrachten',
+            ),
+          if (session == null)
+            IconButton(
+              onPressed: () => _loadSearches(showLoading: true),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Vernieuwen',
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -144,14 +239,53 @@ class _AiSearchPageState extends State<AiSearchPage> {
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     children: [
-                      if (session == null) const _Introduction(),
+                      if (session == null) ...[
+                        const _Introduction(),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Mijn zoekopdrachten',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ),
+                            if (_loadingSearches)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (!_loadingSearches && (_searches?.isEmpty ?? true))
+                          const Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(18),
+                              child: Text(
+                                'Je hebt in deze browser nog geen AI-zoekopdrachten.',
+                              ),
+                            ),
+                          ),
+                        for (final search in _searches ?? const []) ...[
+                          _SearchSummaryCard(
+                            search: search,
+                            onOpen: () => _openSearch(search.id),
+                            onDelete: () => _deleteSearch(search),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ],
                       if (session != null)
                         for (final turn in session.turns) ...[
                           _QuestionCard(question: turn.question),
                           const SizedBox(height: 10),
                           _TurnCard(
                             turn: turn,
-                            elapsed: turn.isActive ? _elapsedLabel() : null,
+                            elapsed: _turnDurationLabel(turn),
                             onCancel: turn.isActive ? _cancel : null,
                             onSuggestedQuestion: _submit,
                           ),
@@ -176,7 +310,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
                       !_submitting &&
                       !(session?.turns.lastOrNull?.isActive ?? false),
                   label: session == null
-                      ? 'Stel je vraag'
+                      ? 'Start een nieuwe zoekopdracht'
                       : 'Stel een vervolgvraag',
                   onSubmit: _submit,
                 ),
@@ -188,12 +322,16 @@ class _AiSearchPageState extends State<AiSearchPage> {
     );
   }
 
-  String _elapsedLabel() {
-    final elapsed = DateTime.now().difference(_activeSince ?? DateTime.now());
-    if (elapsed.inSeconds < 15) return 'Net begonnen';
-    if (elapsed.inMinutes < 1) return 'Al ${elapsed.inSeconds} seconden bezig';
-    final seconds = elapsed.inSeconds % 60;
-    return 'Al ${elapsed.inMinutes} min ${seconds.toString().padLeft(2, '0')} sec bezig';
+  String _turnDurationLabel(AiSearchTurn turn) {
+    if (turn.isActive) {
+      return 'Al ${_formatDuration(turn.durationSeconds)} bezig';
+    }
+    final prefix = switch (turn.status) {
+      'CANCELLED' => 'Gestopt na',
+      'FAILED' => 'Mislukt na',
+      _ => 'Afgerond in',
+    };
+    return '$prefix ${_formatDuration(turn.durationSeconds)}';
   }
 }
 
@@ -218,8 +356,26 @@ class _Introduction extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          'De archiefonderzoeker doorzoekt de collecties, opent relevante bronnen en maakt een antwoord met controleerbare links en beschikbare afbeeldingen.',
+          'Iedere vraag wordt een aparte zoekopdracht. De archiefonderzoeker doorzoekt de collecties, opent relevante bronnen en maakt een antwoord met controleerbare links en beschikbare afbeeldingen.',
           textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 14),
+        Card(
+          color: Theme.of(context).colorScheme.tertiaryContainer,
+          child: const Padding(
+            padding: EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(Icons.schedule),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Een uitgebreid onderzoek duurt vaak enkele minuten. Je mag deze pagina of tab sluiten: de opdracht blijft in de backend doorlopen en staat later weer in dit overzicht.',
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -232,6 +388,108 @@ class _Introduction extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _SearchSummaryCard extends StatelessWidget {
+  const _SearchSummaryCard({
+    required this.search,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final AiSearchSummary search;
+  final VoidCallback onOpen;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusLabel = switch (search.status) {
+      'SUBMITTING' || 'QUEUED' || 'RUNNING' => 'Bezig',
+      'SUCCEEDED' => 'Afgerond',
+      'CANCELLED' => 'Gestopt',
+      _ => 'Mislukt',
+    };
+    final statusColor = search.isActive
+        ? colorScheme.primaryContainer
+        : search.status == 'SUCCEEDED'
+        ? colorScheme.secondaryContainer
+        : colorScheme.errorContainer;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  search.isActive ? Icons.manage_search : Icons.history,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      search.title ?? search.question,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (search.title != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        search.question,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Chip(
+                          label: Text(statusLabel),
+                          backgroundColor: statusColor,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Text(_formatDate(search.createdAt)),
+                        Text(
+                          search.isActive
+                              ? '${_formatDuration(search.durationSeconds)} bezig'
+                              : 'Duur: ${_formatDuration(search.durationSeconds)}',
+                        ),
+                        if (search.turnCount > 1)
+                          Text('${search.turnCount} vragen'),
+                      ],
+                    ),
+                    if (search.isActive && search.progressMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${search.progressMessage}${search.progressPercent == null ? '' : ' · ${search.progressPercent}%'}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Zoekopdracht verwijderen',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _QuestionCard extends StatelessWidget {
@@ -309,6 +567,10 @@ class _TurnCard extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Text(
+                'Dit kan enkele minuten duren. Je kunt deze pagina sluiten; de zoekopdracht blijft doorlopen en verschijnt bij Mijn zoekopdrachten.',
+              ),
             ],
           ),
         ),
@@ -318,20 +580,27 @@ class _TurnCard extends StatelessWidget {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.error_outline,
-                color: Theme.of(context).colorScheme.error,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      turn.errorMessage ??
+                          'Het onderzoek kon niet worden afgerond.',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  turn.errorMessage ??
-                      'Het onderzoek kon niet worden afgerond.',
-                ),
-              ),
+              const SizedBox(height: 8),
+              Text(elapsed ?? ''),
             ],
           ),
         ),
@@ -350,6 +619,14 @@ class _TurnCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
+            Row(
+              children: [
+                const Icon(Icons.schedule, size: 18),
+                const SizedBox(width: 7),
+                Text(elapsed ?? ''),
+              ],
+            ),
+            const SizedBox(height: 14),
             HtmlWidget(
               turn.answerHtml ?? '',
               customWidgetBuilder: (element) {
@@ -462,4 +739,30 @@ class _QuestionComposer extends StatelessWidget {
       ),
     ),
   );
+}
+
+String _formatDuration(int totalSeconds) {
+  final seconds = totalSeconds.clamp(0, 24 * 60 * 60 * 365);
+  if (seconds < 60) return '$seconds sec';
+  final minutes = seconds ~/ 60;
+  final remainingSeconds = seconds % 60;
+  if (minutes < 60) {
+    return '$minutes min ${remainingSeconds.toString().padLeft(2, '0')} sec';
+  }
+  final hours = minutes ~/ 60;
+  final remainingMinutes = minutes % 60;
+  return '$hours uur ${remainingMinutes.toString().padLeft(2, '0')} min';
+}
+
+String _formatDate(DateTime value) {
+  final local = value.toLocal();
+  final now = DateTime.now();
+  final sameDay =
+      local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day;
+  final time =
+      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  if (sameDay) return 'Vandaag $time';
+  return '${local.day}-${local.month}-${local.year} $time';
 }

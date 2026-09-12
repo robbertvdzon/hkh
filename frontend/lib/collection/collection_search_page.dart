@@ -37,7 +37,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   CollectionOverview? _overview;
   String? _collectionFilter;
-  late bool _advancedOpen = widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
+  late bool _advancedOpen =
+      widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
   final List<CollectionItemSummary> _results = [];
   int _page = 0;
   int _total = 0;
@@ -50,7 +51,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   void initState() {
     super.initState();
     _loadOverview();
-    final hasInitialQuery = widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty;
+    final hasInitialQuery =
+        widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty;
     if (hasInitialQuery || _advancedOpen) {
       _runSearch();
     }
@@ -122,7 +124,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     if (_searched) _runSearch();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,8 +149,11 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
-                    icon: Icon(_advancedOpen ? Icons.expand_less : Icons.expand_more),
+                    onPressed: () =>
+                        setState(() => _advancedOpen = !_advancedOpen),
+                    icon: Icon(
+                      _advancedOpen ? Icons.expand_less : Icons.expand_more,
+                    ),
                     label: const Text('Uitgebreid zoeken'),
                   ),
                   if (_advancedOpen) ...[
@@ -414,7 +418,9 @@ class _Thumbnail extends StatelessWidget {
         height: size,
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: Icon(
-          hasPdf ? Icons.picture_as_pdf_outlined : Icons.image_not_supported_outlined,
+          hasPdf
+              ? Icons.picture_as_pdf_outlined
+              : Icons.image_not_supported_outlined,
           color: Theme.of(context).colorScheme.outline,
         ),
       );
@@ -479,7 +485,9 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return const Center(child: Text('Dit item kon niet worden geladen.'));
+              return const Center(
+                child: Text('Dit item kon niet worden geladen.'),
+              );
             }
             final detail = snapshot.requireData;
             return Center(
@@ -602,14 +610,18 @@ class _PdfBlock extends StatelessWidget {
             spacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: () =>
-                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                onPressed: () => launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                ),
                 icon: const Icon(Icons.open_in_new),
                 label: const Text('Open in nieuwe pagina'),
               ),
               OutlinedButton.icon(
-                onPressed: () =>
-                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                onPressed: () => launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                ),
                 icon: const Icon(Icons.download_outlined),
                 label: const Text('Download'),
               ),
@@ -632,7 +644,8 @@ class _LinkText extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectionContainer.disabled(
       child: InkWell(
-        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        onTap: () =>
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
         child: Text(
           url,
           style: TextStyle(
