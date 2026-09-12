@@ -14,6 +14,7 @@ Widget buildNetworkImage(
   String url, {
   BoxFit fit = BoxFit.cover,
   Widget Function(BuildContext)? placeholder,
+  String? linkUrl,
 }) {
   final objectFit = switch (fit) {
     BoxFit.cover => 'cover',
@@ -21,15 +22,26 @@ Widget buildNetworkImage(
     BoxFit.fill => 'fill',
     _ => 'contain',
   };
-  final viewType = 'hkh-img-embed-${url.hashCode}-$objectFit';
+  final viewType =
+      'hkh-img-embed-${url.hashCode}-${linkUrl.hashCode}-$objectFit';
   if (_registeredViewTypes.add(viewType)) {
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
       final img = web.HTMLImageElement()
         ..src = url
+        ..alt = 'Archieffoto'
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.objectFit = objectFit;
-      return img;
+      if (linkUrl == null) return img;
+      final link = web.HTMLAnchorElement()
+        ..href = linkUrl
+        ..target = '_blank'
+        ..rel = 'noopener'
+        ..style.display = 'block'
+        ..style.width = '100%'
+        ..style.height = '100%';
+      link.append(img);
+      return link;
     });
   }
   return HtmlElementView(viewType: viewType);
