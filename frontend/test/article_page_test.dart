@@ -80,7 +80,7 @@ void main() {
           .widget<FilledButton>(
             find.ancestor(
               of: find.text('Vraag AI om een wijziging'),
-              matching: find.byType(FilledButton),
+              matching: find.bySubtype<FilledButton>(),
             ),
           )
           .onPressed,
