@@ -241,8 +241,18 @@ DELETE /api/articles/{id}
    cookie-zoekopdrachten, schermen Mijn dossiers en Dossier.
 3. **Artikelen.** Tabellen, artikel-API, Markdown-rendering met `hkh:`-bronnen, AI-generatie en
    AI-voorstellen, geschiedenis en verschillen, per-gebruiker joblimiet.
-4. **Later.** Export naar Word of PDF, oude antwoorden als invoerobjecten, notificatie bij een
-   nieuw voorstel in een gedeeld dossier, overdragen van eigenaarschap.
+4. **Later.** Bewust nog niet gebouwd; ideeën voor een volgende versie, vastgelegd op
+   12 september 2026:
+   - export van een artikel naar Word of PDF;
+   - oude antwoorden als invoerobjecten aan de runtime meegeven zodra een dossier te groot
+     wordt voor het promptbudget;
+   - notificatie bij een nieuw AI-voorstel in een gedeeld dossier;
+   - eigenaarschap overdragen in de UI (de backend heeft `POST /api/dossiers/{id}/transfer` al);
+   - account verwijderen in de UI (de backend heeft `DELETE /api/auth/account` al);
+   - de feitenlijst op verzoek door AI laten bewerken, net als bij artikelen;
+   - een AI-voorstel bewerken voordat je het accepteert;
+   - meer dan één lopende AI-opdracht per gebruiker toestaan;
+   - een alleen-lezen deellink voor mensen zonder Google-account.
 
 ## 6. Privacy en beveiliging
 
