@@ -23,4 +23,17 @@ data class AiSearchTurn(
     val createdAt: Instant,
     val updatedAt: Instant,
     val completedAt: Instant?,
+    /** Dossiercontext (titel, doel, feitenlijst) die bij het stellen van de vraag is vastgelegd. */
+    val dossierContext: String? = null,
 )
+
+/** Eigenaar van een zoekopdracht: een anonieme browser of een dossier. */
+data class AiSearchOwner(
+    val visitorId: String? = null,
+    val dossierId: String? = null,
+    val userId: String? = null,
+    val userEmail: String? = null,
+)
+
+/** Wordt gepubliceerd zodra een dossiervraag succesvol is beantwoord. */
+data class AiDossierTurnCompleted(val dossierId: String, val sessionId: String, val turnId: String)

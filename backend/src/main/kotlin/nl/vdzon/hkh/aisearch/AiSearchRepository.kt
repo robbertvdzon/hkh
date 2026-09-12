@@ -12,29 +12,44 @@ class AiSearchRepository(
     private val jdbc: JdbcTemplate,
     private val objectMapper: ObjectMapper,
 ) {
-    fun createSession(visitorId: String): String {
+    fun createSession(owner: AiSearchOwner): String {
         val id = UUID.randomUUID().toString()
         jdbc.update(
-            "INSERT INTO ai_search_session (id, visitor_id) VALUES (?::uuid, ?::uuid)",
-            id,
-            visitorId,
+            """
+            INSERT INTO ai_search_session (id, visitor_id, dossier_id, user_id, created_by_email)
+            VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?)
+            """.trimIndent(),
+            id, owner.visitorId, owner.dossierId, owner.userId, owner.userEmail,
         )
         return id
     }
 
     fun sessionExists(id: String, visitorId: String): Boolean = jdbc.queryForObject(
-        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid)",
+        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL)",
         Boolean::class.java,
         id,
         visitorId,
     ) == true
+
+    fun sessionInDossier(id: String, dossierId: String): Boolean = jdbc.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND dossier_id = ?::uuid)",
+        Boolean::class.java,
+        id,
+        dossierId,
+    ) == true
+
+    fun sessionDossierId(id: String): String? = jdbc.queryForList(
+        "SELECT dossier_id::text FROM ai_search_session WHERE id = ?::uuid",
+        String::class.java,
+        id,
+    ).singleOrNull()
 
     fun sessionIds(visitorId: String): List<String> = jdbc.queryForList(
         """
         SELECT session.id::text
         FROM ai_search_session session
         LEFT JOIN ai_search_turn turn_item ON turn_item.session_id = session.id
-        WHERE session.visitor_id = ?::uuid
+        WHERE session.visitor_id = ?::uuid AND session.dossier_id IS NULL
         GROUP BY session.id, session.created_at
         ORDER BY COALESCE(MAX(turn_item.updated_at), session.created_at) DESC
         """.trimIndent(),
@@ -42,13 +57,41 @@ class AiSearchRepository(
         visitorId,
     )
 
+    fun sessionIdsForDossier(dossierId: String): List<String> = jdbc.queryForList(
+        """
+        SELECT session.id::text
+        FROM ai_search_session session
+        LEFT JOIN ai_search_turn turn_item ON turn_item.session_id = session.id
+        WHERE session.dossier_id = ?::uuid
+        GROUP BY session.id, session.created_at
+        ORDER BY COALESCE(MAX(turn_item.updated_at), session.created_at) DESC
+        """.trimIndent(),
+        String::class.java,
+        dossierId,
+    )
+
+    /** Verplaatst een cookie-zoekopdracht naar een dossier; daarna is de cookie niet meer de sleutel. */
+    fun adoptSession(id: String, visitorId: String, owner: AiSearchOwner): Boolean = jdbc.update(
+        """
+        UPDATE ai_search_session SET visitor_id = NULL, dossier_id = ?::uuid, user_id = ?::uuid, created_by_email = ?
+        WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL
+        """.trimIndent(),
+        owner.dossierId, owner.userId, owner.userEmail, id, visitorId,
+    ) > 0
+
     fun deleteSession(id: String, visitorId: String): Boolean = jdbc.update(
-        "DELETE FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid",
+        "DELETE FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL",
         id,
         visitorId,
     ) > 0
 
-    fun createTurn(sessionId: String, question: String): AiSearchTurn {
+    fun deleteSessionInDossier(id: String, dossierId: String): Boolean = jdbc.update(
+        "DELETE FROM ai_search_session WHERE id = ?::uuid AND dossier_id = ?::uuid",
+        id,
+        dossierId,
+    ) > 0
+
+    fun createTurn(sessionId: String, question: String, dossierContext: String? = null): AiSearchTurn {
         val id = UUID.randomUUID().toString()
         val number = jdbc.queryForObject(
             "SELECT COALESCE(MAX(turn_number), 0) + 1 FROM ai_search_turn WHERE session_id = ?::uuid",
@@ -57,10 +100,10 @@ class AiSearchRepository(
         ) ?: 1
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message)
-            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid')
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context)
+            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?)
             """.trimIndent(),
-            id, sessionId, number, question,
+            id, sessionId, number, question, dossierContext,
         )
         return requireNotNull(findTurn(id))
     }
@@ -69,6 +112,20 @@ class AiSearchRepository(
         "SELECT * FROM ai_search_turn WHERE session_id = ?::uuid ORDER BY turn_number",
         rowMapper,
         sessionId,
+    )
+
+    /** Alle geslaagde antwoorden in een dossier, nieuwste eerst. */
+    fun dossierAnswers(dossierId: String, excludingTurnId: String? = null, limit: Int = Int.MAX_VALUE): List<AiSearchTurn> = jdbc.query(
+        """
+        SELECT turn_item.* FROM ai_search_turn turn_item
+        JOIN ai_search_session session ON session.id = turn_item.session_id
+        WHERE session.dossier_id = ?::uuid AND turn_item.status = 'SUCCEEDED'
+          AND (?::uuid IS NULL OR turn_item.id <> ?::uuid)
+        ORDER BY turn_item.completed_at DESC NULLS LAST
+        LIMIT ?
+        """.trimIndent(),
+        rowMapper,
+        dossierId, excludingTurnId, excludingTurnId, limit,
     )
 
     fun findTurn(id: String): AiSearchTurn? = jdbc.query(
@@ -85,6 +142,16 @@ class AiSearchRepository(
     fun activeTurnCount(): Int = jdbc.queryForObject(
         "SELECT COUNT(*) FROM ai_search_turn WHERE status IN ('SUBMITTING', 'QUEUED', 'RUNNING')",
         Int::class.java,
+    ) ?: 0
+
+    fun activeTurnCountForUser(userId: String): Int = jdbc.queryForObject(
+        """
+        SELECT COUNT(*) FROM ai_search_turn turn_item
+        JOIN ai_search_session session ON session.id = turn_item.session_id
+        WHERE session.user_id = ?::uuid AND turn_item.status IN ('SUBMITTING', 'QUEUED', 'RUNNING')
+        """.trimIndent(),
+        Int::class.java,
+        userId,
     ) ?: 0
 
     fun hasActiveTurn(sessionId: String): Boolean = jdbc.queryForObject(
@@ -154,6 +221,7 @@ class AiSearchRepository(
             createdAt = rs.getTimestamp("created_at").toInstant(),
             updatedAt = rs.getTimestamp("updated_at").toInstant(),
             completedAt = rs.getTimestamp("completed_at")?.toInstant(),
+            dossierContext = rs.getString("dossier_context"),
         )
     }
 

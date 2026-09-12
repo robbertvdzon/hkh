@@ -12,7 +12,7 @@ import java.time.Instant
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
 
-data class GoogleIdentity(val email: String, val emailVerified: Boolean)
+data class GoogleIdentity(val email: String, val emailVerified: Boolean, val displayName: String? = null)
 
 fun interface GoogleIdTokenVerifier {
     fun verify(idToken: String): GoogleIdentity
@@ -43,7 +43,8 @@ class NimbusGoogleIdTokenVerifier(
         if (expiry == null || expiry.isBefore(Instant.now())) throw unauthorized("Google ID token has expired")
         val email = claims.getStringClaim("email").orEmpty().trim().lowercase()
         if (email.isBlank()) throw unauthorized("Google ID token has no e-mail address")
-        return GoogleIdentity(email, claims.getBooleanClaim("email_verified") ?: false)
+        val name = runCatching { claims.getStringClaim("name") }.getOrNull()?.trim()?.takeIf(String::isNotEmpty)
+        return GoogleIdentity(email, claims.getBooleanClaim("email_verified") ?: false, name)
     }
 
     private fun unauthorized(message: String) = ResponseStatusException(HttpStatus.UNAUTHORIZED, message)

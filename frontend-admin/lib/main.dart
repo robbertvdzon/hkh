@@ -143,7 +143,9 @@ class _AdminGateState extends State<AdminGate> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _error = 'Inloggen mislukt. Controleer je HKH-beheeraccount.';
+      _error = error is StateError && error.message.isNotEmpty
+          ? error.message
+          : 'Inloggen mislukt. Controleer je HKH-beheeraccount.';
     });
   }
 
@@ -427,7 +429,10 @@ class _AdminHomeState extends State<_AdminHome> {
 }
 
 class _CollectionScrapeSection extends StatefulWidget {
-  const _CollectionScrapeSection({required this.identity, required this.source});
+  const _CollectionScrapeSection({
+    required this.identity,
+    required this.source,
+  });
 
   final AdminIdentity identity;
   final AdminScrapeSource source;
@@ -550,11 +555,15 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
                   : (value) => setState(() => _force = value ?? false),
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Alles opnieuw ophalen (i.p.v. alleen nieuwe/onvolledige)'),
+              title: const Text(
+                'Alles opnieuw ophalen (i.p.v. alleen nieuwe/onvolledige)',
+              ),
             ),
             const SizedBox(height: 4),
             OutlinedButton.icon(
-              onPressed: running || _loading ? null : () => _start(ScrapeMode.fast),
+              onPressed: running || _loading
+                  ? null
+                  : () => _start(ScrapeMode.fast),
               icon: running || _loading
                   ? const SizedBox.square(
                       dimension: 18,
@@ -571,7 +580,9 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: running || _loading ? null : () => _start(ScrapeMode.full),
+              onPressed: running || _loading
+                  ? null
+                  : () => _start(ScrapeMode.full),
               icon: running || _loading
                   ? const SizedBox.square(
                       dimension: 18,
@@ -619,7 +630,9 @@ class _StatusView extends StatelessWidget {
           Text('Bezig met: ${status.currentCollection}'),
         ],
         const SizedBox(height: 8),
-        LinearProgressIndicator(value: status.running ? fraction : (fraction ?? 0.0)),
+        LinearProgressIndicator(
+          value: status.running ? fraction : (fraction ?? 0.0),
+        ),
         const SizedBox(height: 8),
         Text(
           'Opgehaald: ${status.processed}  ·  Overgeslagen: ${status.skipped}'
@@ -629,10 +642,7 @@ class _StatusView extends StatelessWidget {
         ),
         if (status.message != null) ...[
           const SizedBox(height: 4),
-          Text(
-            status.message!,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(status.message!, style: Theme.of(context).textTheme.bodySmall),
         ],
       ],
     );

@@ -30,7 +30,19 @@ import org.testcontainers.postgresql.PostgreSQLContainer
     ],
 )
 @Import(LatestNewsApiIntegrationTest.AuthTestConfiguration::class)
-class LatestNewsApiIntegrationTest(@param:Autowired private val mockMvc: MockMvc) {
+class LatestNewsApiIntegrationTest(
+    @param:Autowired private val mockMvc: MockMvc,
+    @param:Autowired private val objectMapper: tools.jackson.databind.ObjectMapper,
+) {
+    /** Beheerroutes accepteren alleen het eigen sessietoken; wissel het (nep-)Google-token eerst in. */
+    private val sessionToken: String by lazy {
+        val body = mockMvc.post("/api/auth/google") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"idToken":"valid-token"}"""
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        objectMapper.readTree(body).path("token").asText()
+    }
+
     @Test
     fun `administrator creates news and public API returns it newest first`() {
         create("Eerste bericht", "Dit is het eerste nieuwsbericht.")
@@ -55,13 +67,19 @@ class LatestNewsApiIntegrationTest(@param:Autowired private val mockMvc: MockMvc
         mockMvc.post("/api/admin/news") {
             header("Authorization", "Bearer valid-token")
             contentType = MediaType.APPLICATION_JSON
+            content = """{"title":"Ruw Google-token","message":"Wordt niet meer geaccepteerd"}"""
+        }.andExpect { status { isUnauthorized() } }
+
+        mockMvc.post("/api/admin/news") {
+            header("Authorization", "Bearer $sessionToken")
+            contentType = MediaType.APPLICATION_JSON
             content = """{"title":"  ","message":"Geldig bericht"}"""
         }.andExpect { status { isBadRequest() } }
     }
 
     private fun create(title: String, message: String) {
         mockMvc.post("/api/admin/news") {
-            header("Authorization", "Bearer valid-token")
+            header("Authorization", "Bearer $sessionToken")
             contentType = MediaType.APPLICATION_JSON
             content = """{"title":"$title","message":"$message"}"""
         }.andExpect {

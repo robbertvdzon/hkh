@@ -121,9 +121,13 @@ class AdminSessionService implements AdminSessionSource {
   @override
   Stream<AdminIdentity> get identities => _identityController.stream;
 
-  /// Herstelt eerst een eerder bewaard token (geen Google-round trip, dus geen herhaalde
-  /// inlogprompt bij elke pagina-ververs) en valt alleen terug op Google's stille sign-in
-  /// als er niets bewaard is of het bewaarde token niet langer geldig blijkt.
+  /// Herstelt eerst het eerder bewaarde HKH-sessietoken (geen Google-round trip, dus geen
+  /// herhaalde inlogprompt bij elke pagina-ververs) en valt alleen terug op Google's stille
+  /// sign-in als er niets bewaard is of de bewaarde sessie niet langer geldig blijkt.
+  ///
+  /// Het sessietoken is een jaar geldig en schuift bij gebruik op; het vervalt alleen door
+  /// expliciet uitloggen of intrekking aan de serverkant. Het ruwe Google ID-token (één uur
+  /// geldig) wordt dus nooit bewaard.
   @override
   Future<AdminIdentity?> bootstrap() async {
     final stored = await _restoreStoredIdentity();
@@ -144,53 +148,91 @@ class AdminSessionService implements AdminSessionSource {
     final email = prefs.getString(_emailPrefsKey);
     if (token == null || email == null) return null;
     if (await _isValid(token)) {
-      return AdminIdentity(email, requestHeaders: {'Authorization': 'Bearer $token'});
+      return AdminIdentity(
+        email,
+        requestHeaders: {'Authorization': 'Bearer $token'},
+      );
     }
     await prefs.remove(_tokenPrefsKey);
     await prefs.remove(_emailPrefsKey);
     return null;
   }
 
-  Future<bool> _isValid(String idToken) async {
+  /// Een bewaarde sessie is geldig als de backend hem nog kent én het account beheerder is.
+  Future<bool> _isValid(String sessionToken) async {
     final response = await _client
         .get(
-          Uri.parse('$apiBaseUrl/api/admin/me'),
-          headers: {'Authorization': 'Bearer $idToken'},
+          Uri.parse('$apiBaseUrl/api/auth/me'),
+          headers: {'Authorization': 'Bearer $sessionToken'},
         )
         .timeout(const Duration(seconds: 10));
-    return response.statusCode == 200;
+    if (response.statusCode != 200) return false;
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return _isAdmin(json);
   }
 
+  /// Wisselt het (kortlevende) Google ID-token één keer in voor een HKH-sessietoken en bewaart
+  /// dat sessietoken lokaal.
   Future<AdminIdentity> _authenticate(GoogleSignInAccount account) async {
     final authentication = await account.authentication;
     final idToken = authentication.idToken;
     if (idToken == null) throw StateError('Google returned no ID token.');
     final response = await _client
-        .get(
-          Uri.parse('$apiBaseUrl/api/admin/me'),
-          headers: {'Authorization': 'Bearer $idToken'},
+        .post(
+          Uri.parse('$apiBaseUrl/api/auth/google'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'idToken': idToken}),
         )
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
-      throw StateError('Admin login rejected (${response.statusCode}).');
+      throw StateError(
+        'Inloggen geweigerd door de server (${response.statusCode}).',
+      );
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final email = json['email'] as String;
+    final sessionToken = json['token'] as String;
+    final user = json['user'] as Map<String, dynamic>;
+    if (!_isAdmin(user)) {
+      throw StateError('Dit account is geen HKH-beheerder.');
+    }
+    final email = user['email'] as String;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenPrefsKey, idToken);
+    await prefs.setString(_tokenPrefsKey, sessionToken);
     await prefs.setString(_emailPrefsKey, email);
     return AdminIdentity(
       email,
-      requestHeaders: {'Authorization': 'Bearer $idToken'},
+      requestHeaders: {'Authorization': 'Bearer $sessionToken'},
     );
+  }
+
+  static bool _isAdmin(Map<String, dynamic> user) {
+    final roles = user['roles'];
+    return roles is List && roles.contains('ADMIN');
   }
 
   @override
   Future<void> signOut() async {
     final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenPrefsKey);
+    if (token != null) {
+      try {
+        await _client
+            .post(
+              Uri.parse('$apiBaseUrl/api/auth/logout'),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // De sessie wordt lokaal hoe dan ook gewist; een mislukte server-logout is niet erg.
+      }
+    }
     await prefs.remove(_tokenPrefsKey);
     await prefs.remove(_emailPrefsKey);
-    await _googleSignIn.signOut();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {
+      // Zonder Google-plugin (bijv. in tests) is er niets uit te loggen.
+    }
   }
 
   @override

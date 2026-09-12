@@ -38,7 +38,14 @@ class AgentRuntimeClient(
 
     fun isConfigured(): Boolean = properties.enabled && properties.runtimeToken.isNotBlank()
 
-    fun createJob(idempotencyKey: String, instruction: String): RuntimeJob {
+    val pollIntervalMs: Long get() = properties.pollIntervalMs.coerceIn(500, 15_000)
+
+    fun createJob(
+        idempotencyKey: String,
+        instruction: String,
+        resultSchema: JsonNode = SEARCH_RESULT_SCHEMA,
+        executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
+    ): RuntimeJob {
         val body = mapOf(
             "idempotencyKey" to idempotencyKey,
             "jobKind" to "APPLICATION_WORK",
@@ -48,9 +55,9 @@ class AgentRuntimeClient(
                 "model" to properties.model,
                 "mode" to properties.mode,
             ),
-            "input" to mapOf("instruction" to instruction, "objects" to emptyList<Any>()),
-            "output" to mapOf("resultSchema" to RESULT_SCHEMA, "artifacts" to emptyList<Any>()),
-            "executionTimeoutSeconds" to properties.executionTimeoutSeconds,
+            "input" to mapOf("instruction" to instruction.take(MAX_INSTRUCTION_LENGTH), "objects" to emptyList<Any>()),
+            "output" to mapOf("resultSchema" to resultSchema, "artifacts" to emptyList<Any>()),
+            "executionTimeoutSeconds" to executionTimeoutSeconds,
         )
         val json = client.post().uri("/v2/jobs").body(body).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen job terug")
@@ -88,6 +95,9 @@ class AgentRuntimeClient(
         return RuntimeActivity(cursor, activity)
     }
 
+    /** Maakt een JSON-schema-node uit een letterlijke schema-tekst; handig voor andere modules. */
+    fun schema(json: String): JsonNode = objectMapper.readTree(json)
+
     private fun classifyActivity(text: String): String? = when {
         text.contains("/api/collections/search") -> "Een nieuwe zoekpagina uit de collectie wordt opgehaald"
         text.contains("/api/collections/") -> "Details van relevante bronnen worden gecontroleerd"
@@ -104,7 +114,7 @@ class AgentRuntimeClient(
         errorMessage = node.path("errorMessage").takeUnless(JsonNode::isMissingNode)?.takeUnless(JsonNode::isNull)?.asText(),
     )
 
-    private val RESULT_SCHEMA: JsonNode by lazy {
+    private val SEARCH_RESULT_SCHEMA: JsonNode by lazy {
         objectMapper.readTree(
             """
             {
@@ -134,5 +144,10 @@ class AgentRuntimeClient(
             }
             """.trimIndent(),
         )
+    }
+
+    companion object {
+        /** Limiet van het runtime-contract voor `input.instruction`. */
+        const val MAX_INSTRUCTION_LENGTH = 65_536
     }
 }

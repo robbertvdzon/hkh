@@ -101,7 +101,9 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ steps.metadata.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.event_name == 'push' && 'main' || steps.metadata.outputs.tag }}
-          build-args: API_BASE_URL=${{ steps.runtime.outputs.api_base_url }}
+          build-args: |
+            API_BASE_URL=${{ steps.runtime.outputs.api_base_url }}
+            GOOGLE_CLIENT_ID=${{ steps.runtime.outputs.google_client_id }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
@@ -121,7 +123,7 @@ jobs:
           cache-from: type=gha,scope=admin
           cache-to: type=gha,mode=max,scope=admin
 
-      # AppConfig.apiBaseUrl (frontend & frontend-admin) and PREVIEW_MODE/GOOGLE_CLIENT_ID (admin)
+      # AppConfig.apiBaseUrl and GOOGLE_CLIENT_ID (frontend & frontend-admin) and PREVIEW_MODE (admin)
       # are compile-time Dart constants (see lib/config/app_config.dart), not runtime env vars.
       # The regular push build above bakes in the real production API_BASE_URL and requires Google
       # login (PREVIEW_MODE=false) — reused as-is by the standing acceptance environment, that would
@@ -136,7 +138,9 @@ jobs:
           context: frontend
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ steps.metadata.outputs.tag }}-acceptance
-          build-args: API_BASE_URL=
+          build-args: |
+            API_BASE_URL=
+            GOOGLE_CLIENT_ID=
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 

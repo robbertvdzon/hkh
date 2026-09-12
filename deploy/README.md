@@ -32,9 +32,15 @@ certificaat van de huidige cluster als die repository niet beschikbaar is.
 `HKH_AGENT_RUNTIME_TOKEN` is het consumer-token waarmee alleen de HKH-backend AI-jobs aanmaakt.
 Het token wordt nooit aan de Flutter-app of de browser doorgegeven.
 
-Google-login blijft bewust uitgeschakeld zolang zowel `HKH_GOOGLE_CLIENT_ID` als
-`HKH_ADMIN_ALLOWED_EMAILS` leeg zijn. Voor echte login moeten dezelfde Google web-client-ID in
-het clustersecret en in de GitHub Actions-variable `GOOGLE_CLIENT_ID` staan.
+Google-login (publieke app én beheerscherm) staat aan zodra `HKH_GOOGLE_CLIENT_ID` is gezet;
+zolang die leeg is, is inloggen uitgeschakeld. `HKH_ADMIN_ALLOWED_EMAILS` bepaalt alleen wie
+beheerder is. Dezelfde Google web-client-ID moet in het clustersecret en in de GitHub
+Actions-variable `GOOGLE_CLIENT_ID` staan (die wordt in beide frontends ingebakken). In Google
+Cloud moet het domein van de publieke frontend (naast dat van het beheerscherm en
+`http://localhost:*` voor lokaal ontwikkelen) als "Authorized JavaScript origin" op diezelfde
+OAuth-client staan. Voor de Android-app is daarnaast een aparte Android OAuth-client nodig in
+hetzelfde Google Cloud-project, met de package-naam en de SHA-1 van de release-keystore; de app
+zelf blijft de web-client-ID als `serverClientId` gebruiken.
 
 ## Controleren en installeren
 

@@ -53,4 +53,17 @@ De publieke API ondersteunt het overzicht en beheer via `GET /api/ai-search/sess
 `GET /api/ai-search/sessions/{id}` en `DELETE /api/ai-search/sessions/{id}`. De backend controleert
 bij iedere detail-, vervolg-, annuleer- en verwijderactie of de opdracht bij de cookie hoort.
 
+## Accounts en dossiers
+
+Inloggen met Google is optioneel en staat aan zodra `HKH_GOOGLE_CLIENT_ID` is gezet. Het Google
+ID-token wordt één keer ingewisseld voor een eigen sessietoken (`POST /api/auth/google`) dat een jaar
+geldig is en bij gebruik verlengt; alleen de hash staat in de database. Beheerroutes accepteren
+uitsluitend dat sessietoken van een account op `HKH_ADMIN_ALLOWED_EMAILS`.
+
+Ingelogde gebruikers bouwen onderzoeksdossiers (`/api/dossiers`): vragen aan het archief met
+dossiercontext, een door AI bijgehouden feitenlijst, en artikelen in Markdown met versiegeschiedenis
+en AI-voorstellen (`/api/articles`). Dossiers zijn per e-mailadres deelbaar met de rollen lezer,
+onderzoeker en bewerker. Het volledige ontwerp staat in
+[docs/architecture/accounts-en-dossiers.md](docs/architecture/accounts-en-dossiers.md).
+
 Echte secrets, lokale overrides, buildoutput en IDE-bestanden worden niet gecommit.
