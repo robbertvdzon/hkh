@@ -91,7 +91,10 @@ class AiSearchController(private val service: AiSearchService) {
         val existing = runCatching { UUID.fromString(cookieValue) }.getOrNull()
         val id = existing ?: UUID.randomUUID()
         if (existing == null) {
-            val secure = request.isSecure || request.getHeader("X-Forwarded-Proto").equals("https", ignoreCase = true)
+            val localDevelopment = request.serverName.equals("localhost", ignoreCase = true) ||
+                request.serverName == "127.0.0.1"
+            val secure = !localDevelopment || request.isSecure ||
+                request.getHeader("X-Forwarded-Proto").equals("https", ignoreCase = true)
             response.addHeader(
                 HttpHeaders.SET_COOKIE,
                 ResponseCookie.from(VISITOR_COOKIE, id.toString())

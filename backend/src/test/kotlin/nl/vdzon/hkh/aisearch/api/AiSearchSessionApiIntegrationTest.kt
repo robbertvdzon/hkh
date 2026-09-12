@@ -25,12 +25,15 @@ class AiSearchSessionApiIntegrationTest(
 ) {
     @Test
     fun `first visit receives a persistent anonymous cookie`() {
-        mockMvc.get("/api/ai-search/sessions")
+        mockMvc.get("/api/ai-search/sessions") {
+            header(HttpHeaders.HOST, "hkh.vdzonsoftware.nl")
+        }
             .andExpect {
                 status { isOk() }
                 header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("hkh_ai_visitor=")) }
                 header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Max-Age=31536000")) }
                 header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("HttpOnly")) }
+                header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Secure")) }
                 content { json("[]") }
             }
     }
