@@ -68,4 +68,4 @@ images:
   newTag: sha-580e1cf
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-580e1cf-acceptance
+  newTag: sha-7ee7352-acceptance
