@@ -29,6 +29,9 @@ Het script schrijft alleen de versleutelde `deploy/base/sealed-secret-runtime.ya
 het publieke certificaat uit de sibling-repository `robberts-infrastructure`, of haalt het
 certificaat van de huidige cluster als die repository niet beschikbaar is.
 
+`HKH_AGENT_RUNTIME_TOKEN` is het consumer-token waarmee alleen de HKH-backend AI-jobs aanmaakt.
+Het token wordt nooit aan de Flutter-app of de browser doorgegeven.
+
 Google-login blijft bewust uitgeschakeld zolang zowel `HKH_GOOGLE_CLIENT_ID` als
 `HKH_ADMIN_ALLOWED_EMAILS` leeg zijn. Voor echte login moeten dezelfde Google web-client-ID in
 het clustersecret en in de GitHub Actions-variable `GOOGLE_CLIENT_ID` staan.

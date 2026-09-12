@@ -27,6 +27,16 @@ spec:
               value: -XX:MaxRAMPercentage=70.0
             - name: TZ
               value: Europe/Amsterdam
+            - name: HKH_AI_SEARCH_ENABLED
+              value: "true"
+            - name: HKH_AGENT_RUNTIME_BASE_URL
+              value: https://agent-runtime.vdzonsoftware.nl
+            - name: HKH_AI_SEARCH_VENDOR_ID
+              value: openai
+            - name: HKH_AI_SEARCH_MODEL
+              value: gpt-5.6-sol
+            - name: HKH_AI_SEARCH_MODE
+              value: SUBSCRIPTION
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

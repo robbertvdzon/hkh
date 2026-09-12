@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'backend/backend_client.dart';
+import 'ai_search/ai_search.dart';
+import 'ai_search/ai_search_page.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
 import 'collection/img_embed/img_embed.dart';
@@ -11,13 +13,14 @@ import 'self_update_prompt.dart';
 
 void main() {
   final backend = BackendClient(AppConfig.apiBaseUrl);
-  runApp(HkhApp(searchSource: backend));
+  runApp(HkhApp(searchSource: backend, aiSearchSource: backend));
 }
 
 class HkhApp extends StatelessWidget {
-  const HkhApp({required this.searchSource, super.key});
+  const HkhApp({required this.searchSource, this.aiSearchSource, super.key});
 
   final CollectionSearchSource searchSource;
+  final AiSearchSource? aiSearchSource;
 
   @override
   Widget build(BuildContext context) {
@@ -31,15 +34,19 @@ class HkhApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: HomePage(searchSource: searchSource),
+      home: HomePage(
+        searchSource: searchSource,
+        aiSearchSource: aiSearchSource,
+      ),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.searchSource, super.key});
+  const HomePage({required this.searchSource, this.aiSearchSource, super.key});
 
   final CollectionSearchSource searchSource;
+  final AiSearchSource? aiSearchSource;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -66,7 +73,10 @@ class _HomePageState extends State<HomePage> {
             constraints: const BoxConstraints(maxWidth: 680),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: _HomeContent(searchSource: widget.searchSource),
+              child: _HomeContent(
+                searchSource: widget.searchSource,
+                aiSearchSource: widget.aiSearchSource,
+              ),
             ),
           ),
         ),
@@ -76,9 +86,13 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.searchSource});
+  const _HomeContent({
+    required this.searchSource,
+    required this.aiSearchSource,
+  });
 
   final CollectionSearchSource searchSource;
+  final AiSearchSource? aiSearchSource;
 
   @override
   Widget build(BuildContext context) {
@@ -96,10 +110,106 @@ class _HomeContent extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
+        if (aiSearchSource != null) ...[
+          _AiHomeCard(source: aiSearchSource!),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'of zoek zelf',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
         _HomeSearchSection(source: searchSource),
       ],
     );
   }
+}
+
+class _AiHomeCard extends StatefulWidget {
+  const _AiHomeCard({required this.source});
+  final AiSearchSource source;
+
+  @override
+  State<_AiHomeCard> createState() => _AiHomeCardState();
+}
+
+class _AiHomeCardState extends State<_AiHomeCard> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _open() {
+    final question = _controller.text.trim();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AiSearchPage(
+          source: widget.source,
+          initialQuestion: question.isEmpty ? null : question,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: Theme.of(
+      context,
+    ).colorScheme.secondaryContainer.withValues(alpha: 0.55),
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Vraag het archief',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Stel een vrije vraag. De digitale onderzoeker zoekt zelf de relevante bronnen, verhalen en afbeeldingen bij elkaar.',
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _controller,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _open(),
+            decoration: InputDecoration(
+              hintText: 'Bijv. wat is er bekend over de Kerklaan?',
+              prefixIcon: const Icon(Icons.question_answer_outlined),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                onPressed: _open,
+                icon: const Icon(Icons.arrow_forward),
+                tooltip: 'Vraag stellen',
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Zoekbalk direct op de startpagina, mét "Uitgebreid zoeken": toont meteen een
@@ -212,7 +322,10 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
         ),
         if (_advancedOpen) ...[
           const SizedBox(height: 4),
-          AdvancedSearchFields(controllers: _fieldControllers, onSubmit: _search),
+          AdvancedSearchFields(
+            controllers: _fieldControllers,
+            onSubmit: _search,
+          ),
         ],
         if (_loading) ...[
           const SizedBox(height: 16),
