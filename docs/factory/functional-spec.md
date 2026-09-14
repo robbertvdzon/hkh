@@ -89,6 +89,21 @@ Het accountmenu van een ingelogde gebruiker bevat uitsluitend **Uitloggen**.
 Op smalle schermen gebruikt ook de accountbediening een compacte icoonweergave,
 zodat de appbalk niet horizontaal overloopt.
 
+De dossierschermen en -dialogen (Mijn dossiers, Nieuw dossier, het dossierdetail
+met Vragen, Feitenlijst en Artikelen, In dossier zetten en Delen en leden)
+gebruiken dezelfde vormgeving als de homepage: achtergrond `#FBF6EE`,
+donkergroen `#1F3B2E` voor titels, primaire knoppen en links, dunne randen
+`#D9CFBB` op neutrale kaarten, 16 px afronding op kaarten, 10 px op velden en
+knoppen en minimaal 32 px tussen inhoudelijke secties. Rolchips hebben een vaste
+kleur per rol: Eigenaar `#DCE9DA`, Bewerker `#F0E6D2`, Onderzoeker `#D9ECE7` en
+Lezer `#ECE8DD`. Tot en met 600 px vullen dialogen de beschikbare breedte binnen
+de normale schermmarges en stapelen kaartinhoud, dialoogvelden en ledenacties
+verticaal; ook bij 320 px breedte en 200% tekstschaling ontstaat geen
+horizontale overflow en worden lange e-mailadressen met ellipsis afgekapt. Deze
+vormgeving raakt alleen de presentatie: teksten, validatie, de `canResearch`-
+filter van In dossier zetten en de `canManage`-autorisatie van Delen en leden
+blijven ongewijzigd.
+
 ## Testerregels van de factory
 
 Een testerresultaat bereikt alleen `tested` met compleet groen machinebewijs uit

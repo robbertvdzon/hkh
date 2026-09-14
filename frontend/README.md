@@ -7,6 +7,10 @@ De Flutter-app voor bezoekers (web en Android).
 - Homepage (`lib/main.dart`) met een primaire AI-vraagroute, een ondergeschikte
   collectiezoeker en een responsieve appbalk. De pagina rendert direct en toont
   geen technische status- of versie-informatie.
+- Gedeelde vormgeving (`lib/theme/app_style.dart`): de kleuren, afrondingen,
+  rolchipkleuren, thema's en bouwstenen (`AppDialog`, `AppCard`) die de homepage
+  en de dossierschermen en -dialogen samen gebruiken. Nieuwe schermen halen deze
+  waarden hier op in plaats van ze opnieuw te definiëren.
 - AI-archiefonderzoek met een overzicht van eerdere vragen, voortgang,
   antwoorden, bronnen en vervolgvragen (`lib/ai_search/`).
 - Gewoon en uitgebreid collectiezoeken, resultaten en itemdetails
@@ -14,7 +18,8 @@ De Flutter-app voor bezoekers (web en Android).
 - Optionele Google-login en onderzoeksdossiers met vragen, feitenlijsten,
   artikelen, versiegeschiedenis en delen (`lib/auth/` en `lib/dossier/`). Voor
   ingelogde gebruikers opent de losse appbalkactie **Mijn dossiers** deze
-  functionaliteit; het accountmenu bevat alleen **Uitloggen**.
+  functionaliteit; het accountmenu bevat alleen **Uitloggen**. De
+  dossierschermen en -dialogen volgen dezelfde vormgeving als de homepage.
 - Self-update-check bij het openen van de app (`lib/update_checker.dart`,
   `lib/self_update_prompt.dart`), die op niet-webplatformen tegen de GitHub-API
   praat.

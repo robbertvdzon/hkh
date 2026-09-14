@@ -229,8 +229,9 @@ DELETE /api/articles/{id}
   gebruikers zien "Mijn dossiers" als losse appbalkactie (op smalle schermen
   alleen als toegankelijk gelabeld icoon) naast een accountmenu dat uitsluitend
   "Uitloggen" bevat.
-- **Mijn dossiers**: lijst met eigen en gedeelde dossiers, met rol, laatst gewijzigd en aantal
-  vragen en artikelen. Knop "Nieuw dossier" met titel en doel.
+- **Mijn dossiers**: eigen en gedeelde dossiers als kaarten, elk met een rolchip, het doel,
+  het aantal vragen en artikelen, het aantal leden bij een gedeeld dossier en de laatste
+  wijzigingsdatum. Knop "Nieuw dossier" met titel (verplicht) en doel (optioneel).
 - **Dossier**: drie tabbladen. *Vragen* toont de vragen zoals de bestaande AI-zoekpagina, met een
   invoerveld voor een nieuwe vraag. *Feitenlijst* toont de Markdown met knoppen "Bewerken" en
   "Laten bijwerken". *Artikelen* toont de artikelen met titel, versie en of er een open voorstel
