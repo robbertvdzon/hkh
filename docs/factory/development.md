@@ -58,8 +58,8 @@ niet buiten de repository uitkomen.
   `backend/src/main/kotlin`. Database-migraties via Flyway.
 - Frontend: Dart-bestanden in `snake_case`, widgets in `UpperCamelCase`.
   Netwerktoegang loopt via `lib/backend/backend_client.dart`; widgets krijgen een
-  datasource-interface (bv. `LatestNewsSource`) geïnjecteerd zodat ze in tests
-  met een fake te vullen zijn.
+  datasource-interface (bv. `CollectionSearchSource`, `AiSearchSource` of
+  `DossierSource`) geïnjecteerd zodat ze in tests met een fake te vullen zijn.
 - Teststrategie: backend met JUnit/Spring-tests, frontends met `flutter_test`
   (widgettests met fake sources, clienttests met `MockClient` uit `http/testing`).
 - Lintregels voor de Flutter-apps staan in `analysis_options.yaml`

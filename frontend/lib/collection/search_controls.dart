@@ -67,30 +67,22 @@ class AdvancedSearchFields extends StatelessWidget {
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => onSubmit(),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => onSubmit(),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-              ),
-            ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
           ),
-        ],
+        ),
       ),
     );
   }

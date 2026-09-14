@@ -19,9 +19,10 @@
 - De frontends praten alleen via HTTP-endpoints onder `/api/...` met de backend.
   `/actuator/health` en `/api/version` bestaan voor monitoring en deploy en worden
   niet vanuit de homepage aangeroepen.
-- Datasources in de frontend zijn interfaces (bv. `LatestNewsSource` in
-  `lib/news/latest_news.dart`) met `BackendClient` als productie-implementatie;
-  widgets krijgen de interface geïnjecteerd zodat ze testbaar blijven.
+- Datasources in de frontend zijn interfaces (zoals `CollectionSearchSource`,
+  `AiSearchSource` en `DossierSource`) met `BackendClient` als
+  productie-implementatie; widgets krijgen de interface geïnjecteerd zodat ze
+  testbaar blijven.
 - Laad- en foutafhandeling hoort bij de sectie die de data nodig heeft, niet op
   paginaniveau: een falende backend maakt de homepage niet onbruikbaar.
 
