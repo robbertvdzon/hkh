@@ -17,13 +17,13 @@ delen. Vastgesteld op 12 september 2026.
 
 ## 1. Accounts en sessies
 
-### Waarom het beheerscherm nu na een uur uitlogt
+### Waarom het oude beheerscherm na een uur uitlogde
 
-De admin-frontend bewaart het ruwe Google ID-token en stuurt dat bij elk verzoek mee; de backend
-verifieert dat token bij elk verzoek opnieuw (`AdminAuthenticator`). Google ID-tokens zijn één uur
-geldig. De software factory lost dit op door het ID-token één keer in te wisselen voor een eigen
-sessietoken (`dashboard-backend` `AuthService.loginWithGoogle`). HKH doet hetzelfde, maar met een
-sessie in de database zodat sessies intrekbaar zijn.
+De eerdere admin-frontend bewaarde het ruwe Google ID-token en stuurde dat bij elk verzoek mee; de
+backend verifieerde dat token bij elk verzoek opnieuw (`AdminAuthenticator`). Google ID-tokens zijn
+één uur geldig. De software factory lost dit op door het ID-token één keer in te wisselen voor een
+eigen sessietoken (`dashboard-backend` `AuthService.loginWithGoogle`). HKH gebruikt nu hetzelfde
+principe, maar met een sessie in de database zodat sessies intrekbaar zijn.
 
 ### Model
 
@@ -217,8 +217,10 @@ DELETE /api/articles/{id}
 
 ## 4. Schermen in de publieke app
 
-- **Kop van de app**: knop "Inloggen met Google" of de naam met een menu (Mijn dossiers,
-  Uitloggen).
+- **Kop van de app**: voor bezoekers de knop "Inloggen met Google". Ingelogde
+  gebruikers zien "Mijn dossiers" als losse appbalkactie (op smalle schermen
+  alleen als toegankelijk gelabeld icoon) naast een accountmenu dat uitsluitend
+  "Uitloggen" bevat.
 - **Mijn dossiers**: lijst met eigen en gedeelde dossiers, met rol, laatst gewijzigd en aantal
   vragen en artikelen. Knop "Nieuw dossier" met titel en doel.
 - **Dossier**: drie tabbladen. *Vragen* toont de vragen zoals de bestaande AI-zoekpagina, met een

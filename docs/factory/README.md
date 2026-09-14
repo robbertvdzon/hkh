@@ -9,9 +9,11 @@ aparte adminapp.
 
 - `backend/` — Kotlin/Spring Boot (Spring Modulith) API met PostgreSQL en Flyway.
   Levert onder meer `/api/news`, `/api/version` en `/actuator/health`.
-- `frontend/` — Flutter-gebruikersapp (web en Android) met de homepage,
-  productvisiepagina en de sectie "Laatste nieuws".
-- `frontend-admin/` — afzonderlijke Flutter-webapp voor beheerders.
+- `frontend/` — Flutter-gebruikersapp (web en Android) met AI-archiefonderzoek,
+  collectiezoeken, optionele accounts en onderzoeksdossiers. De homepage zet de
+  AI-vraagroute voorop en biedt collectiezoeken als ondergeschikte route.
+- `frontend-admin/` — afzonderlijke Flutter-webapp voor beheerders, voor
+  ZCBS-collectie-import en het publiceren van nieuwsberichten.
 - `deploy/` — OpenShift/Kustomize/ArgoCD-configuratie, overlays en sealed secrets.
 - `tools/` — hulpscripts, waaronder de baseline-contract- en pariteitschecks
   (`baseline-contract-test.sh`, `verify-baseline-parity.py`).
