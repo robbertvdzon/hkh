@@ -21,6 +21,16 @@ import 'dossier/dossier_dialogs.dart';
 import 'dossier/dossier_list_page.dart';
 import 'self_update_prompt.dart';
 
+const _homeBackground = Color(0xFFFBF6EE);
+const _aiCardBackground = Color(0xFFDCE9DA);
+const _homeGreen = Color(0xFF1F3B2E);
+const _collectionBorder = Color(0xFFD9CFBB);
+const _controlBorder = Color(0xFF647566);
+const _errorBackground = Color(0xFFFBE9E7);
+const _errorForeground = Color(0xFF9F201B);
+const _cardRadius = 16.0;
+const _controlRadius = 10.0;
+
 void main() {
   final UserSessionController session = AppConfig.googleClientId.isEmpty
       ? DisabledUserSession()
@@ -59,7 +69,7 @@ class HkhApp extends StatelessWidget {
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
 
-  /// Zonder dossierbron ontbreekt "Mijn dossiers" in het accountmenu.
+  /// Zonder dossierbron ontbreekt de losse actie "Mijn dossiers".
   final DossierSource? dossierSource;
 
   /// Optionele login; zonder controller draait de app anoniem (zoals in tests).
@@ -166,15 +176,23 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isNarrow = MediaQuery.sizeOf(context).width <= 600;
     return Scaffold(
+      backgroundColor: _homeBackground,
       appBar: AppBar(
-        title: const Text('Historisch Heemskerk'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text(
+          'Historisch Heemskerk',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          _SessionAction(
+          _SessionActions(
             session: _session,
             onSignIn: _signIn,
             onOpenDossiers: widget.dossierSource == null ? null : _openDossiers,
             onSignOut: _session.signOut,
+            isNarrow: isNarrow,
           ),
         ],
       ),
@@ -182,13 +200,20 @@ class _HomePageState extends State<HomePage> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: _HomeContent(
-                searchSource: widget.searchSource,
-                aiSearchSource: widget.aiSearchSource,
-                dossierSource: widget.dossierSource,
-                session: _session,
+            child: Theme(
+              data: _homeTheme(context),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isNarrow ? 16 : 24,
+                  vertical: 24,
+                ),
+                child: _HomeContent(
+                  searchSource: widget.searchSource,
+                  aiSearchSource: widget.aiSearchSource,
+                  dossierSource: widget.dossierSource,
+                  session: _session,
+                  isNarrow: isNarrow,
+                ),
               ),
             ),
           ),
@@ -198,58 +223,104 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+ThemeData _homeTheme(BuildContext context) {
+  final base = Theme.of(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(_controlRadius),
+    borderSide: const BorderSide(color: _controlBorder),
+  );
+  return base.copyWith(
+    colorScheme: base.colorScheme.copyWith(
+      primary: _homeGreen,
+      onPrimary: Colors.white,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: border,
+      enabledBorder: border,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(_controlRadius),
+        borderSide: const BorderSide(color: _homeGreen, width: 2),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        backgroundColor: _homeGreen,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_controlRadius),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: _homeGreen,
+        side: const BorderSide(color: _homeGreen),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_controlRadius),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: _homeGreen,
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_controlRadius),
+        ),
+      ),
+    ),
+  );
+}
+
 class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.searchSource,
     required this.aiSearchSource,
     required this.dossierSource,
     required this.session,
+    required this.isNarrow,
   });
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
   final DossierSource? dossierSource;
   final UserSessionController session;
+  final bool isNarrow;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        Icon(
-          Icons.account_balance,
-          size: 64,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(height: 20),
         const Text(
-          'Ontdek de geschiedenis van Heemskerk vanuit een vraag, plek, persoon of gebeurtenis.\n'
-          'Verken betrouwbare historische bronnen en hun verbindingen met de wereld daarbuiten.',
+          'Ontdek historisch Heemskerk',
           textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _homeGreen,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
+        const Text(
+          'Stel een vraag over plekken, personen of gebeurtenissen uit de geschiedenis van Heemskerk.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _homeGreen),
+        ),
+        SizedBox(height: isNarrow ? 32 : 40),
         if (aiSearchSource != null) ...[
           _AiHomeCard(
             source: aiSearchSource!,
             dossierSource: dossierSource,
             session: session,
+            isNarrow: isNarrow,
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'of zoek zelf',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              const Expanded(child: Divider()),
-            ],
-          ),
-          const SizedBox(height: 20),
+          SizedBox(height: isNarrow ? 32 : 40),
         ],
-        _HomeSearchSection(source: searchSource),
+        _HomeSearchSection(source: searchSource, isNarrow: isNarrow),
       ],
     );
   }
@@ -260,10 +331,12 @@ class _AiHomeCard extends StatefulWidget {
     required this.source,
     required this.dossierSource,
     required this.session,
+    required this.isNarrow,
   });
   final AiSearchSource source;
   final DossierSource? dossierSource;
   final UserSessionController session;
+  final bool isNarrow;
 
   @override
   State<_AiHomeCard> createState() => _AiHomeCardState();
@@ -309,58 +382,76 @@ class _AiHomeCardState extends State<_AiHomeCard> {
 
   @override
   Widget build(BuildContext context) => Card(
-    color: Theme.of(
-      context,
-    ).colorScheme.secondaryContainer.withValues(alpha: 0.55),
+    key: const Key('ai-question-card'),
+    margin: EdgeInsets.zero,
+    elevation: 0,
+    color: _aiCardBackground,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_cardRadius),
+    ),
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(widget.isNarrow ? 20 : 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Vraag het archief',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ],
+          Text(
+            'Wat wilt u weten?',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: _homeGreen,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Start een AI-zoekopdracht met een vrije vraag. De digitale onderzoeker zoekt zelf de relevante bronnen, verhalen en afbeeldingen bij elkaar. Dit kan enkele minuten duren.',
+            'Bijv. wat is er bekend over de Kerklaan? De digitale onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.',
+            style: TextStyle(color: _homeGreen),
           ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _open(),
-            decoration: InputDecoration(
-              hintText: 'Bijv. wat is er bekend over de Kerklaan?',
-              prefixIcon: const Icon(Icons.question_answer_outlined),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                onPressed: _open,
-                icon: const Icon(Icons.arrow_forward),
-                tooltip: 'Vraag stellen',
-              ),
+          const SizedBox(height: 18),
+          if (widget.isNarrow) ...[
+            _questionField(),
+            const SizedBox(height: 12),
+            FilledButton(
+              key: const Key('ai-question-button'),
+              onPressed: _open,
+              child: const Text('Vraag stellen'),
             ),
-          ),
-          const SizedBox(height: 6),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _questionField()),
+                const SizedBox(width: 12),
+                FilledButton(
+                  key: const Key('ai-question-button'),
+                  onPressed: _open,
+                  child: const Text('Vraag stellen'),
+                ),
+              ],
+            ),
+          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+            child: TextButton(
               onPressed: _openHistory,
-              icon: const Icon(Icons.history),
-              label: const Text('Mijn AI-zoekopdrachten'),
+              child: const Text(
+                'Eerdere vragen',
+                style: TextStyle(decoration: TextDecoration.underline),
+              ),
             ),
           ),
         ],
       ),
+    ),
+  );
+
+  Widget _questionField() => TextField(
+    key: const Key('ai-question-field'),
+    controller: _controller,
+    textInputAction: TextInputAction.search,
+    onSubmitted: (_) => _open(),
+    decoration: const InputDecoration(
+      labelText: 'Uw vraag',
+      hintText: 'Bijv. wat is er bekend over de Kerklaan?',
     ),
   );
 }
@@ -368,9 +459,10 @@ class _AiHomeCardState extends State<_AiHomeCard> {
 /// Zoekbalk direct op de startpagina, mét "Uitgebreid zoeken": toont meteen een
 /// paar treffers, met een link door naar het volledige zoekscherm.
 class _HomeSearchSection extends StatefulWidget {
-  const _HomeSearchSection({required this.source});
+  const _HomeSearchSection({required this.source, required this.isNarrow});
 
   final CollectionSearchSource source;
+  final bool isNarrow;
 
   @override
   State<_HomeSearchSection> createState() => _HomeSearchSectionState();
@@ -380,10 +472,12 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
   final _controller = TextEditingController();
   final _fieldControllers = SearchFieldControllers();
   bool _advancedOpen = false;
+  bool _tipsOpen = false;
   List<CollectionItemSummary>? _results;
   int _total = 0;
   bool _loading = false;
   bool _searched = false;
+  bool _failed = false;
 
   @override
   void dispose() {
@@ -400,6 +494,7 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
     setState(() {
       _loading = true;
       _searched = true;
+      _failed = false;
     });
     try {
       final result = await widget.source.search(
@@ -413,12 +508,14 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
         _results = result.items;
         _total = result.total;
         _loading = false;
+        _failed = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _results = const [];
         _loading = false;
+        _failed = true;
       });
     }
   }
@@ -440,77 +537,178 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _search(),
-                decoration: const InputDecoration(
-                  hintText: 'Zoek in de collectie…',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-              ),
+    return Container(
+      key: const Key('collection-search-section'),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _collectionBorder),
+        borderRadius: BorderRadius.circular(_cardRadius),
+      ),
+      padding: EdgeInsets.all(widget.isNarrow ? 20 : 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Zelf zoeken in de collectie',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: _homeGreen,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(width: 8),
-            FilledButton(onPressed: _search, child: const Text('Zoeken')),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Los woorden voor een EN-zoekopdracht, of zet een zin tussen '
-          '"aanhalingstekens" voor een exacte frase.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 4),
-        TextButton.icon(
-          onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
-          icon: Icon(_advancedOpen ? Icons.expand_less : Icons.expand_more),
-          label: const Text('Uitgebreid zoeken'),
-        ),
-        if (_advancedOpen) ...[
-          const SizedBox(height: 4),
-          AdvancedSearchFields(
-            controllers: _fieldControllers,
-            onSubmit: _search,
           ),
-        ],
-        if (_loading) ...[
           const SizedBox(height: 16),
-          const Center(child: CircularProgressIndicator()),
-        ] else if (_searched) ...[
-          const SizedBox(height: 12),
-          if ((_results ?? const []).isEmpty)
-            const Text('Geen resultaten gevonden.')
-          else
-            Column(
+          if (widget.isNarrow) ...[
+            _searchField(),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              key: const Key('collection-search-button'),
+              onPressed: _search,
+              child: const Text('Zoeken'),
+            ),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final item in _results!) ...[
-                  _HomeResultTile(item: item, source: widget.source),
-                  const SizedBox(height: 8),
-                ],
+                Expanded(child: _searchField()),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  key: const Key('collection-search-button'),
+                  onPressed: _search,
+                  child: const Text('Zoeken'),
+                ),
               ],
             ),
-        ],
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _openFullSearch,
-            icon: const Icon(Icons.manage_search),
-            label: Text(
-              _searched && _total > 0
-                  ? 'Alle $_total resultaten'
-                  : 'Doorzoek de collectie',
+          const SizedBox(height: 4),
+          _DisclosureButton(
+            label: 'Zoektips',
+            expanded: _tipsOpen,
+            onPressed: () => setState(() => _tipsOpen = !_tipsOpen),
+          ),
+          if (_tipsOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                'Los woorden voor een EN-zoekopdracht, of zet een zin tussen '
+                '"aanhalingstekens" voor een exacte frase.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          _DisclosureButton(
+            label: 'Uitgebreid zoeken',
+            expanded: _advancedOpen,
+            onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
+          ),
+          if (_advancedOpen) ...[
+            const SizedBox(height: 4),
+            AdvancedSearchFields(
+              controllers: _fieldControllers,
+              onSubmit: _search,
+            ),
+          ],
+          if (_loading) ...[
+            const SizedBox(height: 16),
+            const Center(child: CircularProgressIndicator()),
+          ] else if (_failed) ...[
+            const SizedBox(height: 12),
+            const _CollectionSearchError(),
+          ] else if (_searched) ...[
+            const SizedBox(height: 12),
+            if ((_results ?? const []).isEmpty)
+              const Center(child: Text('Geen resultaten gevonden.'))
+            else
+              Column(
+                children: [
+                  for (final item in _results!) ...[
+                    _HomeResultTile(item: item, source: widget.source),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              ),
+          ],
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _openFullSearch,
+              child: Text(
+                _searched && _total > 0
+                    ? 'Alle $_total resultaten'
+                    : 'Doorzoek de collectie',
+                style: const TextStyle(decoration: TextDecoration.underline),
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchField() => TextField(
+    key: const Key('collection-search-field'),
+    controller: _controller,
+    textInputAction: TextInputAction.search,
+    onSubmitted: (_) => _search(),
+    decoration: const InputDecoration(
+      labelText: 'Zoekterm',
+      hintText: 'Zoek in de collectie…',
+    ),
+  );
+}
+
+class _DisclosureButton extends StatelessWidget {
+  const _DisclosureButton({
+    required this.label,
+    required this.expanded,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      expanded: expanded,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onPressed,
+          icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+          label: Text(label),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _CollectionSearchError extends StatelessWidget {
+  const _CollectionSearchError();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _errorBackground,
+          border: Border.all(color: const Color(0xFFE7AAA6)),
+          borderRadius: BorderRadius.circular(_controlRadius),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: _errorForeground),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Zoeken in de collectie is niet gelukt. Controleer de verbinding en probeer het opnieuw.',
+                style: TextStyle(color: _errorForeground),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -565,22 +763,24 @@ class _HomeResultTile extends StatelessWidget {
   }
 }
 
-enum _AccountMenuItem { dossiers, signOut }
+enum _AccountMenuItem { signOut }
 
-/// Knop rechtsboven: "Inloggen" als dat kan, een accountmenu als iemand is ingelogd, en
-/// niets als Google-login niet is geconfigureerd.
-class _SessionAction extends StatelessWidget {
-  const _SessionAction({
+/// Acties rechtsboven: voor een ingelogde gebruiker staat "Mijn dossiers"
+/// rechtstreeks naast het accountmenu. Zonder geconfigureerde login blijft de balk leeg.
+class _SessionActions extends StatelessWidget {
+  const _SessionActions({
     required this.session,
     required this.onSignIn,
     required this.onOpenDossiers,
     required this.onSignOut,
+    required this.isNarrow,
   });
 
   final UserSessionController session;
   final VoidCallback onSignIn;
   final VoidCallback? onOpenDossiers;
   final VoidCallback onSignOut;
+  final bool isNarrow;
 
   @override
   Widget build(BuildContext context) {
@@ -589,47 +789,78 @@ class _SessionAction extends StatelessWidget {
       builder: (context, _) {
         final identity = session.identity;
         if (identity != null) {
-          return PopupMenuButton<_AccountMenuItem>(
-            tooltip: 'Account',
-            onSelected: (item) => switch (item) {
-              _AccountMenuItem.dossiers => onOpenDossiers?.call(),
-              _AccountMenuItem.signOut => onSignOut(),
-            },
-            itemBuilder: (_) => [
-              if (onOpenDossiers != null)
-                const PopupMenuItem(
-                  value: _AccountMenuItem.dossiers,
-                  child: ListTile(
-                    leading: Icon(Icons.folder_outlined),
-                    title: Text('Mijn dossiers'),
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onOpenDossiers != null) ...[
+                if (isNarrow)
+                  IconButton(
+                    key: const Key('dossiers-action'),
+                    onPressed: onOpenDossiers,
+                    icon: const Icon(Icons.folder_outlined),
+                    tooltip: 'Mijn dossiers',
+                  )
+                else
+                  TextButton.icon(
+                    key: const Key('dossiers-action'),
+                    onPressed: onOpenDossiers,
+                    icon: const Icon(Icons.folder_outlined),
+                    label: const Text('Mijn dossiers'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: _homeGreen,
+                    ),
                   ),
+                Container(
+                  width: 1,
+                  height: 28,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  color: _collectionBorder,
                 ),
-              const PopupMenuItem(
-                value: _AccountMenuItem.signOut,
-                child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('Uitloggen'),
+              ],
+              PopupMenuButton<_AccountMenuItem>(
+                key: const Key('account-menu'),
+                tooltip: 'Account',
+                onSelected: (_) => onSignOut(),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: _AccountMenuItem.signOut,
+                    child: ListTile(
+                      leading: Icon(Icons.logout),
+                      title: Text('Uitloggen'),
+                    ),
+                  ),
+                ],
+                child: SizedBox(
+                  height: 48,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: isNarrow
+                        ? const SizedBox(
+                            width: 32,
+                            child: Icon(Icons.account_circle_outlined),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.account_circle_outlined),
+                              const SizedBox(width: 6),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 120,
+                                ),
+                                child: Text(
+                                  identity.label,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.account_circle_outlined),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 160),
-                    child: Text(
-                      identity.label,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
-            ),
           );
         }
         if (!session.configured) return const SizedBox.shrink();

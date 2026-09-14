@@ -82,7 +82,9 @@ class AdvancedSearchFields extends StatelessWidget {
               onSubmitted: (_) => onSubmit(),
               decoration: const InputDecoration(
                 isDense: true,
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                ),
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 8,
