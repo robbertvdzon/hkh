@@ -5,6 +5,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.testcontainers.junit.jupiter.Container
@@ -13,10 +16,32 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 
 @Testcontainers
 @SpringBootTest
+@AutoConfigureMockMvc
 class CollectionSearchIntegrationTest(
+    @param:Autowired private val mockMvc: MockMvc,
     @param:Autowired private val store: CollectionItemStore,
     @param:Autowired private val service: CollectionSearchService,
 ) {
+    @Test
+    fun `ordinary detail and search output keep object and media links on our site`() {
+        val origin = "https://www.historischekringheemskerk.nl"
+        store.upsert(fullRecord(ident = "local-links", title = "Unieke linkcontrole", description = "Bron $origin").copy(
+            detailUrl = "$origin/cgi-bin/artikelen.pl?ident=local-links",
+            imageUrl = "$origin/objecten/foto.jpg", pdfUrl = "$origin/objecten/artikel.pdf",
+            fields = mapOf("Bron" to "$origin/cgi-bin/artikelen.pl?ident=local-links"),
+        ))
+        val detail = mockMvc.get("/api/collections/artikelen/local-links").andExpect {
+            status { isOk() }
+            jsonPath("$.detailUrl") { value(CollectionLinks.detail("artikelen", "local-links")) }
+            jsonPath("$.imageUrl") { value(CollectionLinks.media("$origin/objecten/foto.jpg")) }
+            jsonPath("$.pdfUrl") { value(CollectionLinks.media("$origin/objecten/artikel.pdf")) }
+        }.andReturn().response.contentAsString
+        assertFalse(detail.contains("historischekringheemskerk", true))
+        val result = mockMvc.get("/api/collections/search?q=Unieke%20linkcontrole")
+            .andExpect { status { isOk() } }.andReturn().response.contentAsString
+        assertFalse(result.contains("historischekringheemskerk", true))
+    }
+
     @Test
     fun `websearch syntax supports quoted phrases and loose words`() {
         store.upsert(fullRecord(ident = "1", title = "De brand in de kerk en de toren", description = "Grote schade na de brand"))

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../ai_search/ai_search_page.dart';
 import '../auth/user_session.dart';
@@ -22,6 +23,7 @@ class DossierPage extends StatefulWidget {
     required this.dossierId,
     this.session,
     this.initialTab = 0,
+    this.initialQuestionId,
     super.key,
   });
 
@@ -31,6 +33,7 @@ class DossierPage extends StatefulWidget {
   /// Voor "Verlaten": het eigen e-mailadres komt uit de sessie.
   final UserSessionController? session;
   final int initialTab;
+  final String? initialQuestionId;
 
   @override
   State<DossierPage> createState() => _DossierPageState();
@@ -57,6 +60,24 @@ class _DossierPageState extends State<DossierPage>
   void initState() {
     super.initState();
     _load();
+    _tabs.addListener(_syncTab);
+  }
+
+  @override
+  void didUpdateWidget(covariant DossierPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != _tabs.index) _tabs.index = widget.initialTab;
+  }
+
+  void _syncTab() {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final uri = router.routeInformationProvider.value.uri;
+    if (!uri.path.startsWith('/dossiers/')) return;
+    final params = {...uri.queryParameters, 'tab': '${_tabs.index}'};
+    if (uri.queryParameters['tab'] != '${_tabs.index}') {
+      router.replace(uri.replace(queryParameters: params).toString());
+    }
   }
 
   @override
@@ -272,6 +293,7 @@ class _DossierPageState extends State<DossierPage>
                 controller: _tabs,
                 children: [
                   AiSearchPage(
+                    initialSessionId: widget.initialQuestionId,
                     source: _questionSource,
                     embedded: true,
                     overviewTitle: 'Vragen in dit dossier',

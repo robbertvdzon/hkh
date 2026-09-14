@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../navigation.dart';
 
 import '../auth/google_login_dialog.dart';
 import '../auth/user_session.dart';
@@ -96,13 +97,13 @@ class _DossierListPageState extends State<DossierListPage> {
   }
 
   Future<void> _open(String dossierId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DossierPage(
-          source: widget.source,
-          dossierId: dossierId,
-          session: widget.session,
-        ),
+    await openAppPage(
+      context,
+      '/dossiers/${Uri.encodeComponent(dossierId)}',
+      () => DossierPage(
+        source: widget.source,
+        dossierId: dossierId,
+        session: widget.session,
       ),
     );
     if (mounted && _signedIn) await _load();

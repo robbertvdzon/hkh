@@ -69,6 +69,24 @@ class AiSearchSessionApiIntegrationTest(
             }
     }
 
+    @Test
+    fun `previously saved answers never expose the import domain`() {
+        val visitor = UUID.randomUUID()
+        val sessionId = createCompletedSearch(visitor, "Bron op www.historischekringheemskerk.nl")
+        val legacy = "https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl?ident=42"
+        jdbc.update("UPDATE ai_search_turn SET answer_html = ? WHERE session_id = ?",
+            "<p><a href=\"$legacy\">$legacy</a></p>", sessionId)
+        val response = mockMvc.get("/api/ai-search/sessions/$sessionId") {
+            cookie(Cookie("hkh_ai_visitor", visitor.toString()))
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        kotlin.test.assertFalse(response.contains("historischekringheemskerk", ignoreCase = true))
+        kotlin.test.assertTrue(response.contains("https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/42"))
+        val overview = mockMvc.get("/api/ai-search/sessions") {
+            cookie(Cookie("hkh_ai_visitor", visitor.toString()))
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+        kotlin.test.assertFalse(overview.contains("historischekringheemskerk", ignoreCase = true))
+    }
+
     private fun createCompletedSearch(visitorId: UUID, question: String): UUID {
         val sessionId = UUID.randomUUID()
         val turnId = UUID.randomUUID()

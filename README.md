@@ -40,9 +40,22 @@ GET http://localhost:8080/swagger-ui.html
 mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 ```
 
+## Zoeken en objectlinks
+
+De zoekbalk op de homepage opent de volledige collectieresultaten, standaard over alle collecties.
+Uitgebreid zoeken biedt collectiekeuze, titel, beschrijving en jaar; hiervoor wordt dezelfde
+collectie-API gebruikt. Zoeken start geen AI-opdracht. De aparte ingang ‘Doorzoek de collectie’ is vervallen.
+
+De web-URL bewaart zoekterm, collectie, veldfilters en paginanummer (`/#/zoeken?...`).
+Objecten hebben een eigen route (`/#/objecten/{collectie}/{ident}`). Bij openen vanuit de resultaten
+blijft de zoekcontext in de object-URL staan, ook na verversen. Dossiers, artikelen en AI-vragen
+hebben eveneens eigen routes. De importserver blijft alleen een backend-databron: publieke bronlinks
+openen onze objecten en afbeeldingen/pdf’s worden via `/api/collection-media/{token}` gestreamd.
+Bestaande opgeslagen antwoorden worden bij uitlezen ook omgezet naar interne verwijzingen.
+
 ## AI-zoekopdrachten
 
-De publieke frontend behandelt iedere vrije archiefvraag als een duurzame zoekopdracht. De backend
+De afzonderlijke actie ‘Vraag stellen’ behandelt een vrije archiefvraag als een duurzame zoekopdracht. De backend
 slaat de vraag, voortgang, antwoorden, bronnen, vervolgvragen en looptijden op in PostgreSQL. Een
 HttpOnly-cookie met een anonieme bezoeker-ID koppelt een browser maximaal één jaar aan zijn eigen
 zoekopdrachten; de cookie bevat geen antwoorden of persoonsgegevens. Daardoor zijn lopende en

@@ -355,7 +355,9 @@ void main() {
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       expect(source.lastQuery, 'Kerklaan');
-      expect(source.lastSize, 3);
+      expect(source.lastSize, 20);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Uitgebreid zoeken'));
       await tester.pumpAndSettle();
@@ -384,10 +386,8 @@ void main() {
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       expect(find.text(_result.title), findsOneWidget);
-      expect(find.text('Alle 27 resultaten'), findsOneWidget);
-      await tester.tap(find.text('Alle 27 resultaten'));
-      await tester.pumpAndSettle();
-      expect(find.text('Doorzoek de collectie'), findsOneWidget);
+      expect(find.text('27 resultaten'), findsOneWidget);
+      expect(find.text('Doorzoek de collectie'), findsNothing);
       expect(source.lastQuery, 'Kerklaan');
       expect(source.lastSize, 20);
     },
@@ -415,26 +415,19 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('collection-search-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Alle 27 resultaten'), findsOneWidget);
+    expect(find.text('27 resultaten'), findsOneWidget);
 
     source.throwOnSearch = true;
-    await tester.enterText(
-      find.byKey(const Key('collection-search-field')),
-      'Slot Assumburg',
-    );
-    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.enterText(find.byType(TextField).first, 'Slot Assumburg');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
     expect(
-      find.text(
-        'Zoeken in de collectie is niet gelukt. Controleer de verbinding en probeer het opnieuw.',
-      ),
+      find.text('Zoeken is mislukt. Probeer het opnieuw.'),
       findsOneWidget,
     );
-    expect(find.text('Alle 27 resultaten'), findsNothing);
-    expect(find.text('Doorzoek de collectie'), findsOneWidget);
-    final field = tester.widget<TextField>(
-      find.byKey(const Key('collection-search-field')),
-    );
+    expect(find.text('27 resultaten'), findsNothing);
+    expect(find.text('Zoekresultaten'), findsOneWidget);
+    final field = tester.widget<TextField>(find.byType(TextField).first);
     expect(field.controller!.text, 'Slot Assumburg');
   });
 

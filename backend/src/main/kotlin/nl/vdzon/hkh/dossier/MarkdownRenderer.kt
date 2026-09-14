@@ -1,6 +1,6 @@
 package nl.vdzon.hkh.dossier
 
-import java.net.URI
+import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.collection.CollectionItem
 import nl.vdzon.hkh.collection.CollectionSearchService
 import org.commonmark.ext.gfm.tables.TablesExtension
@@ -44,7 +44,7 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
                 link.removeAttr("href").removeAttr("target").removeAttr("rel")
                 link.attr("data-hkh-unknown", "true")
             } else {
-                link.attr("href", item.detailUrl).attr("target", "_blank").attr("rel", "noopener")
+                link.attr("href", CollectionLinks.detail(item.collection, item.ident)).attr("target", "_blank").attr("rel", "noopener")
                 link.attr("data-hkh-collection", ref.first).attr("data-hkh-ident", ref.second)
                 sources.putIfAbsent("${ref.first}/${ref.second}", item.toRendered(ref.first, ref.second))
             }
@@ -53,7 +53,7 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
             .addAttributes("a", "target", "rel", "data-hkh-collection", "data-hkh-ident", "data-hkh-unknown")
             .addProtocols("a", "href", "https")
         val html = Jsoup.clean(document.body().html(), "", safeList, Document.OutputSettings().prettyPrint(false))
-        return RenderedMarkdown(html, sources.values.toList(), unknown.toList())
+        return RenderedMarkdown(CollectionLinks.rewrite(html), sources.values.toList(), unknown.toList())
     }
 
     /** Alle `hkh:`-verwijzingen in de tekst, ongeacht of ze bestaan. */
@@ -61,14 +61,14 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
         SOURCE_LINK.findAll(markdown).map { it.groupValues[1] to it.groupValues[2] }.distinct().toList()
 
     private fun lookup(collection: String, ident: String): CollectionItem? =
-        collectionSearch.detail(collection, ident)?.takeIf { isSafeHkhUrl(it.detailUrl) }
+        collectionSearch.detail(collection, ident)
 
     private fun CollectionItem.toRendered(collection: String, ident: String) = RenderedSource(
         collection = collection,
         ident = ident,
         title = title.ifBlank { "$collection $ident" },
-        detailUrl = detailUrl,
-        imageUrl = imageUrl?.takeIf(String::isNotBlank)?.takeIf(::isSafeHkhUrl),
+        detailUrl = CollectionLinks.detail(collection, ident),
+        imageUrl = CollectionLinks.safeMedia(imageUrl)?.takeIf(String::isNotBlank),
     )
 
     private fun parseSourceRef(href: String): Pair<String, String>? {
@@ -76,14 +76,6 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
         return match.groupValues[1] to match.groupValues[2]
     }
 
-    private fun isSafeHkhUrl(value: String): Boolean = runCatching {
-        val uri = URI(value)
-        uri.scheme == "https" && (
-            uri.host == "hkh.vdzonsoftware.nl" ||
-                uri.host == "historischekringheemskerk.nl" ||
-                uri.host?.endsWith(".historischekringheemskerk.nl") == true
-            )
-    }.getOrDefault(false)
 
     companion object {
         private val SOURCE_HREF = Regex("^hkh:([A-Za-z0-9_-]{1,40})/([A-Za-z0-9_.-]{1,64})$")

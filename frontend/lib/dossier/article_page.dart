@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../collection/img_embed/img_embed.dart';
+import '../navigation.dart';
 import 'article_history_page.dart';
 import 'article_proposal_card.dart';
 import 'dossier.dart';
@@ -147,11 +148,10 @@ class _ArticlePageState extends State<ArticlePage> {
   }
 
   Future<void> _openHistory() async {
-    final restored = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            ArticleHistoryPage(source: widget.source, article: _article!),
-      ),
+    final restored = await openAppPage<bool>(
+      context,
+      '/artikelen/${Uri.encodeComponent(widget.articleId)}/geschiedenis',
+      () => ArticleHistoryPage(source: widget.source, article: _article!),
     );
     if (restored == true && mounted) await _load();
   }

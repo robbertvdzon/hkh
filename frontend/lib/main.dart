@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'auth/google_login_dialog.dart';
 import 'auth/google_signin_button_stub.dart'
@@ -13,7 +14,7 @@ import 'ai_search/ai_search.dart';
 import 'ai_search/ai_search_page.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
-import 'collection/img_embed/img_embed.dart';
+import 'navigation.dart';
 import 'collection/search_controls.dart';
 import 'config/app_config.dart';
 import 'dossier/dossier.dart';
@@ -28,10 +29,7 @@ const _homeBackground = appBackground;
 const _aiCardBackground = appAccentBackground;
 const _homeGreen = appGreen;
 const _collectionBorder = appCardBorder;
-const _errorBackground = appErrorBackground;
-const _errorForeground = appErrorForeground;
 const _cardRadius = appCardRadius;
-const _controlRadius = appControlRadius;
 
 void main() {
   final UserSessionController session = AppConfig.googleClientId.isEmpty
@@ -58,7 +56,7 @@ void main() {
   );
 }
 
-class HkhApp extends StatelessWidget {
+class HkhApp extends StatefulWidget {
   const HkhApp({
     required this.searchSource,
     this.aiSearchSource,
@@ -79,27 +77,35 @@ class HkhApp extends StatelessWidget {
   final Widget Function()? googleButtonBuilder;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Historisch Heemskerk',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF315B52),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: HomePage(
-        searchSource: searchSource,
-        aiSearchSource: aiSearchSource,
-        dossierSource: dossierSource,
-        session: session,
-        googleButtonBuilder:
-            googleButtonBuilder ?? google_button.renderGoogleButton,
-      ),
-    );
+  State<HkhApp> createState() => _HkhAppState();
+}
+
+class _HkhAppState extends State<HkhApp> {
+  late final _router = createAppRouter(
+    searchSource: widget.searchSource,
+    aiSearchSource: widget.aiSearchSource,
+    dossierSource: widget.dossierSource,
+    session: widget.session,
+    googleButtonBuilder:
+        widget.googleButtonBuilder ?? google_button.renderGoogleButton,
+  );
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp.router(
+    title: 'Historisch Heemskerk',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF315B52)),
+      useMaterial3: true,
+    ),
+    routerConfig: _router,
+  );
 }
 
 class HomePage extends StatefulWidget {
@@ -164,14 +170,14 @@ class _HomePageState extends State<HomePage> {
   void _openDossiers() {
     final dossierSource = widget.dossierSource;
     if (dossierSource == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DossierListPage(
-          source: dossierSource,
-          session: _session,
-          googleButtonBuilder:
-              widget.googleButtonBuilder ?? google_button.renderGoogleButton,
-        ),
+    openAppPage(
+      context,
+      '/dossiers',
+      () => DossierListPage(
+        source: dossierSource,
+        session: _session,
+        googleButtonBuilder:
+            widget.googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
     );
   }
@@ -312,21 +318,21 @@ class _AiHomeCardState extends State<_AiHomeCard> {
 
   void _open() {
     final question = _controller.text.trim();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AiSearchPage(
-          source: widget.source,
-          initialQuestion: question.isEmpty ? null : question,
-          onAdopt: _onAdopt,
-        ),
-      ),
-    );
+    if (GoRouter.maybeOf(context) case final router?) {
+      router.go('/vragen', extra: question.isEmpty ? null : question);
+    } else {
+      _openHistory(question: question.isEmpty ? null : question);
+    }
   }
 
-  void _openHistory() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AiSearchPage(source: widget.source, onAdopt: _onAdopt),
+  void _openHistory({String? question}) {
+    openAppPage(
+      context,
+      '/vragen',
+      () => AiSearchPage(
+        source: widget.source,
+        initialQuestion: question,
+        onAdopt: _onAdopt,
       ),
     );
   }
@@ -383,7 +389,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: _openHistory,
+              onPressed: () => _openHistory(),
               child: const Text(
                 'Eerdere vragen',
                 style: TextStyle(decoration: TextDecoration.underline),
@@ -408,7 +414,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
 }
 
 /// Zoekbalk direct op de startpagina, mét "Uitgebreid zoeken": toont meteen een
-/// paar treffers, met een link door naar het volledige zoekscherm.
+/// volledige resultatenlijst met dezelfde zoekinstellingen.
 class _HomeSearchSection extends StatefulWidget {
   const _HomeSearchSection({required this.source, required this.isNarrow});
 
@@ -424,11 +430,19 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
   final _fieldControllers = SearchFieldControllers();
   bool _advancedOpen = false;
   bool _tipsOpen = false;
-  List<CollectionItemSummary>? _results;
-  int _total = 0;
-  bool _loading = false;
-  bool _searched = false;
-  bool _failed = false;
+  CollectionOverview? _overview;
+  String? _collection;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.source
+        .loadOverview()
+        .then((overview) {
+          if (mounted) setState(() => _overview = overview);
+        })
+        .catchError((Object _) {});
+  }
 
   @override
   void dispose() {
@@ -437,54 +451,22 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
     super.dispose();
   }
 
-  Future<void> _search() async {
-    final query = _controller.text.trim();
-    final fieldQueries = _fieldControllers.fieldQueries;
-    final year = _fieldControllers.yearValue;
-    if (query.isEmpty && fieldQueries.isEmpty && year == null) return;
-    setState(() {
-      _loading = true;
-      _searched = true;
-      _failed = false;
-      _results = null;
-      _total = 0;
-    });
-    try {
-      final result = await widget.source.search(
-        query: query,
-        fieldQueries: fieldQueries,
-        year: year,
-        size: 3,
-      );
-      if (!mounted) return;
-      setState(() {
-        _results = result.items;
-        _total = result.total;
-        _loading = false;
-        _failed = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _results = const [];
-        _total = 0;
-        _loading = false;
-        _failed = true;
-      });
-    }
-  }
-
-  void _openFullSearch() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => CollectionSearchPage(
-          source: widget.source,
-          initialQuery: _controller.text.trim().isEmpty
-              ? null
-              : _controller.text.trim(),
-          initialFieldQueries: _fieldControllers.fieldQueries,
-          initialYear: _fieldControllers.yearValue,
-        ),
+  void _search() {
+    final location = searchLocation(
+      query: _controller.text.trim(),
+      collection: _collection,
+      fields: _fieldControllers.fieldQueries,
+      year: _fieldControllers.yearValue,
+    );
+    openAppPage(
+      context,
+      location,
+      () => CollectionSearchPage(
+        source: widget.source,
+        initialQuery: _controller.text.trim(),
+        initialCollection: _collection,
+        initialFieldQueries: _fieldControllers.fieldQueries,
+        initialYear: _fieldControllers.yearValue,
       ),
     );
   }
@@ -553,44 +535,17 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
           ),
           if (_advancedOpen) ...[
             const SizedBox(height: 4),
+            CollectionChips(
+              overview: _overview,
+              selected: _collection,
+              onSelect: (value) => setState(() => _collection = value),
+            ),
+            const SizedBox(height: 8),
             AdvancedSearchFields(
               controllers: _fieldControllers,
               onSubmit: _search,
             ),
           ],
-          if (_loading) ...[
-            const SizedBox(height: 16),
-            const Center(child: CircularProgressIndicator()),
-          ] else if (_failed) ...[
-            const SizedBox(height: 12),
-            const _CollectionSearchError(),
-          ] else if (_searched) ...[
-            const SizedBox(height: 12),
-            if ((_results ?? const []).isEmpty)
-              const Center(child: Text('Geen resultaten gevonden.'))
-            else
-              Column(
-                children: [
-                  for (final item in _results!) ...[
-                    _HomeResultTile(item: item, source: widget.source),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              ),
-          ],
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _openFullSearch,
-              child: Text(
-                _searched && _total > 0
-                    ? 'Alle $_total resultaten'
-                    : 'Doorzoek de collectie',
-                style: const TextStyle(decoration: TextDecoration.underline),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -629,88 +584,6 @@ class _DisclosureButton extends StatelessWidget {
           onPressed: onPressed,
           icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
           label: Text(label),
-        ),
-      ),
-    );
-  }
-}
-
-class _CollectionSearchError extends StatelessWidget {
-  const _CollectionSearchError();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _errorBackground,
-          border: Border.all(color: const Color(0xFFE7AAA6)),
-          borderRadius: BorderRadius.circular(_controlRadius),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.warning_amber_rounded, color: _errorForeground),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Zoeken in de collectie is niet gelukt. Controleer de verbinding en probeer het opnieuw.',
-                style: TextStyle(color: _errorForeground),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeResultTile extends StatelessWidget {
-  const _HomeResultTile({required this.item, required this.source});
-
-  final CollectionItemSummary item;
-  final CollectionSearchSource source;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        leading: SizedBox(
-          width: 40,
-          height: 40,
-          child: item.imageUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: buildNetworkImage(item.imageUrl!, fit: BoxFit.cover),
-                )
-              : Icon(
-                  item.hasPdf
-                      ? Icons.picture_as_pdf_outlined
-                      : Icons.description_outlined,
-                ),
-        ),
-        title: Text(
-          item.title.isEmpty ? '(zonder titel)' : item.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          item.description,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CollectionDetailPage(
-              source: source,
-              collection: item.collection,
-              ident: item.ident,
-              title: item.title,
-            ),
-          ),
         ),
       ),
     );

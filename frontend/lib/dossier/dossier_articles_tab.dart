@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../navigation.dart';
 
 import '../theme/app_style.dart';
 import 'article_page.dart';
@@ -21,10 +22,10 @@ class ArticlesTab extends StatelessWidget {
   final Future<void> Function() onChanged;
 
   Future<void> _open(BuildContext context, String articleId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ArticlePage(source: source, articleId: articleId),
-      ),
+    await openAppPage(
+      context,
+      '/artikelen/${Uri.encodeComponent(articleId)}',
+      () => ArticlePage(source: source, articleId: articleId),
     );
     await onChanged();
   }

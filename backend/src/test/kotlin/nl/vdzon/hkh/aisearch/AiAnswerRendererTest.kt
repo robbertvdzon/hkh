@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.collection.CollectionCount
 import nl.vdzon.hkh.collection.CollectionItem
 import nl.vdzon.hkh.collection.CollectionItemStore
@@ -48,9 +49,10 @@ class AiAnswerRendererTest {
         assertEquals(listOf("Meer?"), rendered.suggestedFollowUps)
         assertFalse(rendered.html.contains("script"))
         assertFalse(rendered.html.contains("evil.test"))
-        assertContains(rendered.html, item.detailUrl)
-        assertContains(rendered.html, item.imageUrl!!)
-        assertContains(rendered.html, "Bekijk deze bron in de beeldbank")
+        assertContains(rendered.html, CollectionLinks.detail(item.collection, item.ident))
+        assertFalse(rendered.html.contains("historischekringheemskerk", ignoreCase = true))
+        assertContains(rendered.html, CollectionLinks.media(item.imageUrl)!!)
+        assertContains(rendered.html, "Bekijk dit object in de collectie")
     }
 }
 

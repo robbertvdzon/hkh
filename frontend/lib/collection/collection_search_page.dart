@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../navigation.dart';
 
 import 'collection_search.dart';
 import 'img_embed/img_embed.dart';
@@ -13,6 +16,8 @@ class CollectionSearchPage extends StatefulWidget {
     this.initialQuery,
     this.initialFieldQueries = const {},
     this.initialYear,
+    this.initialCollection,
+    this.initialPage = 0,
     super.key,
   });
 
@@ -22,6 +27,8 @@ class CollectionSearchPage extends StatefulWidget {
   final String? initialQuery;
   final Map<String, String> initialFieldQueries;
   final int? initialYear;
+  final String? initialCollection;
+  final int initialPage;
 
   @override
   State<CollectionSearchPage> createState() => _CollectionSearchPageState();
@@ -36,14 +43,16 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     ..year.text = widget.initialYear?.toString() ?? '';
 
   CollectionOverview? _overview;
-  String? _collectionFilter;
+  late String? _collectionFilter = widget.initialCollection;
   late bool _advancedOpen =
-      widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
+      widget.initialFieldQueries.isNotEmpty ||
+      widget.initialYear != null ||
+      widget.initialCollection != null;
   final List<CollectionItemSummary> _results = [];
-  int _page = 0;
+  late int _page = widget.initialPage;
+  int _request = 0;
   int _total = 0;
   bool _loading = false;
-  bool _loadingMore = false;
   String? _error;
   bool _searched = false;
 
@@ -51,10 +60,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   void initState() {
     super.initState();
     _loadOverview();
-    final hasInitialQuery =
-        widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty;
-    if (hasInitialQuery || _advancedOpen) {
-      _runSearch();
+    if (widget.initialQuery != null || _advancedOpen) {
+      _fetch();
     }
   }
 
@@ -75,48 +82,55 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     }
   }
 
-  Future<void> _runSearch({bool reset = true}) async {
-    if (reset) {
-      setState(() {
-        _loading = true;
-        _error = null;
-        _page = 0;
-        _results.clear();
-        _searched = true;
-      });
-    } else {
-      setState(() => _loadingMore = true);
+  void _runSearch({int page = 0}) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      final location = searchLocation(
+        query: _controller.text.trim(),
+        collection: _collectionFilter,
+        fields: _fieldControllers.fieldQueries,
+        year: _fieldControllers.yearValue,
+        page: page,
+      );
+      if (router.routeInformationProvider.value.uri.toString() != location) {
+        router.go(location);
+        return;
+      }
     }
+    _page = page;
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    final request = ++_request;
+    setState(() {
+      _loading = true;
+      _error = null;
+      _searched = true;
+      _results.clear();
+    });
     try {
       final result = await widget.source.search(
-        query: _controller.text,
+        query: _controller.text.trim(),
         collection: _collectionFilter,
         fieldQueries: _fieldControllers.fieldQueries,
         year: _fieldControllers.yearValue,
         page: _page,
         size: 20,
       );
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _results.addAll(result.items);
         _total = result.total;
         _loading = false;
-        _loadingMore = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _loading = false;
-        _loadingMore = false;
         _error = 'Zoeken is mislukt. Probeer het opnieuw.';
       });
     }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loadingMore || _results.length >= _total) return;
-    _page += 1;
-    await _runSearch(reset: false);
   }
 
   void _selectCollection(String? collection) {
@@ -127,15 +141,15 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Doorzoek de collectie')),
+      appBar: AppBar(title: const Text('Zoekresultaten')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: ListView(
+                controller: _scrollController,
                 children: [
                   _SearchBar(
                     controller: _controller,
@@ -157,21 +171,21 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                     label: const Text('Uitgebreid zoeken'),
                   ),
                   if (_advancedOpen) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
+                    CollectionChips(
+                      overview: _overview,
+                      selected: _collectionFilter,
+                      onSelect: _selectCollection,
+                    ),
+                    const SizedBox(height: 8),
                     AdvancedSearchFields(
                       controllers: _fieldControllers,
                       onSubmit: () => _runSearch(),
                     ),
                     const SizedBox(height: 8),
                   ],
-                  const SizedBox(height: 4),
-                  _CollectionChips(
-                    overview: _overview,
-                    selected: _collectionFilter,
-                    onSelect: _selectCollection,
-                  ),
                   const SizedBox(height: 12),
-                  Expanded(child: _buildBody(context)),
+                  _buildBody(context),
                 ],
               ),
             ),
@@ -193,7 +207,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
             Text(_error!),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => _runSearch(),
+              onPressed: _fetch,
               icon: const Icon(Icons.refresh),
               label: const Text('Opnieuw proberen'),
             ),
@@ -225,48 +239,56 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
-        Expanded(
-          child: ListView.separated(
-            controller: _scrollController,
-            itemCount: _results.length + 1,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              if (index == _results.length) {
-                if (_results.length >= _total) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: _loadingMore
-                        ? const CircularProgressIndicator()
-                        : OutlinedButton(
-                            onPressed: _loadMore,
-                            child: const Text('Meer laden'),
-                          ),
-                  ),
-                );
-              }
-              return _ResultCard(
-                item: _results[index],
-                onTap: () => _openDetail(_results[index]),
-              );
-            },
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _results.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, index) => _ResultCard(
+            item: _results[index],
+            onTap: () => _openDetail(_results[index]),
           ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              tooltip: 'Vorige pagina',
+              onPressed: _page > 0 ? () => _runSearch(page: _page - 1) : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Text('Pagina ${_page + 1} van ${(_total / 20).ceil()}'),
+            IconButton(
+              tooltip: 'Volgende pagina',
+              onPressed: (_page + 1) * 20 < _total
+                  ? () => _runSearch(page: _page + 1)
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
         ),
       ],
     );
   }
 
   void _openDetail(CollectionItemSummary item) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CollectionDetailPage(
-          source: widget.source,
-          collection: item.collection,
-          ident: item.ident,
-          title: item.title,
-        ),
+    final query = GoRouter.maybeOf(
+      context,
+    )?.routeInformationProvider.value.uri.query;
+    final location = Uri(
+      path:
+          '/zoeken/objecten/${Uri.encodeComponent(item.collection)}/${Uri.encodeComponent(item.ident)}',
+      query: query?.isEmpty == true ? null : query,
+    ).toString();
+    openAppPage(
+      context,
+      location,
+      () => CollectionDetailPage(
+        source: widget.source,
+        collection: item.collection,
+        ident: item.ident,
+        title: item.title,
       ),
     );
   }
@@ -300,11 +322,12 @@ class _SearchBar extends StatelessWidget {
 /// Lijst van alle bekende velden onder elkaar, elk met een eigen invulveld.
 /// Ingevulde velden gelden als EN, naast de algemene zoekbalk; leeg = geen
 /// beperking op dat veld.
-class _CollectionChips extends StatelessWidget {
-  const _CollectionChips({
+class CollectionChips extends StatelessWidget {
+  const CollectionChips({
     required this.overview,
     required this.selected,
     required this.onSelect,
+    super.key,
   });
 
   final CollectionOverview? overview;
@@ -525,7 +548,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
                       _FieldsTable(fields: detail.fields),
                       const SizedBox(height: 16),
                       Text(
-                        'Bron op de HKH-website:',
+                        'Link naar dit object:',
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
                       const SizedBox(height: 4),

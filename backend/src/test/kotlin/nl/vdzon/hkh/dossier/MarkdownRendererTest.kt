@@ -35,7 +35,8 @@ class MarkdownRendererTest {
         val rendered = renderer.render("## Bewoners\n\nDe familie Jansen woonde op [Kerklaan 12](hkh:beeldbank/12345).")
 
         assertTrue(rendered.html.contains("<h2>Bewoners</h2>"))
-        assertTrue(rendered.html.contains("href=\"https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl?ident=12345\""))
+        assertTrue(rendered.html.contains("href=\"https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/12345\""))
+        assertFalse(rendered.html.contains("historischekringheemskerk", ignoreCase = true))
         assertTrue(rendered.html.contains("data-hkh-collection=\"beeldbank\""))
         assertEquals(listOf("beeldbank/12345"), rendered.sources.map { "${it.collection}/${it.ident}" })
         assertEquals("Kerklaan 12", rendered.sources.single().title)

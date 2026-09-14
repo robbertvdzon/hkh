@@ -1,5 +1,6 @@
 package nl.vdzon.hkh.collection.api
 
+import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.collection.CollectionItem
 import nl.vdzon.hkh.collection.CollectionSearchService
 import org.springframework.http.HttpStatus
@@ -100,7 +101,7 @@ private fun CollectionItem.toSummary() = CollectionItemSummary(
     title = title,
     description = description,
     year = year,
-    imageUrl = imageUrl,
+    imageUrl = CollectionLinks.media(imageUrl),
     hasPdf = pdfUrl != null,
 )
 
@@ -110,8 +111,8 @@ private fun CollectionItem.toDetail() = CollectionItemDetail(
     title = title,
     description = description,
     year = year,
-    imageUrl = imageUrl,
-    pdfUrl = pdfUrl,
-    detailUrl = detailUrl,
+    imageUrl = CollectionLinks.media(imageUrl),
+    pdfUrl = CollectionLinks.media(pdfUrl),
+    detailUrl = CollectionLinks.detail(collection, ident),
     fields = fields,
 )

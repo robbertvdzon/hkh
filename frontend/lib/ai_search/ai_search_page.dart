@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,6 +17,7 @@ class AiSearchPage extends StatefulWidget {
   const AiSearchPage({
     required this.source,
     this.initialQuestion,
+    this.initialSessionId,
     this.title,
     this.overviewTitle = 'Mijn zoekopdrachten',
     this.emptyMessage = 'Je hebt in deze browser nog geen AI-zoekopdrachten.',
@@ -30,6 +32,7 @@ class AiSearchPage extends StatefulWidget {
 
   final AiSearchSource source;
   final String? initialQuestion;
+  final String? initialSessionId;
 
   /// Titel in de AppBar; standaard afhankelijk van overzicht of open zoekopdracht.
   final String? title;
@@ -76,13 +79,41 @@ class _AiSearchPageState extends State<AiSearchPage> {
     super.initState();
     final question = widget.initialQuestion?.trim() ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (question.isNotEmpty) {
+      if (!mounted) return;
+      if (widget.initialSessionId != null) {
+        _openSearch(widget.initialSessionId!);
+      } else if (question.isNotEmpty) {
         _submit();
       } else {
         _loadSearches(showLoading: true);
         _startOverviewPolling();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant AiSearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSessionId != oldWidget.initialSessionId &&
+        widget.initialSessionId != _session?.id) {
+      if (widget.initialSessionId case final id?) {
+        _openSearch(id);
+      } else {
+        _showOverview();
+      }
+    }
+  }
+
+  void _syncLocation(String? id) {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    final uri = router.routeInformationProvider.value.uri;
+    if (uri.path != '/vragen' && !uri.path.startsWith('/dossiers/')) return;
+    final key = widget.embedded ? 'vraag' : 'id';
+    final params = Map<String, String>.of(uri.queryParameters)..remove(key);
+    if (id != null) params[key] = id;
+    final location = uri.replace(queryParameters: params).toString();
+    if (location != uri.toString()) router.replace(location);
   }
 
   @override
@@ -110,6 +141,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
         _submitting = false;
         _questionController.clear();
       });
+      _syncLocation(session.id);
       _startPolling();
       _scrollToBottom();
     } catch (error) {
@@ -185,6 +217,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
       _session = null;
       _error = null;
     });
+    _syncLocation(null);
     await _loadSearches(showLoading: _searches == null);
     if (mounted && _session == null) _startOverviewPolling();
   }
@@ -196,6 +229,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
       final session = await widget.source.loadAiSearch(sessionId);
       if (!mounted) return;
       setState(() => _session = session);
+      _syncLocation(session.id);
       if (session.turns.lastOrNull?.isActive ?? false) _startPolling();
     } catch (error) {
       if (!mounted) return;
