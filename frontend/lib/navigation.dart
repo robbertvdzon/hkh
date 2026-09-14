@@ -218,11 +218,12 @@ class _ArticleHistoryRouteState extends State<_ArticleHistoryRoute> {
   Widget build(BuildContext context) => FutureBuilder<ArticleDetail>(
     future: _article,
     builder: (_, snapshot) {
-      if (snapshot.hasData)
+      if (snapshot.hasData) {
         return ArticleHistoryPage(
           source: widget.source,
           article: snapshot.requireData,
         );
+      }
       return Scaffold(
         appBar: AppBar(title: const Text('Artikelgeschiedenis')),
         body: Center(

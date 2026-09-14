@@ -23,6 +23,15 @@ class CollectionSearchIntegrationTest(
     @param:Autowired private val service: CollectionSearchService,
 ) {
     @Test
+    fun `media endpoint rejects invalid tokens and hosts outside the import site`() {
+        mockMvc.get("/api/collection-media/not-valid!").andExpect { status { isBadRequest() } }
+        for (url in listOf("http://127.0.0.1/private", "https://example.org/image.jpg", "https://historischekringheemskerk.nl.evil.test/image.jpg")) {
+            val token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray())
+            mockMvc.get("/api/collection-media/$token").andExpect { status { isNotFound() } }
+        }
+    }
+
+    @Test
     fun `ordinary detail and search output keep object and media links on our site`() {
         val origin = "https://www.historischekringheemskerk.nl"
         store.upsert(fullRecord(ident = "local-links", title = "Unieke linkcontrole", description = "Bron $origin").copy(
