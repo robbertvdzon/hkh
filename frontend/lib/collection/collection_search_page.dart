@@ -307,10 +307,12 @@ class _SearchBar extends StatelessWidget {
       textInputAction: TextInputAction.search,
       onSubmitted: (_) => onSubmit(),
       decoration: InputDecoration(
+        labelText: 'Zoekterm',
         hintText: 'Zoek op titel, auteur, plaats, jaar…',
         prefixIcon: const Icon(Icons.search),
         border: const OutlineInputBorder(),
         suffixIcon: IconButton(
+          tooltip: 'Zoeken',
           icon: const Icon(Icons.arrow_forward),
           onPressed: onSubmit,
         ),

@@ -23,6 +23,18 @@ class CollectionSearchIntegrationTest(
     @param:Autowired private val service: CollectionSearchService,
 ) {
     @Test
+    fun `equal search scores have stable ordering across pages`() {
+        val idents = (1..25).map { "stable-%02d".format(it) }
+        idents.reversed().forEach { ident ->
+            store.upsert(fullRecord(ident = ident, title = "Paginavaste treffers", description = "Dezelfde zoekscore"))
+        }
+        val pages = (0..2).flatMap { page ->
+            service.search("Paginavaste", null, emptyMap(), page, 10).items.map { it.ident }
+        }
+        assertEquals(idents, pages)
+    }
+
+    @Test
     fun `media endpoint rejects invalid tokens and hosts outside the import site`() {
         mockMvc.get("/api/collection-media/not-valid!").andExpect { status { isBadRequest() } }
         for (url in listOf("http://127.0.0.1/private", "https://example.org/image.jpg", "https://historischekringheemskerk.nl.evil.test/image.jpg")) {

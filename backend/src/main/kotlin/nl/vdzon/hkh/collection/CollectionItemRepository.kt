@@ -132,7 +132,7 @@ class CollectionItemRepository(
             orderArgs = emptyList()
         } else {
             val (match, matchQuery) = rankMatch
-            ordering = "ORDER BY ts_rank(${match.expr}, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST"
+            ordering = "ORDER BY ts_rank(${match.expr}, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST, collection, ident"
             orderArgs = match.exprArgs + listOf(matchQuery)
         }
         val fullArgs = args + orderArgs + listOf(limit, offset)
