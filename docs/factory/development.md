@@ -36,10 +36,15 @@ en bestaat uit deze commando's:
 | id | workingDirectory | argv |
 | --- | --- | --- |
 | `backend-maven-verify` | `backend` | `mvn -B --no-transfer-progress clean verify` |
-| `frontend-flutter-analyze` | `frontend` | `flutter analyze` |
-| `frontend-flutter-test` | `frontend` | `flutter test` |
-| `admin-flutter-analyze` | `frontend-admin` | `flutter analyze` |
-| `admin-flutter-test` | `frontend-admin` | `flutter test` |
+| `frontend-flutter-analyze` | `frontend` | `bash ../tools/flutter-verify.sh analyze` |
+| `frontend-flutter-test` | `frontend` | `bash ../tools/flutter-verify.sh test` |
+| `admin-flutter-analyze` | `frontend-admin` | `bash ../tools/flutter-verify.sh analyze` |
+| `admin-flutter-test` | `frontend-admin` | `bash ../tools/flutter-verify.sh test` |
+
+De Flutter-commando's lopen via `tools/flutter-verify.sh`: elk verificatiecommando
+draait in een verse container zonder de pub-cache van de agent, dus het script doet
+eerst `flutter pub get` en zet daarna `pubspec.lock` terug (het execution-image heeft
+een andere Flutter-versie dan CI en zou de lockfile anders herschrijven).
 
 Per command geldt: stabiele `id`, `argv`-lijst zonder impliciete shell, relatief
 bestaand `workingDirectory` en `timeoutSeconds` (1..7200). Ontbrekende of

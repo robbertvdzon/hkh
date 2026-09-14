@@ -16,24 +16,32 @@ commands:
   - id: frontend-flutter-analyze
     pathPrefixes:
       - frontend/
-    argv: [flutter, analyze]
+      - tools/flutter-verify.sh
+      - .factory/verification.yaml
+    argv: [bash, ../tools/flutter-verify.sh, analyze]
     workingDirectory: frontend
     timeoutSeconds: 900
   - id: frontend-flutter-test
     pathPrefixes:
       - frontend/
-    argv: [flutter, test]
+      - tools/flutter-verify.sh
+      - .factory/verification.yaml
+    argv: [bash, ../tools/flutter-verify.sh, test]
     workingDirectory: frontend
     timeoutSeconds: 900
   - id: admin-flutter-analyze
     pathPrefixes:
       - frontend-admin/
-    argv: [flutter, analyze]
+      - tools/flutter-verify.sh
+      - .factory/verification.yaml
+    argv: [bash, ../tools/flutter-verify.sh, analyze]
     workingDirectory: frontend-admin
     timeoutSeconds: 900
   - id: admin-flutter-test
     pathPrefixes:
       - frontend-admin/
-    argv: [flutter, test]
+      - tools/flutter-verify.sh
+      - .factory/verification.yaml
+    argv: [bash, ../tools/flutter-verify.sh, test]
     workingDirectory: frontend-admin
     timeoutSeconds: 900
