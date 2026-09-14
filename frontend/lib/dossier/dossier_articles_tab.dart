@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_style.dart';
 import 'article_page.dart';
 import 'dossier.dart';
 import 'dossier_format.dart';
@@ -67,30 +68,32 @@ class ArticlesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canEdit = detail.role.canEdit;
+    final horizontal = isNarrowLayout(context) ? 16.0 : 24.0;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 880),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 24),
           children: [
             if (canEdit) ...[
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                key: const Key('article-actions'),
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   OutlinedButton.icon(
                     onPressed: () => _create(context),
                     icon: const Icon(Icons.add),
                     label: const Text('Nieuw artikel'),
                   ),
-                  FilledButton.tonalIcon(
+                  FilledButton.icon(
                     onPressed: () => _generate(context),
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('Laat AI schrijven'),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: appSectionGap),
             ],
             if (detail.articles.isEmpty)
               InfoCard(
@@ -104,7 +107,7 @@ class ArticlesTab extends StatelessWidget {
                 article: article,
                 onOpen: () => _open(context, article.id),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
             ],
           ],
         ),
@@ -123,45 +126,109 @@ class _ArticleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final proposal = article.proposalState;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        leading: Icon(Icons.article_outlined, color: theme.colorScheme.primary),
-        title: Text(article.title),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('Versie ${article.currentVersionNumber}'),
-              Text('Gewijzigd ${formatDateTime(article.updatedAt)}'),
-              if (proposal == 'READY')
-                Chip(
-                  label: const Text('AI-voorstel klaar'),
-                  backgroundColor: theme.colorScheme.tertiaryContainer,
-                  visualDensity: VisualDensity.compact,
-                )
-              else if (proposal == 'RUNNING')
-                Chip(
-                  avatar: const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(color: appMutedText);
+    return AppCard(
+      key: Key('article-card-${article.id}'),
+      onTap: onOpen,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.article_outlined, color: appGreen),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  article.title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: appGreen,
+                    fontWeight: FontWeight.w700,
                   ),
-                  label: const Text('AI schrijft…'),
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  visualDensity: VisualDensity.compact,
                 ),
-            ],
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Versie ${article.currentVersionNumber}',
+                      style: metaStyle,
+                    ),
+                    Text(
+                      'Gewijzigd ${formatDateTime(article.updatedAt)}',
+                      style: metaStyle,
+                    ),
+                    if (proposal == 'READY')
+                      const _ArticleChip(
+                        label: 'AI-voorstel klaar',
+                        background: appRoleResearcherBackground,
+                      )
+                    else if (proposal == 'RUNNING')
+                      const _ArticleChip(
+                        label: 'AI schrijft…',
+                        background: appAccentBackground,
+                        busy: true,
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onOpen,
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: appMutedText),
+        ],
       ),
     );
   }
+}
+
+/// Statuschip bij een artikel, in de gedeelde vormgeving.
+class _ArticleChip extends StatelessWidget {
+  const _ArticleChip({
+    required this.label,
+    required this.background,
+    this.busy = false,
+  });
+
+  final String label;
+  final Color background;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(appControlRadius),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (busy) ...[
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: appGreen),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: appGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ArticleInput {
@@ -202,47 +269,40 @@ class _ArticleDialogState extends State<_ArticleDialog> {
   @override
   Widget build(BuildContext context) {
     final generate = widget.generate;
-    return AlertDialog(
-      title: Text(generate ? 'Laat AI schrijven' : 'Nieuw artikel'),
-      content: SizedBox(
-        width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _title,
-              autofocus: true,
-              maxLength: 200,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Titel',
-                border: OutlineInputBorder(),
-              ),
+    return AppDialog(
+      title: generate ? 'Laat AI schrijven' : 'Nieuw artikel',
+      maxWidth: 520,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _title,
+            autofocus: true,
+            maxLength: 200,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(labelText: 'Titel'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _text,
+            minLines: generate ? 3 : 6,
+            maxLines: 14,
+            style: generate
+                ? null
+                : const TextStyle(fontFamily: 'monospace', fontSize: 14),
+            decoration: InputDecoration(
+              labelText: generate ? 'Opdracht voor de AI' : 'Tekst (optioneel)',
+              hintText: generate
+                  ? 'Bijv. Schrijf een artikel van circa 800 woorden over de bewoners van de Kerklaan.'
+                  : 'Markdown; bronnen als [naam](hkh:collection/ident). Leeg laten mag.',
+              helperText: generate
+                  ? 'De AI schrijft versie 1 als voorstel op basis van het doel, de feitenlijst en de antwoorden.'
+                  : null,
+              alignLabelWithHint: true,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _text,
-              minLines: generate ? 3 : 6,
-              maxLines: 14,
-              style: generate
-                  ? null
-                  : const TextStyle(fontFamily: 'monospace', fontSize: 14),
-              decoration: InputDecoration(
-                labelText: generate
-                    ? 'Opdracht voor de AI'
-                    : 'Tekst (optioneel)',
-                hintText: generate
-                    ? 'Bijv. Schrijf een artikel van circa 800 woorden over de bewoners van de Kerklaan.'
-                    : 'Markdown; bronnen als [naam](hkh:collection/ident). Leeg laten mag.',
-                helperText: generate
-                    ? 'De AI schrijft versie 1 als voorstel op basis van het doel, de feitenlijst en de antwoorden.'
-                    : null,
-                border: const OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

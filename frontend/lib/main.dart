@@ -20,16 +20,18 @@ import 'dossier/dossier.dart';
 import 'dossier/dossier_dialogs.dart';
 import 'dossier/dossier_list_page.dart';
 import 'self_update_prompt.dart';
+import 'theme/app_style.dart';
 
-const _homeBackground = Color(0xFFFBF6EE);
-const _aiCardBackground = Color(0xFFDCE9DA);
-const _homeGreen = Color(0xFF1F3B2E);
-const _collectionBorder = Color(0xFFD9CFBB);
-const _controlBorder = Color(0xFF647566);
-const _errorBackground = Color(0xFFFBE9E7);
-const _errorForeground = Color(0xFF9F201B);
-const _cardRadius = 16.0;
-const _controlRadius = 10.0;
+// De homepage en de dossierschermen delen dezelfde vormgeving; de waarden
+// staan in theme/app_style.dart.
+const _homeBackground = appBackground;
+const _aiCardBackground = appAccentBackground;
+const _homeGreen = appGreen;
+const _collectionBorder = appCardBorder;
+const _errorBackground = appErrorBackground;
+const _errorForeground = appErrorForeground;
+const _cardRadius = appCardRadius;
+const _controlRadius = appControlRadius;
 
 void main() {
   final UserSessionController session = AppConfig.googleClientId.isEmpty
@@ -223,58 +225,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-ThemeData _homeTheme(BuildContext context) {
-  final base = Theme.of(context);
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(_controlRadius),
-    borderSide: const BorderSide(color: _controlBorder),
-  );
-  return base.copyWith(
-    colorScheme: base.colorScheme.copyWith(
-      primary: _homeGreen,
-      onPrimary: Colors.white,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: Colors.white,
-      border: border,
-      enabledBorder: border,
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_controlRadius),
-        borderSide: const BorderSide(color: _homeGreen, width: 2),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        backgroundColor: _homeGreen,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_controlRadius),
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        foregroundColor: _homeGreen,
-        side: const BorderSide(color: _homeGreen),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_controlRadius),
-        ),
-      ),
-    ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: _homeGreen,
-        minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_controlRadius),
-        ),
-      ),
-    ),
-  );
-}
+ThemeData _homeTheme(BuildContext context) => appSurfaceTheme(context);
 
 class _HomeContent extends StatelessWidget {
   const _HomeContent({

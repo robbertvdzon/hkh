@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_style.dart';
 import 'dossier.dart';
 import 'dossier_format.dart';
 
@@ -52,40 +53,38 @@ class _DossierDialogState extends State<_DossierDialog> {
   @override
   Widget build(BuildContext context) {
     final isNew = widget.initialTitle.isEmpty;
-    return AlertDialog(
-      title: Text(isNew ? 'Nieuw dossier' : 'Titel en doel bewerken'),
-      content: SizedBox(
-        width: 480,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _title,
-              autofocus: true,
-              maxLength: 200,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Titel',
-                hintText: 'Bijv. De Kerklaan en haar bewoners',
-                border: OutlineInputBorder(),
-              ),
+    return AppDialog(
+      title: isNew ? 'Nieuw dossier' : 'Titel en doel bewerken',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const Key('dossier-title-field'),
+            controller: _title,
+            autofocus: true,
+            maxLength: 200,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Titel',
+              hintText: 'Bijv. De Kerklaan en haar bewoners',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _goal,
-              minLines: 3,
-              maxLines: 6,
-              maxLength: 2000,
-              decoration: const InputDecoration(
-                labelText: 'Doel',
-                hintText:
-                    'Wat wil je met dit onderzoek bereiken? Bijv. een artikel voor het verenigingsblad.',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('dossier-goal-field'),
+            controller: _goal,
+            minLines: 3,
+            maxLines: 6,
+            maxLength: 2000,
+            decoration: const InputDecoration(
+              labelText: 'Doel',
+              hintText:
+                  'Wat wil je met dit onderzoek bereiken? Bijv. een artikel voor het verenigingsblad.',
+              alignLabelWithHint: true,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -93,6 +92,7 @@ class _DossierDialogState extends State<_DossierDialog> {
           child: const Text('Annuleren'),
         ),
         FilledButton(
+          key: const Key('dossier-submit-button'),
           onPressed: _submit,
           child: Text(isNew ? 'Aanmaken' : 'Opslaan'),
         ),
@@ -152,47 +152,98 @@ class _AdoptDialogState extends State<_AdoptDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final dossiers = _dossiers;
-    return AlertDialog(
-      title: const Text('In dossier zetten'),
-      content: SizedBox(
-        width: 440,
-        child: _error != null
-            ? Text(_error!)
-            : dossiers == null
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : dossiers.isEmpty
-            ? const Text(
-                'Je hebt nog geen dossier waarin je vragen mag stellen. Maak eerst een dossier aan bij Mijn dossiers.',
-              )
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Kies het dossier waarin deze zoekopdracht hoort. De vraag en het antwoord worden dan voor alle leden zichtbaar.',
-                    ),
-                  ),
-                  for (final dossier in dossiers)
-                    ListTile(
-                      leading: const Icon(Icons.folder_outlined),
-                      title: Text(dossier.title),
-                      subtitle: Text(dossier.role.label),
-                      onTap: () => Navigator.pop(context, dossier),
-                    ),
-                ],
-              ),
-      ),
+    return AppDialog(
+      title: 'In dossier zetten',
+      maxWidth: 440,
+      content: _buildContent(context),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Annuleren'),
         ),
       ],
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final dossiers = _dossiers;
+    if (_error != null) {
+      return Text(_error!, style: const TextStyle(color: appErrorForeground));
+    }
+    if (dossiers == null) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (dossiers.isEmpty) {
+      return const Text(
+        'Je hebt nog geen dossier waarin je vragen mag stellen. Maak eerst een dossier aan bij Mijn dossiers.',
+        style: TextStyle(color: appMutedText),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Kies het dossier waarin deze zoekopdracht hoort. De vraag en het antwoord worden dan voor alle leden zichtbaar.',
+          style: TextStyle(color: appMutedText),
+        ),
+        const SizedBox(height: appSectionGap),
+        for (final dossier in dossiers)
+          _AdoptOption(
+            dossier: dossier,
+            onTap: () => Navigator.pop(context, dossier),
+          ),
+      ],
+    );
+  }
+}
+
+class _AdoptOption extends StatelessWidget {
+  const _AdoptOption({required this.dossier, required this.onTap});
+
+  final DossierSummary dossier;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      key: Key('adopt-option-${dossier.id}'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(appControlRadius),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.folder_outlined, color: appGreen),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dossier.title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: appGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    dossier.role.label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: appMutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

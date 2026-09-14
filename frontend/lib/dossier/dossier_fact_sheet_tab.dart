@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_style.dart';
 import 'dossier.dart';
 import 'dossier_format.dart';
 
@@ -63,36 +64,39 @@ class _FactSheetTabState extends State<FactSheetTab>
     final sheet = widget.factSheet;
     final editor = _editor;
     final theme = Theme.of(context);
+    final horizontal = isNarrowLayout(context) ? 16.0 : 24.0;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 880),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 24),
           children: [
             _StatusLine(sheet: sheet),
-            const SizedBox(height: 12),
-            if (widget.canResearch && editor == null)
+            if (widget.canResearch && editor == null) ...[
+              const SizedBox(height: appSectionGap),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                key: const Key('fact-sheet-actions'),
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   OutlinedButton.icon(
                     onPressed: sheet.isRunning ? null : _startEditing,
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Bewerken'),
                   ),
-                  FilledButton.tonalIcon(
+                  FilledButton.icon(
                     onPressed: sheet.isRunning ? null : widget.onRefresh,
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('Laten bijwerken'),
                   ),
                 ],
               ),
-            const SizedBox(height: 12),
+            ],
+            const SizedBox(height: appSectionGap),
             if (editor != null) ...[
               Text(
                 'Markdown. Verwijs naar een archiefbron als [naam](hkh:collection/ident).',
-                style: theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall?.copyWith(color: appMutedText),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -101,19 +105,19 @@ class _FactSheetTabState extends State<FactSheetTab>
                 maxLines: 40,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
                 decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
                   labelText: 'Feitenlijst',
                   alignLabelWithHint: true,
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: const Text('Opslaan'),
                   ),
-                  const SizedBox(width: 8),
                   TextButton(
                     onPressed: _saving ? null : _cancelEditing,
                     child: const Text('Annuleren'),
@@ -127,11 +131,9 @@ class _FactSheetTabState extends State<FactSheetTab>
                     'De feitenlijst is nog leeg. Na elke beantwoorde vraag vult de AI hier personen, adressen, jaartallen en gebeurtenissen aan, met hun bronnen. Je kunt de lijst ook zelf bewerken.',
               )
             else
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: RenderedHtml(sheet.html),
-                ),
+              AppCard(
+                key: const Key('fact-sheet-card'),
+                child: RenderedHtml(sheet.html),
               ),
           ],
         ),
@@ -168,18 +170,18 @@ class _StatusLine extends StatelessWidget {
               ? 'Nog niet bijgewerkt'
               : 'Bijgewerkt op ${formatDateTime(sheet.updatedAt!)}'
                     '${sheet.dirty ? ' · er zijn nieuwe antwoorden die nog niet zijn verwerkt' : ''}',
-          style: theme.textTheme.bodySmall,
+          style: theme.textTheme.bodySmall?.copyWith(color: appMutedText),
         ),
         if (sheet.isFailed) ...[
           const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.error_outline, color: theme.colorScheme.error),
+              const Icon(Icons.error_outline, color: appErrorForeground),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   sheet.error ?? 'Het bijwerken van de feitenlijst is mislukt.',
-                  style: TextStyle(color: theme.colorScheme.error),
+                  style: const TextStyle(color: appErrorForeground),
                 ),
               ),
             ],

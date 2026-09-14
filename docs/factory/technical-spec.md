@@ -25,6 +25,11 @@
   testbaar blijven.
 - Laad- en foutafhandeling hoort bij de sectie die de data nodig heeft, niet op
   paginaniveau: een falende backend maakt de homepage niet onbruikbaar.
+- De gedeelde vormgeving van de publieke app staat één keer in
+  `frontend/lib/theme/app_style.dart` (kleuren, afrondingen, sectieritme,
+  rolchipkleuren, `appSurfaceTheme`, `appDossierTheme`, `AppDialog`, `AppCard`).
+  Schermen halen die waarden daar op in plaats van kleuren of afrondingen
+  opnieuw te definiëren.
 
 ## Codeconventies
 

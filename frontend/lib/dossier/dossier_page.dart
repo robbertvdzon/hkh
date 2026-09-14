@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../ai_search/ai_search_page.dart';
 import '../auth/user_session.dart';
+import '../theme/app_style.dart';
 import 'dossier.dart';
 import 'dossier_articles_tab.dart';
 import 'dossier_dialogs.dart';
@@ -177,121 +178,127 @@ class _DossierPageState extends State<DossierPage>
     final role = detail?.role;
     final canLeave =
         role != null && !role.canManage && widget.session?.identity != null;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(detail?.title ?? 'Dossier'),
-        actions: [
-          if (detail != null)
-            PopupMenuButton<_DossierMenuItem>(
-              tooltip: 'Dossiermenu',
-              onSelected: _onMenu,
-              itemBuilder: (_) => [
-                if (role!.canEdit)
+    return Theme(
+      data: appDossierTheme(context),
+      child: Scaffold(
+        backgroundColor: appBackground,
+        appBar: AppBar(
+          title: Text(
+            detail?.title ?? 'Dossier',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            if (detail != null)
+              PopupMenuButton<_DossierMenuItem>(
+                tooltip: 'Dossiermenu',
+                onSelected: _onMenu,
+                itemBuilder: (_) => [
+                  if (role!.canEdit)
+                    const PopupMenuItem(
+                      value: _DossierMenuItem.edit,
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Titel en doel bewerken'),
+                      ),
+                    ),
                   const PopupMenuItem(
-                    value: _DossierMenuItem.edit,
+                    value: _DossierMenuItem.members,
                     child: ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Titel en doel bewerken'),
+                      leading: Icon(Icons.people_outline),
+                      title: Text('Delen en leden'),
                     ),
                   ),
-                const PopupMenuItem(
-                  value: _DossierMenuItem.members,
-                  child: ListTile(
-                    leading: Icon(Icons.people_outline),
-                    title: Text('Delen en leden'),
-                  ),
+                  if (role.canManage)
+                    const PopupMenuItem(
+                      value: _DossierMenuItem.delete,
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('Dossier verwijderen'),
+                      ),
+                    ),
+                  if (canLeave)
+                    const PopupMenuItem(
+                      value: _DossierMenuItem.leave,
+                      child: ListTile(
+                        leading: Icon(Icons.logout),
+                        title: Text('Dossier verlaten'),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+          bottom: detail == null
+              ? null
+              : TabBar(
+                  controller: _tabs,
+                  tabs: const [
+                    Tab(
+                      text: 'Vragen',
+                      icon: Icon(Icons.question_answer_outlined),
+                    ),
+                    Tab(
+                      text: 'Feitenlijst',
+                      icon: Icon(Icons.fact_check_outlined),
+                    ),
+                    Tab(text: 'Artikelen', icon: Icon(Icons.article_outlined)),
+                  ],
                 ),
-                if (role.canManage)
-                  const PopupMenuItem(
-                    value: _DossierMenuItem.delete,
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline),
-                      title: Text('Dossier verwijderen'),
-                    ),
-                  ),
-                if (canLeave)
-                  const PopupMenuItem(
-                    value: _DossierMenuItem.leave,
-                    child: ListTile(
-                      leading: Icon(Icons.logout),
-                      title: Text('Dossier verlaten'),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-        bottom: detail == null
-            ? null
-            : TabBar(
+        ),
+        body: detail == null
+            ? Center(
+                child: _error == null
+                    ? const CircularProgressIndicator()
+                    : Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: appErrorForeground),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: _load,
+                              child: const Text('Opnieuw proberen'),
+                            ),
+                          ],
+                        ),
+                      ),
+              )
+            : TabBarView(
                 controller: _tabs,
-                tabs: const [
-                  Tab(
-                    text: 'Vragen',
-                    icon: Icon(Icons.question_answer_outlined),
+                children: [
+                  AiSearchPage(
+                    source: _questionSource,
+                    embedded: true,
+                    overviewTitle: 'Vragen in dit dossier',
+                    emptyMessage:
+                        'In dit dossier zijn nog geen vragen gesteld. Stel hieronder je eerste vraag aan het archief.',
+                    introduction: _DossierIntro(detail: detail),
+                    canAsk: detail.role.canResearch,
+                    readOnlyMessage:
+                        'Je bent lezer van dit dossier: je kunt meelezen, maar geen vragen stellen.',
                   ),
-                  Tab(
-                    text: 'Feitenlijst',
-                    icon: Icon(Icons.fact_check_outlined),
+                  FactSheetTab(
+                    factSheet: detail.factSheet,
+                    canResearch: detail.role.canResearch,
+                    onSave: (markdown) => _run(
+                      () => widget.source.updateFactSheet(detail.id, markdown),
+                    ),
+                    onRefresh: () =>
+                        _run(() => widget.source.refreshFactSheet(detail.id)),
                   ),
-                  Tab(text: 'Artikelen', icon: Icon(Icons.article_outlined)),
+                  ArticlesTab(
+                    source: widget.source,
+                    detail: detail,
+                    onChanged: _load,
+                  ),
                 ],
               ),
       ),
-      body: detail == null
-          ? Center(
-              child: _error == null
-                  ? const CircularProgressIndicator()
-                  : Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: _load,
-                            child: const Text('Opnieuw proberen'),
-                          ),
-                        ],
-                      ),
-                    ),
-            )
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                AiSearchPage(
-                  source: _questionSource,
-                  embedded: true,
-                  overviewTitle: 'Vragen in dit dossier',
-                  emptyMessage:
-                      'In dit dossier zijn nog geen vragen gesteld. Stel hieronder je eerste vraag aan het archief.',
-                  introduction: _DossierIntro(detail: detail),
-                  canAsk: detail.role.canResearch,
-                  readOnlyMessage:
-                      'Je bent lezer van dit dossier: je kunt meelezen, maar geen vragen stellen.',
-                ),
-                FactSheetTab(
-                  factSheet: detail.factSheet,
-                  canResearch: detail.role.canResearch,
-                  onSave: (markdown) => _run(
-                    () => widget.source.updateFactSheet(detail.id, markdown),
-                  ),
-                  onRefresh: () =>
-                      _run(() => widget.source.refreshFactSheet(detail.id)),
-                ),
-                ArticlesTab(
-                  source: widget.source,
-                  detail: detail,
-                  onChanged: _load,
-                ),
-              ],
-            ),
     );
   }
 }
@@ -304,21 +311,35 @@ class _DossierIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final goal = detail.goal.trim();
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (goal.isNotEmpty) ...[
-            Text('Doel', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Doel',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: appMutedText,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(goal),
+            Text(
+              goal,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: appGreen,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
           ],
           Text(
             'Elke vraag krijgt het doel, de feitenlijst en de eerdere antwoorden van dit dossier mee. '
             'Na een geslaagd antwoord werkt de AI de feitenlijst bij.',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(color: appMutedText),
           ),
         ],
       ),

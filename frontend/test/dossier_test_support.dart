@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
 import 'package:hkh_app/dossier/dossier.dart';
 
@@ -10,13 +12,14 @@ DossierSummary dossierSummary({
   DossierRole role = DossierRole.owner,
   int questionCount = 2,
   int articleCount = 1,
+  int memberCount = 1,
 }) => DossierSummary(
   id: id,
   title: title,
   goal: goal,
   role: role,
   ownerEmail: 'jan@example.com',
-  memberCount: 1,
+  memberCount: memberCount,
   questionCount: questionCount,
   articleCount: articleCount,
   createdAt: testDate,
@@ -53,6 +56,116 @@ ArticleSummary articleSummary({
   createdAt: testDate,
   updatedAt: testDate,
 );
+
+/// Lid van een dossier, standaard met een gewoon kort e-mailadres.
+Member member({
+  String email = 'lid@example.com',
+  DossierRole role = DossierRole.researcher,
+}) => Member(email: email, role: role);
+
+/// Formaten waarop ieder scherm getest wordt: smal (≤600px) en breed.
+const narrowSize = Size(360, 780);
+const wideSize = Size(1280, 900);
+
+/// Extreem smal scherm voor de overflowtests.
+const tinySize = Size(320, 720);
+
+/// Zet het testvenster; wordt na de test weer teruggedraaid.
+void setViewport(WidgetTester tester, Size size, {double textScaleFactor = 1}) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  tester.platformDispatcher.textScaleFactorTestValue = textScaleFactor;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+}
+
+/// Pompt [home] op het gevraagde formaat en wacht tot alles stil staat.
+Future<void> pumpDossierApp(
+  WidgetTester tester,
+  Widget home, {
+  required Size size,
+  double textScaleFactor = 1,
+}) async {
+  setViewport(tester, size, textScaleFactor: textScaleFactor);
+  await tester.pumpWidget(MaterialApp(home: home));
+  await tester.pumpAndSettle();
+}
+
+/// Scherm met één knop die een dialoog opent.
+class DialogHost extends StatelessWidget {
+  const DialogHost({required this.open, super.key});
+
+  final Future<void> Function(BuildContext context) open;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Builder(
+        builder: (context) => FilledButton(
+          onPressed: () => open(context),
+          child: const Text('Open'),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Opent de dialoog van een [DialogHost].
+Future<void> openDialog(WidgetTester tester) async {
+  await tester.tap(find.text('Open'));
+  await tester.pumpAndSettle();
+}
+
+/// Het vlak van de dialoog zelf (zonder de marges eromheen).
+Rect dialogSurfaceRect(WidgetTester tester) => tester.getRect(
+  find
+      .descendant(of: find.byType(AlertDialog), matching: find.byType(Material))
+      .first,
+);
+
+/// De achtergrond en rand van een kaart uit `AppCard`.
+BoxDecoration cardDecoration(WidgetTester tester, Key key) {
+  final ink = tester.widget<Ink>(
+    find.descendant(of: find.byKey(key), matching: find.byType(Ink)).first,
+  );
+  return ink.decoration! as BoxDecoration;
+}
+
+/// De decoratie van een gekleurde chip (rolchip, statuschip).
+BoxDecoration chipDecoration(WidgetTester tester, Key key) =>
+    tester.widget<Container>(find.byKey(key)).decoration! as BoxDecoration;
+
+/// De afronding van een `RoundedRectangleBorder`-vorm.
+BorderRadius radiusOf(ShapeBorder? shape) =>
+    (shape! as RoundedRectangleBorder).borderRadius as BorderRadius;
+
+/// De vorm van een knop zoals die uit het thema bij [finder] volgt.
+BorderRadius buttonRadius(WidgetTester tester, Finder finder) {
+  final theme = Theme.of(tester.element(finder));
+  return radiusOf(theme.filledButtonTheme.style!.shape!.resolve({}));
+}
+
+/// De rand van een tekstveld zoals die na het thema geldt.
+InputBorder fieldBorder(WidgetTester tester, Finder field) {
+  final decorator = tester.widget<InputDecorator>(
+    find.descendant(of: field, matching: find.byType(InputDecorator)).first,
+  );
+  return decorator.decoration.border!;
+}
+
+/// Controleert dat er niets buiten het venster valt en niets is overgelopen.
+void expectNoHorizontalOverflow(WidgetTester tester, List<Finder> finders) {
+  expect(tester.takeException(), isNull);
+  final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+  for (final finder in finders) {
+    for (final element in finder.evaluate()) {
+      final rect = tester.getRect(find.byElementPredicate((e) => e == element));
+      expect(rect.left, greaterThanOrEqualTo(-0.5), reason: '$finder');
+      expect(rect.right, lessThanOrEqualTo(width + 0.5), reason: '$finder');
+    }
+  }
+}
 
 DossierDetail dossierDetail({
   String id = 'd1',
