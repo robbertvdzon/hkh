@@ -495,6 +495,8 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
       _loading = true;
       _searched = true;
       _failed = false;
+      _results = null;
+      _total = 0;
     });
     try {
       final result = await widget.source.search(
@@ -514,6 +516,7 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
       if (!mounted) return;
       setState(() {
         _results = const [];
+        _total = 0;
         _loading = false;
         _failed = true;
       });

@@ -27,14 +27,19 @@
   Boven 600 px staan ze naast elkaar. De appbalk en inhoud zijn bestand tegen
   320 px met 200% tekstschaling.
 - Een collectiezoekfout toont een begrijpelijke live melding en behoudt de
-  ingevoerde zoekwaarden. Resultaten, lege toestand en doornavigatie gebruiken
-  de bestaande datasource en routes.
+  ingevoerde zoekwaarden. Oude resultaten en de oude resultaalteller worden bij
+  iedere nieuwe zoekpoging gewist, zodat een fout nooit met een verouderde link
+  naar alle resultaten wordt gecombineerd. Resultaten, lege toestand en
+  doornavigatie gebruiken de bestaande datasource en routes.
+- De velden Titel, Beschrijving en Jaar van Uitgebreid zoeken gebruiken elk een
+  zichtbaar, programmatisch gekoppeld veldlabel.
 - Ingelogde gebruikers hebben Mijn dossiers als losse appbalkactie: boven
   600 px met icoon en label, tot en met 600 px als icoon met tooltip en
   toegankelijke naam. Het accountmenu bevat alleen Uitloggen.
 - `frontend/test/widget_test.dart` dekt breed/smal, beide AI-startvarianten,
   Eerdere vragen, gewoon/uitgebreid collectiezoeken, beide disclosures,
-  resultaten/leeg/fout, doornavigatie, 320 px met 200% tekst en beide ingelogde
+  semantische veldlabels, resultaten/leeg/fout na een eerdere succesvolle
+  zoekactie, doornavigatie, 320 px met 200% tekst en beide ingelogde
   appbalkvarianten.
 - `docs/factory/functional-spec.md` beschrijft de gerealiseerde interface en
   bevat de exacte zichtbare teksten en Zoektips-inhoud.

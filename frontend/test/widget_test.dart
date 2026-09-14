@@ -41,15 +41,11 @@ class _SignedInSession extends UserSessionController {
 }
 
 class _SearchSource implements CollectionSearchSource {
-  _SearchSource({
-    this.results = const [],
-    this.total,
-    this.throwOnSearch = false,
-  });
+  _SearchSource({this.results = const [], this.total});
 
   final List<CollectionItemSummary> results;
   final int? total;
-  final bool throwOnSearch;
+  bool throwOnSearch = false;
   String? lastQuery;
   Map<String, String> lastFieldQueries = const {};
   int? lastYear;
@@ -297,6 +293,12 @@ void main() {
     expect(find.text('Titel'), findsOneWidget);
     expect(find.text('Beschrijving'), findsOneWidget);
     expect(find.text('Jaar'), findsOneWidget);
+
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Titel'), findsOneWidget);
+    expect(find.bySemanticsLabel('Beschrijving'), findsOneWidget);
+    expect(find.bySemanticsLabel('Jaar'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('filled AI question starts the existing AI search route', (
@@ -405,14 +407,20 @@ void main() {
   testWidgets('failed collection search reports an error and keeps its query', (
     tester,
   ) async {
-    await _pumpHome(
-      tester,
-      size: const Size(800, 1000),
-      searchSource: _SearchSource(throwOnSearch: true),
-    );
+    final source = _SearchSource(results: const [_result], total: 27);
+    await _pumpHome(tester, size: const Size(800, 1000), searchSource: source);
     await tester.enterText(
       find.byKey(const Key('collection-search-field')),
       'Kerklaan',
+    );
+    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Alle 27 resultaten'), findsOneWidget);
+
+    source.throwOnSearch = true;
+    await tester.enterText(
+      find.byKey(const Key('collection-search-field')),
+      'Slot Assumburg',
     );
     await tester.tap(find.byKey(const Key('collection-search-button')));
     await tester.pumpAndSettle();
@@ -422,10 +430,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('Alle 27 resultaten'), findsNothing);
+    expect(find.text('Doorzoek de collectie'), findsOneWidget);
     final field = tester.widget<TextField>(
       find.byKey(const Key('collection-search-field')),
     );
-    expect(field.controller!.text, 'Kerklaan');
+    expect(field.controller!.text, 'Slot Assumburg');
   });
 
   testWidgets('320px at 200% text scaling has no horizontal overflow', (

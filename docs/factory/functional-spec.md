@@ -41,15 +41,18 @@ letterlijk de bestaande zoeksyntax:
 
 > Los woorden voor een EN-zoekopdracht, of zet een zin tussen "aanhalingstekens" voor een exacte frase.
 
-Uitgebreid zoeken toont de velden Titel, Beschrijving en Jaar. Het openen of
-sluiten van een uitklapper verandert de toestand van de andere niet.
+Uitgebreid zoeken toont de velden Titel, Beschrijving en Jaar, elk met een
+zichtbaar en programmatisch gekoppeld veldlabel. Het openen of sluiten van een
+uitklapper verandert de toestand van de andere niet.
 
 Een collectiezoekopdracht toont maximaal drie treffers op de homepage en linkt
 met **Alle _n_ resultaten** door naar de bestaande volledige resultatenpagina.
 Zonder treffers staat er **Geen resultaten gevonden.** Bij een fout staat er
 **Zoeken in de collectie is niet gelukt. Controleer de verbinding en probeer
 het opnieuw.** De ingevoerde algemene en uitgebreide zoekwaarden blijven bij
-deze fout staan.
+deze fout staan. Resultaten en de resultaalteller van een vorige zoekactie
+verdwijnen zodra een nieuwe zoekactie begint en worden bij een fout niet naast
+de foutmelding getoond.
 
 ## Responsief gedrag en toegankelijkheid
 
