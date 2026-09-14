@@ -217,6 +217,14 @@ DELETE /api/articles/{id}
 
 ## 4. Schermen in de publieke app
 
+- **Gedeelde vormgeving**: de dossierschermen en -dialogen gebruiken hetzelfde ontwerpsysteem als
+  de homepage. De waarden staan één keer in `frontend/lib/theme/app_style.dart`: achtergrond
+  `#FBF6EE`, dominante accentkleur `#1F3B2E`, dunne randen `#D9CFBB`, kaarten met 16 px en velden
+  en knoppen met 10 px afronding, en minimaal 32 px tussen inhoudelijke secties. Rolchips hebben
+  een vaste kleur per rol: Eigenaar `#DCE9DA`, Bewerker `#F0E6D2`, Onderzoeker `#D9ECE7` en Lezer
+  `#ECE8DD`. Tot en met 600 px gebruiken dialogen de beschikbare breedte binnen de normale
+  schermmarges en stapelen kaartinhoud, dialoogvelden en ledenacties verticaal; lange
+  e-mailadressen worden met ellipsis afgekapt.
 - **Kop van de app**: voor bezoekers de knop "Inloggen met Google". Ingelogde
   gebruikers zien "Mijn dossiers" als losse appbalkactie (op smalle schermen
   alleen als toegankelijk gelabeld icoon) naast een accountmenu dat uitsluitend

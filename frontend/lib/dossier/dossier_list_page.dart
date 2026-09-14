@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/google_login_dialog.dart';
 import '../auth/user_session.dart';
+import '../theme/app_style.dart';
 import 'dossier.dart';
 import 'dossier_dialogs.dart';
 import 'dossier_format.dart';
@@ -109,30 +110,42 @@ class _DossierListPageState extends State<DossierListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mijn dossiers'),
-        actions: [
-          if (_signedIn)
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Vernieuwen',
+    return Theme(
+      data: appDossierTheme(context),
+      child: Builder(
+        builder: (context) => Scaffold(
+          backgroundColor: appBackground,
+          appBar: AppBar(
+            title: const Text(
+              'Mijn dossiers',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-        ],
-      ),
-      floatingActionButton: _signedIn
-          ? FloatingActionButton.extended(
-              onPressed: _create,
-              icon: const Icon(Icons.add),
-              label: const Text('Nieuw dossier'),
-            )
-          : null,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: _signedIn ? _buildList(context) : _buildSignedOut(context),
+            actions: [
+              if (_signedIn)
+                IconButton(
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Vernieuwen',
+                ),
+            ],
+          ),
+          floatingActionButton: _signedIn
+              ? FloatingActionButton.extended(
+                  onPressed: _create,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nieuw dossier'),
+                )
+              : null,
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: _signedIn
+                    ? _buildList(context)
+                    : _buildSignedOut(context),
+              ),
+            ),
           ),
         ),
       ),
@@ -141,18 +154,18 @@ class _DossierListPageState extends State<DossierListPage> {
 
   Widget _buildSignedOut(BuildContext context) {
     final session = widget.session;
+    final horizontal = isNarrowLayout(context) ? 16.0 : 24.0;
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 24),
       children: [
-        Icon(
-          Icons.folder_outlined,
-          size: 56,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        const Icon(Icons.folder_outlined, size: 56, color: appGreen),
         const SizedBox(height: 16),
         Text(
           'Dossiers zijn persoonlijk',
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: appGreen,
+            fontWeight: FontWeight.w700,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 10),
@@ -161,7 +174,7 @@ class _DossierListPageState extends State<DossierListPage> {
           'en deel je dat met anderen. Log in met je Google-account om je dossiers te zien.',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: appSectionGap),
         if (session != null && session.configured)
           Center(
             child: FilledButton.icon(
@@ -180,10 +193,11 @@ class _DossierListPageState extends State<DossierListPage> {
 
   Widget _buildList(BuildContext context) {
     final dossiers = _dossiers;
+    final horizontal = isNarrowLayout(context) ? 16.0 : 24.0;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 96),
         children: [
           if (_loading && dossiers == null)
             const Padding(
@@ -192,16 +206,16 @@ class _DossierListPageState extends State<DossierListPage> {
             ),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: appSectionGap),
               child: Text(
                 _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                style: const TextStyle(color: appErrorForeground),
               ),
             ),
           if (dossiers != null && dossiers.isEmpty) const _EmptyState(),
           for (final dossier in dossiers ?? const <DossierSummary>[]) ...[
             _DossierCard(dossier: dossier, onOpen: () => _open(dossier.id)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
           ],
         ],
       ),
@@ -213,25 +227,29 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Nog geen dossiers',
-            style: Theme.of(context).textTheme.titleMedium,
+  Widget build(BuildContext context) => AppCard(
+    key: const Key('dossier-empty-state'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.folder_outlined, size: 32, color: appGreen),
+        const SizedBox(height: 16),
+        Text(
+          'Nog geen dossiers',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: appGreen,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Een dossier is een onderzoek met een titel en een doel, bijvoorbeeld '
-            '"Artikel over de Kerklaan en haar bewoners voor het verenigingsblad". '
-            'Daarin stel je vragen aan het archief, houdt de AI een feitenlijst bij en schrijf je artikelen, '
-            'alleen of samen met anderen. Begin met "Nieuw dossier".',
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Een dossier is een onderzoek met een titel en een doel, bijvoorbeeld '
+          '"Artikel over de Kerklaan en haar bewoners voor het verenigingsblad". '
+          'Daarin stel je vragen aan het archief, houdt de AI een feitenlijst bij en schrijf je artikelen, '
+          'alleen of samen met anderen. Begin met "Nieuw dossier".',
+          style: TextStyle(color: appMutedText),
+        ),
+      ],
     ),
   );
 }
@@ -245,65 +263,81 @@ class _DossierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          child: Column(
+    final titleStyle = theme.textTheme.titleMedium?.copyWith(
+      color: appGreen,
+      fontWeight: FontWeight.w700,
+    );
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(color: appMutedText);
+    return AppCard(
+      key: Key('dossier-card-${dossier.id}'),
+      onTap: onOpen,
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Bij weinig ruimte (smal scherm of grote letters) komt de rolchip op
+          // een eigen regel, zodat de titel niet wordt weggedrukt.
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          final stacked = constraints.maxWidth < 260 * scale;
+          final title = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.folder_outlined, color: theme.colorScheme.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      dossier.title,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  RoleChip(role: dossier.role),
-                ],
-              ),
+              const Icon(Icons.folder_outlined, color: appGreen),
+              const SizedBox(width: 12),
+              Expanded(child: Text(dossier.title, style: titleStyle)),
+            ],
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (stacked) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: RoleChip(role: dossier.role),
+                ),
+                const SizedBox(height: 8),
+                title,
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: title),
+                    const SizedBox(width: 8),
+                    Flexible(child: RoleChip(role: dossier.role)),
+                  ],
+                ),
               if (dossier.goal.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   dossier.goal,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: appMutedText),
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 14,
                 runSpacing: 4,
                 children: [
                   Text(
                     '${dossier.questionCount} ${dossier.questionCount == 1 ? 'vraag' : 'vragen'}',
-                    style: theme.textTheme.bodySmall,
+                    style: metaStyle,
                   ),
                   Text(
                     '${dossier.articleCount} ${dossier.articleCount == 1 ? 'artikel' : 'artikelen'}',
-                    style: theme.textTheme.bodySmall,
+                    style: metaStyle,
                   ),
                   if (dossier.memberCount > 1)
-                    Text(
-                      '${dossier.memberCount} leden',
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text('${dossier.memberCount} leden', style: metaStyle),
                   Text(
                     'Gewijzigd ${formatDateTime(dossier.updatedAt)}',
-                    style: theme.textTheme.bodySmall,
+                    style: metaStyle,
                   ),
                 ],
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -315,18 +349,38 @@ class RoleChip extends StatelessWidget {
 
   final DossierRole role;
 
+  static Color background(DossierRole role) => switch (role) {
+    DossierRole.owner => appRoleOwnerBackground,
+    DossierRole.editor => appRoleEditorBackground,
+    DossierRole.researcher => appRoleResearcherBackground,
+    DossierRole.reader => appRoleReaderBackground,
+  };
+
+  static Color foreground(DossierRole role) => switch (role) {
+    DossierRole.owner => appRoleOwnerForeground,
+    DossierRole.editor => appRoleEditorForeground,
+    DossierRole.researcher => appRoleResearcherForeground,
+    DossierRole.reader => appRoleReaderForeground,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Chip(
-      label: Text(role.label),
-      visualDensity: VisualDensity.compact,
-      backgroundColor: switch (role) {
-        DossierRole.owner => colorScheme.primaryContainer,
-        DossierRole.editor => colorScheme.secondaryContainer,
-        DossierRole.researcher => colorScheme.tertiaryContainer,
-        DossierRole.reader => colorScheme.surfaceContainerHighest,
-      },
+    return Container(
+      key: Key('role-chip-${role.wireName}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: background(role),
+        borderRadius: BorderRadius.circular(appControlRadius),
+      ),
+      child: Text(
+        role.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: foreground(role),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../theme/app_style.dart';
+
 /// Foutmelding voor de gebruiker, zonder het `Bad state:`-voorvoegsel van StateError.
 String errorText(Object error) =>
     error.toString().replaceFirst('Bad state: ', '');
@@ -37,8 +39,8 @@ Future<bool> confirm(
 }) async {
   final result = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
+    builder: (context) => AppDialog(
+      title: title,
       content: Text(message),
       actions: [
         TextButton(
@@ -78,15 +80,18 @@ class InfoCard extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          if (icon != null) ...[Icon(icon), const SizedBox(width: 12)],
-          Expanded(child: Text(text)),
+  Widget build(BuildContext context) => AppCard(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, color: appGreen),
+          const SizedBox(width: 12),
         ],
-      ),
+        Expanded(
+          child: Text(text, style: const TextStyle(color: appMutedText)),
+        ),
+      ],
     ),
   );
 }
