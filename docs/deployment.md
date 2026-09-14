@@ -3,6 +3,13 @@
 De OpenShift-baseline is volledig declaratief en staat onder `deploy`. ArgoCD volgt de
 `deploy/overlays/openshift`-overlay op `main` en synchroniseert die naar namespace `hkh`.
 
+Er zijn twee ArgoCD Applications, met dezelfde automatische `syncPolicy` (`prune` en `selfHeal`):
+`deploy/argocd/application.yaml` voor productie (overlay `deploy/overlays/openshift`, namespace
+`hkh`) en `deploy/argocd/application-acceptance.yaml` voor de standing acceptatieomgeving (overlay
+`deploy/overlays/acceptance`, namespace `hkh-acceptance`). Beide manifesten moeten eenmalig met
+`oc apply` op het cluster worden gezet; zolang dat voor een omgeving niet is gebeurd, blijft die
+omgeving op een oude commit hangen. Zie `deploy/README.md` voor de installatiecommando's.
+
 De backend, gebruikersfrontend, adminfrontend en PostgreSQL hebben eigen workloads, services,
 probes en resourcegrenzen. Alleen de drie HTTP-services krijgen een OpenShift Route. De database
 blijft intern. De database gebruikt de SCL-org PostgreSQL 16-image die voor OpenShift en
@@ -18,4 +25,6 @@ Runtimewaarden komen uit de SealedSecret `hkh-runtime`. Alleen de gitignored bro
 `deploy/secrets-cluster.env` bevat plaintext; zie `deploy/README.md` voor generatie en installatie.
 
 Image-tags beginnen op `main`. Na iedere componentbuild vervangt GitHub Actions uitsluitend de
-bijbehorende tag door `sha-<commit>`, commit die manifestwijziging en laat ArgoCD de rollout doen.
+bijbehorende tag door `sha-<commit>` in zowel de OpenShift- als de acceptance-overlay, commit die
+manifestwijziging en laat ArgoCD de rollout doen. De acceptance-overlay pint voor beide frontends
+de losse `-acceptance`-variant van dezelfde commit; de backend gebruikt daar de productietag.
