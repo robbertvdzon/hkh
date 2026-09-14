@@ -53,3 +53,28 @@ oc get pods,routes -n hkh
 
 Een push op `main` bouwt alleen de gewijzigde componentimages. Daarna zet de workflow de SHA-tags
 in de OpenShift-overlay; ArgoCD rolt alleen die gewijzigde deployments uit.
+
+## Acceptatieomgeving
+
+De standing acceptatieomgeving draait in namespace `hkh-acceptance` uit
+`deploy/overlays/acceptance` en heeft een eigen ArgoCD-Application:
+
+```bash
+kubectl kustomize deploy/overlays/acceptance
+oc apply -f deploy/argocd/application-acceptance.yaml
+oc get application hkh-acceptance -n argocd
+oc get pods,routes -n hkh-acceptance
+```
+
+`oc apply -f deploy/argocd/application-acceptance.yaml` is een **eenmalige** stap, net als bij
+`deploy/argocd/application.yaml`. Daarna synchroniseert de acceptatieomgeving automatisch mee bij
+elke wijziging in `deploy/overlays/acceptance/kustomization.yaml` op `main` — inclusief de
+image-pins die de build-workflow zelf commit — precies zoals dat al voor productie (namespace
+`hkh`) gebeurt. Zolang die stap niet is uitgevoerd, blijft acceptatie op een oude commit hangen.
+
+Het manifest is een kopie van het productiemanifest; alleen naam, overlaypad en namespace
+verschillen. Het past dus uitsluitend de bestaande, al goedgekeurde OpenShift/GitOps-deployroute
+toe op de al bestaande acceptatieoverlay, **zonder** nieuwe opslag, externe koppeling, service of
+gewijzigde toegangsgrens. Omdat `prune` en `selfHeal` aanstaan, trekt ArgoCD bij de eerste sync de
+live toestand van `hkh-acceptance` gelijk met de overlay: handmatig aangebrachte, niet in Git
+vastgelegde resources in die namespace kunnen daarbij worden opgeruimd of teruggezet.
