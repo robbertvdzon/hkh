@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class AiSourceRef {
   const AiSourceRef({required this.collection, required this.ident});
 
@@ -145,3 +147,13 @@ abstract interface class AiSearchSource {
   Future<AiSearchSession> cancelAiSearch(String sessionId);
   Future<void> deleteAiSearch(String sessionId);
 }
+
+/// Haalt een geslaagd AI-antwoord op als PDF-bytes. Staat los van [AiSearchSource]
+/// zodat schermen zonder exportactie (zoals het dossiertabblad) ongewijzigd blijven.
+abstract interface class AiAnswerPdfSource {
+  Future<Uint8List> exportAnswerPdf(String answerId);
+}
+
+/// Biedt de geëxporteerde PDF aan de gebruiker aan: downloaden op web,
+/// delen/opslaan op Android. Zie `answer_pdf_saver.dart`.
+typedef AnswerPdfSaver = Future<void> Function(String fileName, Uint8List bytes);

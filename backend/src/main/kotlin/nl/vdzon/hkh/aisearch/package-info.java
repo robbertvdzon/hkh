@@ -1,4 +1,4 @@
 @org.springframework.modulith.ApplicationModule(
-    allowedDependencies = {"collection"}
+    allowedDependencies = {"collection", "docexport"}
 )
 package nl.vdzon.hkh.aisearch;

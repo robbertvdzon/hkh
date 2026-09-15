@@ -8,11 +8,7 @@ import jakarta.validation.constraints.Size
 import nl.vdzon.hkh.aisearch.AiSearchService
 import nl.vdzon.hkh.aisearch.AiSearchSessionView
 import nl.vdzon.hkh.aisearch.AiSearchSummaryView
-import java.time.Duration
-import java.util.UUID
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseCookie
 import org.springframework.web.bind.annotation.CookieValue
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -33,7 +29,7 @@ class AiSearchController(private val service: AiSearchService) {
         @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
-    ): List<AiSearchSummaryView> = service.list(visitorId(visitorCookie, request, response))
+    ): List<AiSearchSummaryView> = service.list(anonymousVisitorId(visitorCookie, request, response))
 
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -42,7 +38,7 @@ class AiSearchController(private val service: AiSearchService) {
         servletRequest: HttpServletRequest,
         response: HttpServletResponse,
         @Valid @RequestBody request: AskAiRequest,
-    ): AiSearchSessionView = service.start(visitorId(visitorCookie, servletRequest, response), request.question)
+    ): AiSearchSessionView = service.start(anonymousVisitorId(visitorCookie, servletRequest, response), request.question)
 
     @GetMapping("/{sessionId}")
     fun get(
@@ -50,7 +46,7 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ): AiSearchSessionView = service.get(visitorId(visitorCookie, request, response), sessionId)
+    ): AiSearchSessionView = service.get(anonymousVisitorId(visitorCookie, request, response), sessionId)
 
     @PostMapping("/{sessionId}/questions")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -61,7 +57,7 @@ class AiSearchController(private val service: AiSearchService) {
         @PathVariable sessionId: String,
         @Valid @RequestBody request: AskAiRequest,
     ): AiSearchSessionView = service.followUp(
-        visitorId(visitorCookie, servletRequest, response),
+        anonymousVisitorId(visitorCookie, servletRequest, response),
         sessionId,
         request.question,
     )
@@ -72,7 +68,7 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ): AiSearchSessionView = service.cancel(visitorId(visitorCookie, request, response), sessionId)
+    ): AiSearchSessionView = service.cancel(anonymousVisitorId(visitorCookie, request, response), sessionId)
 
     @DeleteMapping("/{sessionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -81,36 +77,5 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ) = service.delete(visitorId(visitorCookie, request, response), sessionId)
-
-    private fun visitorId(
-        cookieValue: String?,
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-    ): String {
-        val existing = runCatching { UUID.fromString(cookieValue) }.getOrNull()
-        val id = existing ?: UUID.randomUUID()
-        if (existing == null) {
-            val localDevelopment = request.serverName.equals("localhost", ignoreCase = true) ||
-                request.serverName == "127.0.0.1"
-            val secure = !localDevelopment || request.isSecure ||
-                request.getHeader("X-Forwarded-Proto").equals("https", ignoreCase = true)
-            response.addHeader(
-                HttpHeaders.SET_COOKIE,
-                ResponseCookie.from(VISITOR_COOKIE, id.toString())
-                    .httpOnly(true)
-                    .secure(secure)
-                    .sameSite("Lax")
-                    .path("/")
-                    .maxAge(Duration.ofDays(365))
-                    .build()
-                    .toString(),
-            )
-        }
-        return id.toString()
-    }
-
-    private companion object {
-        const val VISITOR_COOKIE = "hkh_ai_visitor"
-    }
+    ) = service.delete(anonymousVisitorId(visitorCookie, request, response), sessionId)
 }

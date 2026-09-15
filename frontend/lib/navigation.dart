@@ -48,6 +48,7 @@ Future<T?> openAppPage<T>(
 GoRouter createAppRouter({
   required CollectionSearchSource searchSource,
   AiSearchSource? aiSearchSource,
+  AiAnswerPdfSource? pdfSource,
   DossierSource? dossierSource,
   UserSessionController? session,
   Widget Function()? googleButtonBuilder,
@@ -137,6 +138,7 @@ GoRouter createAppRouter({
               path: 'vragen',
               builder: (_, state) => AiSearchPage(
                 source: aiSearchSource,
+                pdfSource: pdfSource,
                 initialQuestion: state.extra is String
                     ? state.extra as String
                     : null,

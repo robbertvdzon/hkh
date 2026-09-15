@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -8,7 +9,11 @@ import '../dossier/dossier.dart';
 import 'http_client_factory.dart';
 
 class BackendClient
-    implements CollectionSearchSource, AiSearchSource, DossierSource {
+    implements
+        CollectionSearchSource,
+        AiSearchSource,
+        AiAnswerPdfSource,
+        DossierSource {
   BackendClient(
     this.apiBaseUrl, {
     http.Client? client,
@@ -27,6 +32,9 @@ class BackendClient
   final void Function()? onUnauthorized;
 
   static const _dossierTimeout = Duration(seconds: 20);
+
+  /// De backend genereert de PDF on-demand; dit is de bovengrens van dat verzoek.
+  static const _pdfExportTimeout = Duration(seconds: 30);
 
   Map<String, String>? _headers([Map<String, String>? extra]) {
     final token = tokenProvider?.call();
@@ -199,6 +207,25 @@ class BackendClient
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _decodeAiResponse(response);
     }
+  }
+
+  /// De export gebruikt dezelfde client, en dus dezelfde bezoekerscookie
+  /// (inclusief `withCredentials` op web), als de overige AI-zoekverzoeken.
+  @override
+  Future<Uint8List> exportAnswerPdf(String answerId) async {
+    final response = await _client
+        .get(
+          Uri.parse('$apiBaseUrl/api/ai-search/$answerId/export/pdf'),
+          headers: _headers(),
+        )
+        .timeout(_pdfExportTimeout);
+    final contentType = response.headers['content-type'] ?? '';
+    if (response.statusCode != 200 ||
+        !contentType.startsWith('application/pdf') ||
+        response.bodyBytes.isEmpty) {
+      throw StateError('De PDF-export kon niet worden opgehaald.');
+    }
+    return response.bodyBytes;
   }
 
   Future<AiSearchSession> _postAi(String path, String question) async {

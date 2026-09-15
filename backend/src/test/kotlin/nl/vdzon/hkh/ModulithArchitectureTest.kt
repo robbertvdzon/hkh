@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.modulith.core.ApplicationModules
 
 class ModulithArchitectureTest {
-    private val modules = setOf("aisearch", "auth", "collection", "configuration", "dossier", "news", "previewdata", "system")
+    private val modules = setOf("aisearch", "auth", "collection", "configuration", "docexport", "dossier", "news", "previewdata", "system")
     private val sourceRoot = Path.of("src/main/kotlin/nl/vdzon/hkh")
 
     @Test

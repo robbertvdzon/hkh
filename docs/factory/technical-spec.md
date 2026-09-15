@@ -4,8 +4,8 @@
 
 | Onderdeel | Technologie |
 | --- | --- |
-| `backend/` | Kotlin op JDK 21, Spring Boot 4.x, Spring Modulith, Spring Web, Actuator, Validation, JDBC, Flyway, PostgreSQL, springdoc-openapi; gebouwd met Maven |
-| `frontend/` | Flutter (Dart SDK ^3.9), Material 3, `http`-package; doelen web en Android |
+| `backend/` | Kotlin op JDK 21, Spring Boot 4.x, Spring Modulith, Spring Web, Actuator, Validation, JDBC, Flyway, PostgreSQL, springdoc-openapi, openhtmltopdf (HTML naar PDF); gebouwd met Maven |
+| `frontend/` | Flutter (Dart SDK ^3.9), Material 3, `http`-package, `share_plus` en `path_provider` (PDF delen/opslaan op Android); doelen web en Android |
 | `frontend-admin/` | Flutter-webapp voor beheerders, zelfde stack als `frontend/` |
 | `deploy/` | OpenShift/Kustomize/ArgoCD-manifesten, sealed secrets |
 | CI/CD | GitHub Actions (`.github/`), images gepind op commit-sha |
@@ -15,14 +15,25 @@
 - De backend volgt de architectuurconventies van Personal News Feed; referentie en
   bewuste afwijkingen staan in `docs/architecture/reference-baseline.md`.
 - Backendmodules zijn Spring Modulith-modules; cross-module toegang loopt via de
-  publieke package-API van de module.
+  publieke package-API van de module. Generieke techniek staat in een eigen
+  module zonder afhankelijkheden op featuremodules: `nl.vdzon.hkh.docexport`
+  (`HtmlToPdfRenderer.render(title, bodyHtml, sources)`) kent `aisearch` en
+  `dossier` niet; `aisearch` noemt `docexport` in zijn `allowedDependencies`.
+  De renderer saniteert of herschrijft de aangeleverde HTML niet en haalt geen
+  externe bronnen (afbeeldingen, stylesheets, fonts) op; het Unicode-font staat
+  in `backend/src/main/resources/fonts/`.
 - De frontends praten alleen via HTTP-endpoints onder `/api/...` met de backend.
   `/actuator/health` en `/api/version` bestaan voor monitoring en deploy en worden
   niet vanuit de homepage aangeroepen.
 - Datasources in de frontend zijn interfaces (zoals `CollectionSearchSource`,
-  `AiSearchSource` en `DossierSource`) met `BackendClient` als
-  productie-implementatie; widgets krijgen de interface geïnjecteerd zodat ze
+  `AiSearchSource`, `AiAnswerPdfSource` en `DossierSource`) met `BackendClient`
+  als productie-implementatie; widgets krijgen de interface geïnjecteerd zodat ze
   testbaar blijven.
+- Platformspecifiek gedrag zit achter een kleine abstractie met conditionele
+  import: `lib/ai_search/answer_pdf_saver.dart` kiest op `dart.library.html` de
+  web-variant (Blob-download) en anders de io-variant (tijdelijk bestand plus
+  deeldialoog). Widgettests injecteren daar een fake voor en draaien zo zonder
+  browser-API's of Android-plugins.
 - Laad- en foutafhandeling hoort bij de sectie die de data nodig heeft, niet op
   paginaniveau: een falende backend maakt de homepage niet onbruikbaar.
 - De gedeelde vormgeving van de publieke app staat één keer in

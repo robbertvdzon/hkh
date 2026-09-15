@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
@@ -55,6 +58,71 @@ class _AiSource implements AiSearchSource {
   }
 }
 
+AiSearchTurn _answeredTurn({String id = 'turn-1'}) => AiSearchTurn(
+  id: id,
+  turnNumber: 1,
+  question: 'Wie was Jan Klaasz. Beemster?',
+  status: 'SUCCEEDED',
+  progressPercent: 100,
+  progressMessage: 'Onderzoek afgerond',
+  title: 'Jan Klaasz. Beemster',
+  answerHtml: '<p>Hij was schepen en molenaar in Heemskerk.</p>',
+  sources: const [],
+  suggestedFollowUps: const [],
+  errorMessage: null,
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
+  completedAt: DateTime(2026),
+  durationSeconds: 60,
+);
+
+/// Levert het geladen antwoord; de exportactie hoort daarna zichtbaar te zijn.
+class _AnsweredSource extends _AiSource {
+  _AnsweredSource() {
+    session = AiSearchSession(id: 'session-1', turns: [_answeredTurn()]);
+  }
+}
+
+class _PdfSource implements AiAnswerPdfSource {
+  _PdfSource({this.failing = false});
+
+  bool failing;
+  int calls = 0;
+  final List<String> requestedIds = [];
+  Completer<Uint8List>? pending;
+
+  @override
+  Future<Uint8List> exportAnswerPdf(String answerId) {
+    calls++;
+    requestedIds.add(answerId);
+    if (pending case final completer?) return completer.future;
+    if (failing) return Future.error(StateError('mislukt'));
+    return Future.value(Uint8List.fromList('%PDF-1.4'.codeUnits));
+  }
+}
+
+class _RecordingSaver {
+  final List<String> savedNames = [];
+  final List<int> savedSizes = [];
+
+  Future<void> save(String fileName, Uint8List bytes) async {
+    savedNames.add(fileName);
+    savedSizes.add(bytes.length);
+  }
+}
+
+class _RouteRecorder extends NavigatorObserver {
+  int pushes = 0;
+  int pops = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => pushes++;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => pops++;
+}
+
+
 void main() {
   testWidgets('starts a free archive question and shows progress', (
     tester,
@@ -107,5 +175,167 @@ void main() {
     expect(find.text('De geschiedenis van de Kerklaan'), findsOneWidget);
     expect(find.text('Duur: 2 min 05 sec'), findsOneWidget);
     expect(find.byTooltip('Zoekopdracht verwijderen'), findsOneWidget);
+  });
+
+  testWidgets('shows an enabled pdf export action once an answer is loaded', (
+    tester,
+  ) async {
+    final source = _AnsweredSource();
+    final pdfSource = _PdfSource();
+    final saver = _RecordingSaver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(
+          source: source,
+          initialSessionId: 'session-1',
+          pdfSource: pdfSource,
+          pdfSaver: saver.save,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final action = find.byTooltip('Exporteer als PDF');
+    expect(action, findsOneWidget);
+    expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(of: action, matching: find.byType(IconButton)),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    // De actie staat rechts van het bestaande geschiedenis-icoon.
+    expect(
+      tester.getCenter(action).dx,
+      greaterThan(tester.getCenter(find.byIcon(Icons.history)).dx),
+    );
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    expect(pdfSource.requestedIds, ['turn-1']);
+    expect(saver.savedNames, ['antwoord-turn-1.pdf']);
+    expect(saver.savedSizes.single, greaterThan(0));
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('has no export action before an answer is loaded', (
+    tester,
+  ) async {
+    final source = _AiSource();
+    final pdfSource = _PdfSource();
+
+    await tester.pumpWidget(
+      MaterialApp(home: AiSearchPage(source: source, pdfSource: pdfSource)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byTooltip('Exporteer als PDF'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'Wat is er bekend?');
+    await tester.tap(find.byTooltip('Vraag stellen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Het onderzoek loopt nog, dus er valt nog niets te exporteren.
+    expect(find.byTooltip('Exporteer als PDF'), findsNothing);
+    expect(pdfSource.calls, 0);
+  });
+
+  testWidgets('a failed export shows the retry snackbar without navigating', (
+    tester,
+  ) async {
+    final source = _AnsweredSource();
+    final pdfSource = _PdfSource(failing: true);
+    final saver = _RecordingSaver();
+    final routes = _RouteRecorder();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [routes],
+        home: AiSearchPage(
+          source: source,
+          initialSessionId: 'session-1',
+          pdfSource: pdfSource,
+          pdfSaver: saver.save,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final pushesBefore = routes.pushes;
+
+    await tester.tap(find.byTooltip('Exporteer als PDF'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PDF-export mislukt. Probeer het opnieuw.'), findsOneWidget);
+    expect(find.widgetWithText(SnackBarAction, 'Opnieuw'), findsOneWidget);
+    expect(saver.savedNames, isEmpty);
+    expect(find.text('Jan Klaasz. Beemster'), findsOneWidget);
+    expect(routes.pushes, pushesBefore);
+    expect(routes.pops, 0);
+
+    await tester.tap(find.text('Opnieuw'));
+    await tester.pumpAndSettle();
+
+    expect(pdfSource.calls, 2);
+    expect(find.text('PDF-export mislukt. Probeer het opnieuw.'), findsOneWidget);
+    expect(saver.savedNames, isEmpty);
+  });
+
+  testWidgets('the export action is inactive while an export is running', (
+    tester,
+  ) async {
+    final source = _AnsweredSource();
+    final pdfSource = _PdfSource()..pending = Completer<Uint8List>();
+    final saver = _RecordingSaver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(
+          source: source,
+          initialSessionId: 'session-1',
+          pdfSource: pdfSource,
+          pdfSaver: saver.save,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byTooltip('Exporteer als PDF'));
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byTooltip('Exporteer als PDF'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    pdfSource.pending!.complete(Uint8List.fromList('%PDF-1.4'.codeUnits));
+    pdfSource.pending = null;
+    await tester.pumpAndSettle();
+
+    expect(pdfSource.calls, 1);
+    expect(saver.savedNames, ['antwoord-turn-1.pdf']);
+    expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
   });
 }

@@ -32,7 +32,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = ["hkh.auth.google-client-id=test-client"])
 @AutoConfigureMockMvc
 @Import(DossierApiIntegrationTest.FakeGoogle::class)
