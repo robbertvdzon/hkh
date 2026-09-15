@@ -104,6 +104,33 @@ vormgeving raakt alleen de presentatie: teksten, validatie, de `canResearch`-
 filter van In dossier zetten en de `canManage`-autorisatie van Delen en leden
 blijven ongewijzigd.
 
+## PDF-export van een AI-antwoord
+
+Zodra op het AI-antwoordscherm een antwoord geladen en zichtbaar is, toont de
+appbalk rechts naast het geschiedenis-icoon een pdf-actie met de tooltip
+**Exporteer als PDF**. Zolang er geen antwoord is (leeg scherm, lopende
+zoekopdracht, foutstaat zonder antwoord) wordt de actie niet getoond, zodat er
+nooit een export voor een leeg antwoord wordt aangevraagd. Tijdens een lopende
+export is de actie inactief en staat er een kleine voortgangsindicatie op de
+knoppositie; een tweede tik start dus geen tweede verzoek.
+
+Een geslaagde export levert een PDF met de titel van de vraag of het antwoord,
+de antwoordtekst zoals die op het scherm staat en de bijbehorende bronnenlijst
+als tekst (collectie, ident en verwijzing). De PDF bevat exact dezelfde
+gesaniteerde inhoud als het scherm, dus geen scripts; beeldbank-thumbnails
+worden niet ingesloten. Op web start meteen een download van
+`antwoord-<id>.pdf`, op Android opent een deel-/opslagdialoog voor dat bestand
+(zonder extra Android-permissies). Er blijft geen PDF op de server achter.
+
+Mislukt de export (netwerkfout, foutstatus, onvolledig antwoord of een
+overschreden timeout), dan verschijnt de snackbar **PDF-export mislukt. Probeer
+het opnieuw.** met de actie **Opnieuw**, die dezelfde export opnieuw probeert.
+Het getoonde antwoord blijft ongewijzigd zichtbaar, er vindt geen navigatie
+plaats en er wordt geen leeg of onvolledig bestand aangeboden. De export vraagt
+geen account: hij loopt via dezelfde anonieme bezoekerscookie als de rest van
+het AI-zoeken. De export hoort bij het publieke AI-antwoordscherm; het tabblad
+*Vragen* in een dossier toont deze actie niet en blijft ongewijzigd.
+
 ## Testerregels van de factory
 
 Een testerresultaat bereikt alleen `tested` met compleet groen machinebewijs uit
