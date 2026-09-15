@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../collection/img_embed/img_embed.dart';
 import 'ai_search.dart';
+import 'answer_pdf_saver.dart';
 
 /// Zet een afgeronde anonieme zoekopdracht in een dossier. Geeft de titel van het gekozen
 /// dossier terug, of null als de gebruiker annuleert.
@@ -27,8 +28,10 @@ class AiSearchPage extends StatefulWidget {
     this.readOnlyMessage =
         'Je kunt in dit dossier meelezen, maar geen vragen stellen.',
     this.onAdopt,
+    this.pdfSource,
+    AnswerPdfSaver? pdfSaver,
     super.key,
-  });
+  }) : pdfSaver = pdfSaver ?? saveAnswerPdf;
 
   final AiSearchSource source;
   final String? initialQuestion;
@@ -58,6 +61,12 @@ class AiSearchPage extends StatefulWidget {
   /// Actie "In dossier zetten" per afgeronde zoekopdracht; alleen zichtbaar als gezet.
   final AdoptSearchHandler? onAdopt;
 
+  /// Haalt het geladen antwoord op als PDF; zonder bron is er geen exportactie.
+  final AiAnswerPdfSource? pdfSource;
+
+  /// Biedt de PDF aan de gebruiker aan; standaard het platformgedrag, in tests een fake.
+  final AnswerPdfSaver pdfSaver;
+
   @override
   State<AiSearchPage> createState() => _AiSearchPageState();
 }
@@ -72,6 +81,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
   Timer? _pollTimer;
   bool _submitting = false;
   bool _loadingSearches = false;
+  bool _exporting = false;
   String? _error;
 
   @override
@@ -288,6 +298,45 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  /// Het antwoord dat op dit moment op het scherm staat: het laatste geslaagde
+  /// antwoord van de open zoekopdracht. Null zolang er niets te exporteren valt.
+  AiSearchTurn? get _exportableAnswer {
+    if (widget.pdfSource == null) return null;
+    final turns = _session?.turns;
+    if (turns == null) return null;
+    for (final turn in turns.reversed) {
+      if (turn.status == 'SUCCEEDED' && (turn.answerHtml?.isNotEmpty ?? false)) {
+        return turn;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _exportPdf(String answerId) async {
+    final source = widget.pdfSource;
+    if (source == null || _exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final bytes = await source.exportAnswerPdf(answerId);
+      await widget.pdfSaver(_pdfFileName(answerId), bytes);
+      if (!mounted) return;
+      setState(() => _exporting = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _exporting = false);
+      // Het antwoord blijft staan; alleen de melding met "Opnieuw" komt erbij.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('PDF-export mislukt. Probeer het opnieuw.'),
+          action: SnackBarAction(
+            label: 'Opnieuw',
+            onPressed: () => _exportPdf(answerId),
+          ),
+        ),
+      );
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -448,6 +497,18 @@ class _AiSearchPageState extends State<AiSearchPage> {
               onPressed: _showOverview,
               icon: const Icon(Icons.history),
               tooltip: widget.overviewTitle,
+            ),
+          if (_exportableAnswer case final answer?)
+            IconButton(
+              onPressed: _exporting ? null : () => _exportPdf(answer.id),
+              icon: _exporting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Icon(Icons.picture_as_pdf),
+              tooltip: 'Exporteer als PDF',
             ),
           if (session == null)
             IconButton(
@@ -890,6 +951,11 @@ class _QuestionComposer extends StatelessWidget {
     ),
   );
 }
+
+/// Bestandsnaam `antwoord-<id>.pdf`, ontdaan van tekens die in bestandsnamen
+/// ongeldig zijn.
+String _pdfFileName(String answerId) =>
+    'antwoord-${answerId.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '-')}.pdf';
 
 String _formatDuration(int totalSeconds) {
   final seconds = totalSeconds.clamp(0, 24 * 60 * 60 * 365);

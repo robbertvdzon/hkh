@@ -50,6 +50,7 @@ void main() {
     HkhApp(
       searchSource: backend,
       aiSearchSource: backend,
+      pdfSource: backend,
       dossierSource: backend,
       session: session,
     ),
@@ -60,6 +61,7 @@ class HkhApp extends StatefulWidget {
   const HkhApp({
     required this.searchSource,
     this.aiSearchSource,
+    this.pdfSource,
     this.dossierSource,
     this.session,
     this.googleButtonBuilder,
@@ -68,6 +70,9 @@ class HkhApp extends StatefulWidget {
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+
+  /// Zonder pdf-bron ontbreekt de exportactie op het AI-antwoordscherm.
+  final AiAnswerPdfSource? pdfSource;
 
   /// Zonder dossierbron ontbreekt de losse actie "Mijn dossiers".
   final DossierSource? dossierSource;
@@ -84,6 +89,7 @@ class _HkhAppState extends State<HkhApp> {
   late final _router = createAppRouter(
     searchSource: widget.searchSource,
     aiSearchSource: widget.aiSearchSource,
+    pdfSource: widget.pdfSource,
     dossierSource: widget.dossierSource,
     session: widget.session,
     googleButtonBuilder:
@@ -112,6 +118,7 @@ class HomePage extends StatefulWidget {
   const HomePage({
     required this.searchSource,
     this.aiSearchSource,
+    this.pdfSource,
     this.dossierSource,
     this.session,
     this.googleButtonBuilder,
@@ -120,6 +127,7 @@ class HomePage extends StatefulWidget {
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+  final AiAnswerPdfSource? pdfSource;
   final DossierSource? dossierSource;
   final UserSessionController? session;
   final Widget Function()? googleButtonBuilder;
@@ -218,6 +226,7 @@ class _HomePageState extends State<HomePage> {
                 child: _HomeContent(
                   searchSource: widget.searchSource,
                   aiSearchSource: widget.aiSearchSource,
+                  pdfSource: widget.pdfSource,
                   dossierSource: widget.dossierSource,
                   session: _session,
                   isNarrow: isNarrow,
@@ -237,6 +246,7 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.searchSource,
     required this.aiSearchSource,
+    required this.pdfSource,
     required this.dossierSource,
     required this.session,
     required this.isNarrow,
@@ -244,6 +254,7 @@ class _HomeContent extends StatelessWidget {
 
   final CollectionSearchSource searchSource;
   final AiSearchSource? aiSearchSource;
+  final AiAnswerPdfSource? pdfSource;
   final DossierSource? dossierSource;
   final UserSessionController session;
   final bool isNarrow;
@@ -271,6 +282,7 @@ class _HomeContent extends StatelessWidget {
         if (aiSearchSource != null) ...[
           _AiHomeCard(
             source: aiSearchSource!,
+            pdfSource: pdfSource,
             dossierSource: dossierSource,
             session: session,
             isNarrow: isNarrow,
@@ -286,11 +298,13 @@ class _HomeContent extends StatelessWidget {
 class _AiHomeCard extends StatefulWidget {
   const _AiHomeCard({
     required this.source,
+    required this.pdfSource,
     required this.dossierSource,
     required this.session,
     required this.isNarrow,
   });
   final AiSearchSource source;
+  final AiAnswerPdfSource? pdfSource;
   final DossierSource? dossierSource;
   final UserSessionController session;
   final bool isNarrow;
@@ -331,6 +345,7 @@ class _AiHomeCardState extends State<_AiHomeCard> {
       '/vragen',
       () => AiSearchPage(
         source: widget.source,
+        pdfSource: widget.pdfSource,
         initialQuestion: question,
         onAdopt: _onAdopt,
       ),

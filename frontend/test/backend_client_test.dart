@@ -256,4 +256,57 @@ void main() {
     await expectLater(client.listDossiers(), throwsA(isA<StateError>()));
     expect(unauthorized, 1);
   });
+
+
+  test('fetches the answer pdf from the export endpoint', () async {
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/ai-search/turn-1/export/pdf');
+        return http.Response.bytes(
+          utf8.encode('%PDF-1.4 inhoud'),
+          200,
+          headers: const {'content-type': 'application/pdf'},
+        );
+      }),
+    );
+
+    final bytes = await client.exportAnswerPdf('turn-1');
+
+    expect(utf8.decode(bytes), startsWith('%PDF'));
+  });
+
+  test('rejects an export that is not a non-empty pdf', () async {
+    http.Response response = http.Response('', 500);
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async => response),
+    );
+
+    await expectLater(
+      client.exportAnswerPdf('turn-1'),
+      throwsA(isA<StateError>()),
+    );
+
+    response = http.Response(
+      'geen pdf',
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
+    await expectLater(
+      client.exportAnswerPdf('turn-1'),
+      throwsA(isA<StateError>()),
+    );
+
+    response = http.Response.bytes(
+      const [],
+      200,
+      headers: const {'content-type': 'application/pdf'},
+    );
+    await expectLater(
+      client.exportAnswerPdf('turn-1'),
+      throwsA(isA<StateError>()),
+    );
+  });
 }

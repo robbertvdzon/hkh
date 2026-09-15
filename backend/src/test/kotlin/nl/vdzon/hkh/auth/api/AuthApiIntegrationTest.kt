@@ -22,7 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.ObjectMapper
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = ["hkh.auth.google-client-id=test-client", "hkh.auth.admin-allowed-emails=admin@example.com"])
 @AutoConfigureMockMvc
 @Import(AuthApiIntegrationTest.FakeGoogle::class)
