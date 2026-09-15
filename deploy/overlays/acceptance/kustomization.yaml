@@ -5,50 +5,34 @@ resources:
 - ../../base
 - acceptance-secret.yaml
 - sealed-secret-ai-access.yaml
+- sealed-central-postgres.yaml
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/resources/requests/storage
-      value: 1Gi
+- patch: "- op: replace\n  path: /spec/resources/requests/storage\n  value: 1Gi"
   target:
     kind: PersistentVolumeClaim
     name: database-data
     version: v1
-- patch: |-
-    $patch: delete
-    apiVersion: bitnami.com/v1alpha1
-    kind: SealedSecret
-    metadata:
-      name: hkh-runtime
+- patch: "$patch: delete\napiVersion: bitnami.com/v1alpha1\nkind: SealedSecret\nmetadata:\n\
+    \  name: hkh-runtime"
   target:
     group: bitnami.com
     kind: SealedSecret
     name: hkh-runtime
     version: v1alpha1
-- patch: |-
-    $patch: delete
-    apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: backend
+- patch: "$patch: delete\napiVersion: route.openshift.io/v1\nkind: Route\nmetadata:\n\
+    \  name: backend"
   target:
     group: route.openshift.io
     kind: Route
     name: backend
     version: v1
-- patch: |-
-    - op: replace
-      path: /spec/host
-      value: hkh-acceptance.vdzonsoftware.nl
+- patch: "- op: replace\n  path: /spec/host\n  value: hkh-acceptance.vdzonsoftware.nl"
   target:
     group: route.openshift.io
     kind: Route
     name: frontend
     version: v1
-- patch: |-
-    - op: replace
-      path: /spec/host
-      value: hkh-admin-acceptance.vdzonsoftware.nl
+- patch: "- op: replace\n  path: /spec/host\n  value: hkh-admin-acceptance.vdzonsoftware.nl"
   target:
     group: route.openshift.io
     kind: Route
@@ -58,6 +42,8 @@ patches:
 - path: backend-memory.yaml
 - path: frontend-memory.yaml
 - path: admin-memory.yaml
+- path: central-postgres-patch.yaml
+- path: hkh_acc-retired-database.yaml
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin

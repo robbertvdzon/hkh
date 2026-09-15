@@ -6,11 +6,6 @@ resources:
 - sealed-secret-ai-access.yaml
 patches:
 - target:
-    version: v1
-    kind: PersistentVolumeClaim
-    name: database-data
-  patch: "- op: replace\n  path: /spec/resources/requests/storage\n  value: 1Gi"
-- target:
     group: bitnami.com
     version: v1alpha1
     kind: SealedSecret
@@ -28,3 +23,18 @@ patches:
 - path: backend-memory.yaml
 - path: frontend-memory.yaml
 - path: admin-memory.yaml
+- target:
+    kind: StatefulSet
+    name: database
+  patch: "$patch: delete\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name:\
+    \ database\n"
+- target:
+    kind: Service
+    name: database
+  patch: "$patch: delete\napiVersion: v1\nkind: Service\nmetadata:\n  name: database\n"
+- target:
+    kind: PersistentVolumeClaim
+    name: database-data
+  patch: "$patch: delete\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n\
+    \  name: database-data\n"
+- path: central-postgres-patch.yaml

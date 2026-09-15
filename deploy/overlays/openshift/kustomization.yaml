@@ -5,6 +5,7 @@ resources:
 - ../../base
 - postgres-backup.yaml
 - sealed-secret-ai-access.yaml
+- sealed-central-postgres.yaml
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
@@ -17,3 +18,6 @@ images:
   newTag: sha-4cc87c5
 patches:
 - path: agent-access-patch.yaml
+- path: central-postgres-patch.yaml
+- path: hkh_prod-retired-database.yaml
+- path: retired-backup-patch.yaml
