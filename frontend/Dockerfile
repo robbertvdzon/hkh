@@ -1,6 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-FROM ghcr.io/cirruslabs/flutter:3.44.7 AS build
+FROM ghcr.io/cirruslabs/flutter:3.35.2 AS build
+# Use the same SDK as verification; Cirrus does not publish an image for every Flutter patch.
+RUN FLUTTER_SDK="$(dirname "$(dirname "$(command -v flutter)")")" \
+ && git -C "$FLUTTER_SDK" fetch --depth 1 origin tag 3.44.7 \
+ && git -C "$FLUTTER_SDK" checkout --force 3.44.7 \
+ && flutter precache --web
 WORKDIR /src
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
