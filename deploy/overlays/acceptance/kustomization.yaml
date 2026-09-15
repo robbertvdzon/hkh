@@ -55,6 +55,9 @@ patches:
     name: admin
     version: v1
 - path: agent-access-patch.yaml
+- path: backend-memory.yaml
+- path: frontend-memory.yaml
+- path: admin-memory.yaml
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin

@@ -25,3 +25,6 @@ patches:
   patch: "$patch: delete\napiVersion: route.openshift.io/v1\nkind: Route\nmetadata:\n\
     \  name: backend"
 - path: agent-access-patch.yaml
+- path: backend-memory.yaml
+- path: frontend-memory.yaml
+- path: admin-memory.yaml
