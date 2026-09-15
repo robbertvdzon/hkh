@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
@@ -300,6 +303,12 @@ class FakeDossierSource implements DossierSource {
   final List<String> calls = [];
   Map<String, Object?>? lastSave;
 
+  /// Laat [exportArticlePdf] falen, zodat het foutpad van de export te testen is.
+  bool failArticlePdf = false;
+
+  /// De bytes die een geslaagde export teruggeeft.
+  Uint8List articlePdfBytes = Uint8List.fromList(utf8.encode('%PDF-1.4 test'));
+
   @override
   Future<List<DossierSummary>> listDossiers() async {
     calls.add('listDossiers');
@@ -539,5 +548,12 @@ class FakeDossierSource implements DossierSource {
     calls.add('rejectProposal:$versionId');
     article = articleDetail(current: article.current);
     return article;
+  }
+
+  @override
+  Future<Uint8List> exportArticlePdf(String dossierId, String articleId) async {
+    calls.add('exportArticlePdf:$dossierId:$articleId');
+    if (failArticlePdf) throw StateError('De PDF-export kon niet worden opgehaald.');
+    return articlePdfBytes;
   }
 }

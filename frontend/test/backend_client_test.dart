@@ -277,6 +277,61 @@ void main() {
     expect(utf8.decode(bytes), startsWith('%PDF'));
   });
 
+  test('fetches the article pdf from the dossier export endpoint', () async {
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(
+          request.url.path,
+          '/api/dossiers/d1/articles/a1/export/pdf',
+        );
+        return http.Response.bytes(
+          utf8.encode('%PDF-1.4 artikel'),
+          200,
+          headers: const {'content-type': 'application/pdf'},
+        );
+      }),
+    );
+
+    final bytes = await client.exportArticlePdf('d1', 'a1');
+
+    expect(utf8.decode(bytes), startsWith('%PDF'));
+  });
+
+  test('rejects an article export that is not a non-empty pdf', () async {
+    http.Response response = http.Response('', 500);
+    final client = BackendClient(
+      'https://example.test',
+      client: MockClient((request) async => response),
+    );
+
+    await expectLater(
+      client.exportArticlePdf('d1', 'a1'),
+      throwsA(isA<StateError>()),
+    );
+
+    response = http.Response(
+      'geen pdf',
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
+    await expectLater(
+      client.exportArticlePdf('d1', 'a1'),
+      throwsA(isA<StateError>()),
+    );
+
+    response = http.Response.bytes(
+      const [],
+      200,
+      headers: const {'content-type': 'application/pdf'},
+    );
+    await expectLater(
+      client.exportArticlePdf('d1', 'a1'),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('rejects an export that is not a non-empty pdf', () async {
     http.Response response = http.Response('', 500);
     final client = BackendClient(

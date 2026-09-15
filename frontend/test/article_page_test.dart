@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/dossier/article_history_page.dart';
 import 'package:hkh_app/dossier/article_page.dart';
+import 'package:hkh_app/dossier/dossier.dart';
 
 import 'dossier_test_support.dart';
 
@@ -158,4 +162,141 @@ void main() {
     expect(source.calls, contains('loadDiff:1:2'));
     expect(find.text('+ Nieuwe regel over de school.'), findsOneWidget);
   });
+
+  testWidgets(
+    'offers the pdf export between history and delete and hands the file over',
+    (tester) async {
+      final source = FakeDossierSource();
+      final saved = <String, Uint8List>{};
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ArticlePage(
+            source: source,
+            articleId: 'a1',
+            pdfSaver: (fileName, bytes) async => saved[fileName] = bytes,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Artikelmenu'));
+      await tester.pumpAndSettle();
+
+      expect(menuText('Exporteren als PDF'), findsOneWidget);
+      final export = tester.getTopLeft(menuText('Exporteren als PDF')).dy;
+      expect(export, greaterThan(tester.getTopLeft(menuText('Geschiedenis')).dy));
+      expect(
+        export,
+        lessThan(tester.getTopLeft(menuText('Artikel verwijderen')).dy),
+      );
+      final item =
+          tester.widget(
+                find
+                    .ancestor(
+                      of: menuText('Exporteren als PDF'),
+                      matching: find.byWidgetPredicate(
+                        (widget) => widget is PopupMenuItem,
+                      ),
+                    )
+                    .first,
+              )
+              as PopupMenuItem;
+      expect(item.enabled, isTrue);
+
+      await tester.tap(menuText('Exporteren als PDF'));
+      await tester.pumpAndSettle();
+
+      expect(source.calls, contains('exportArticlePdf:d1:a1'));
+      expect(saved.keys.toList(), ['artikel-a1.pdf']);
+      expect(saved['artikel-a1.pdf'], isNotEmpty);
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
+
+  testWidgets('a failed export shows the retry snackbar and keeps the article', (
+    tester,
+  ) async {
+    final source = FakeDossierSource()..failArticlePdf = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ArticlePage(
+          source: source,
+          articleId: 'a1',
+          pdfSaver: (fileName, bytes) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Artikelmenu'));
+    await tester.pumpAndSettle();
+    await tester.tap(menuText('Exporteren als PDF'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('PDF-export mislukt. Probeer het opnieuw.'),
+      findsOneWidget,
+    );
+    expect(find.text('Opnieuw'), findsOneWidget);
+    // Het artikel blijft volledig zichtbaar en er is niet genavigeerd.
+    expect(find.byType(ArticlePage), findsOneWidget);
+    expect(find.text('De bewoners van de Kerklaan'), findsOneWidget);
+    expect(find.text('Bronnen'), findsOneWidget);
+    expect(find.text('Kerklaan 12 in 1932'), findsOneWidget);
+
+    // "Opnieuw" doet exact dezelfde exportpoging nog een keer.
+    await tester.tap(find.text('Opnieuw'));
+    await tester.pumpAndSettle();
+
+    expect(
+      source.calls.where((call) => call == 'exportArticlePdf:d1:a1').length,
+      2,
+    );
+    expect(find.byType(ArticlePage), findsOneWidget);
+  });
+
+  testWidgets('the pdf export is absent until a version is loaded', (
+    tester,
+  ) async {
+    final source = PendingArticleSource();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ArticlePage(
+          source: source,
+          articleId: 'a1',
+          pdfSaver: (fileName, bytes) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byTooltip('Artikelmenu'), findsNothing);
+    expect(menuText('Exporteren als PDF'), findsNothing);
+
+    source.complete(articleDetail());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Artikelmenu'));
+    await tester.pumpAndSettle();
+    expect(menuText('Exporteren als PDF'), findsOneWidget);
+  });
+}
+
+/// Tekst van een item uit het artikelmenu; het scherm zelf heeft knoppen met
+/// dezelfde labels.
+Finder menuText(String label) => find.descendant(
+  of: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+  matching: find.text(label),
+);
+
+/// Houdt het laden van het artikel open, zodat de toestand vóór de eerste
+/// artikelversie te testen is.
+class PendingArticleSource extends FakeDossierSource {
+  final _pending = Completer<ArticleDetail>();
+
+  void complete(ArticleDetail detail) => _pending.complete(detail);
+
+  @override
+  Future<ArticleDetail> loadArticle(String articleId) => _pending.future;
 }

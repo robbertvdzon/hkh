@@ -3,14 +3,23 @@ package nl.vdzon.hkh.dossier.api
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import java.nio.charset.StandardCharsets.UTF_8
 import nl.vdzon.hkh.auth.SessionService
 import nl.vdzon.hkh.dossier.ArticleDetailView
+import nl.vdzon.hkh.dossier.ArticleExportFailedException
+import nl.vdzon.hkh.dossier.ArticleExportService
 import nl.vdzon.hkh.dossier.ArticleService
 import nl.vdzon.hkh.dossier.ArticleSummaryView
 import nl.vdzon.hkh.dossier.DiffView
 import nl.vdzon.hkh.dossier.VersionSummaryView
 import nl.vdzon.hkh.dossier.VersionView
+import org.slf4j.LoggerFactory
+import org.springframework.http.CacheControl
+import org.springframework.http.ContentDisposition
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -48,7 +57,10 @@ data class ProposalRequest(
 class ArticleController(
     private val sessions: SessionService,
     private val service: ArticleService,
+    private val exportService: ArticleExportService,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @GetMapping("/api/dossiers/{dossierId}/articles")
     fun list(
         @RequestHeader(AUTH, required = false) authorization: String?,
@@ -70,6 +82,36 @@ class ArticleController(
         @PathVariable dossierId: String,
         @Valid @RequestBody request: GenerateArticleRequest,
     ): ArticleDetailView = service.generate(dossierId, sessions.requireUser(authorization), request.title, request.instruction)
+
+    /**
+     * Downloadt de huidige versie van een artikel als PDF. Dezelfde autorisatie als de overige
+     * artikel-endpoints; de PDF wordt per verzoek gemaakt en nergens opgeslagen.
+     */
+    @GetMapping("/api/dossiers/{dossierId}/articles/{articleId}/export/pdf")
+    fun exportPdf(
+        @RequestHeader(AUTH, required = false) authorization: String?,
+        @PathVariable dossierId: String,
+        @PathVariable articleId: String,
+    ): ResponseEntity<ByteArray> {
+        val user = sessions.requireUser(authorization)
+        val pdf = try {
+            exportService.exportArticle(dossierId, articleId, user)
+        } catch (error: ArticleExportFailedException) {
+            // Geen lichaam: een half gevulde PDF is erger dan geen PDF.
+            log.warn("PDF-export van artikel {} is mislukt", articleId, error)
+            return ResponseEntity.internalServerError().build()
+        }
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(pdf.fileName, UTF_8).build().toString(),
+            )
+            .cacheControl(CacheControl.noStore())
+            .contentLength(pdf.bytes.size.toLong())
+            .body(pdf.bytes)
+    }
 
     @GetMapping("/api/articles/{articleId}")
     fun get(

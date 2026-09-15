@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../ai_search/ai_search.dart';
+import '../ai_search/answer_pdf_saver.dart';
 import '../collection/img_embed/img_embed.dart';
 import '../navigation.dart';
 import 'article_history_page.dart';
@@ -10,14 +12,23 @@ import 'article_proposal_card.dart';
 import 'dossier.dart';
 import 'dossier_format.dart';
 
-enum _ArticleMenuItem { history, delete }
+enum _ArticleMenuItem { history, exportPdf, delete }
 
 /// Eén artikel: gerenderde huidige versie, open AI-voorstel, editor en geschiedenis.
 class ArticlePage extends StatefulWidget {
-  const ArticlePage({required this.source, required this.articleId, super.key});
+  const ArticlePage({
+    required this.source,
+    required this.articleId,
+    AnswerPdfSaver? pdfSaver,
+    super.key,
+  }) : pdfSaver = pdfSaver ?? saveAnswerPdf;
 
   final DossierSource source;
   final String articleId;
+
+  /// Biedt de PDF aan de gebruiker aan: downloaden op web, delen/opslaan op Android.
+  /// Standaard het platformgedrag van het AI-antwoordscherm, in tests een fake.
+  final AnswerPdfSaver pdfSaver;
 
   @override
   State<ArticlePage> createState() => _ArticlePageState();
@@ -31,6 +42,7 @@ class _ArticlePageState extends State<ArticlePage> {
   Timer? _pollTimer;
   bool _editing = false;
   bool _saving = false;
+  bool _exporting = false;
   TextEditingController? _titleController;
   TextEditingController? _contentController;
 
@@ -147,6 +159,33 @@ class _ArticlePageState extends State<ArticlePage> {
     );
   }
 
+  /// Eén exportpad voor web en Android: dezelfde aanroep, dezelfde foutafhandeling.
+  /// Het artikel blijft staan; er wordt nooit een leeg of onvolledig bestand aangeboden.
+  Future<void> _exportPdf() async {
+    final article = _article;
+    if (article == null || _exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final bytes = await widget.source.exportArticlePdf(
+        article.dossierId,
+        article.id,
+      );
+      if (bytes.isEmpty) throw StateError('Lege PDF');
+      await widget.pdfSaver(_pdfFileName(article.id), bytes);
+      if (!mounted) return;
+      setState(() => _exporting = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _exporting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('PDF-export mislukt. Probeer het opnieuw.'),
+          action: SnackBarAction(label: 'Opnieuw', onPressed: _exportPdf),
+        ),
+      );
+    }
+  }
+
   Future<void> _openHistory() async {
     final restored = await openAppPage<bool>(
       context,
@@ -186,6 +225,7 @@ class _ArticlePageState extends State<ArticlePage> {
               tooltip: 'Artikelmenu',
               onSelected: (item) => switch (item) {
                 _ArticleMenuItem.history => _openHistory(),
+                _ArticleMenuItem.exportPdf => _exportPdf(),
                 _ArticleMenuItem.delete => _delete(),
               },
               itemBuilder: (_) => [
@@ -194,6 +234,13 @@ class _ArticlePageState extends State<ArticlePage> {
                   child: ListTile(
                     leading: Icon(Icons.history),
                     title: Text('Geschiedenis'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: _ArticleMenuItem.exportPdf,
+                  child: ListTile(
+                    leading: Icon(Icons.description_outlined),
+                    title: Text('Exporteren als PDF'),
                   ),
                 ),
                 if (canEdit)
@@ -495,3 +542,8 @@ class _InstructionDialogState extends State<_InstructionDialog> {
     ],
   );
 }
+
+/// Bestandsnaam `artikel-<id>.pdf`, ontdaan van tekens die in bestandsnamen
+/// ongeldig zijn.
+String _pdfFileName(String articleId) =>
+    'artikel-${articleId.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '-')}.pdf';
