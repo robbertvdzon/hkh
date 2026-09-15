@@ -18,3 +18,7 @@ resources:
 labels:
   - pairs:
       app.kubernetes.io/part-of: hkh
+patches:
+- path: backend-memory.yaml
+- path: frontend-memory.yaml
+- path: admin-memory.yaml
