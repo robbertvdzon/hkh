@@ -27,6 +27,13 @@ De Flutter-app voor bezoekers (web en Android).
   ingelogde gebruikers opent de losse appbalkactie **Mijn dossiers** deze
   functionaliteit; het accountmenu bevat alleen **Uitloggen**. De
   dossierschermen en -dialogen volgen dezelfde vormgeving als de homepage.
+  Het artikelmenu (`lib/dossier/article_page.dart`) bevat tussen **Geschiedenis**
+  en **Artikel verwijderen** het item **Exporteren als PDF** voor de huidige
+  artikelversie: op web een directe download van `artikel-<articleId>.pdf`, op
+  Android de deel-/opslagdialoog van dezelfde `answer_pdf_saver.dart`. Vóór het
+  laden van een artikelversie en tijdens het bewerken is het menu er niet.
+  Mislukt de export, dan blijft het artikel staan en verschijnt dezelfde
+  snackbar **PDF-export mislukt. Probeer het opnieuw.** met **Opnieuw**.
 - Self-update-check bij het openen van de app (`lib/update_checker.dart`,
   `lib/self_update_prompt.dart`), die op niet-webplatformen tegen de GitHub-API
   praat.
@@ -35,7 +42,8 @@ De Flutter-app voor bezoekers (web en Android).
 
 `BackendClient` (`lib/backend/backend_client.dart`) implementeert de
 datasource-interfaces voor collectiezoeken, AI-archiefonderzoek, de PDF-export
-van een AI-antwoord (`AiAnswerPdfSource`) en dossiers. De optionele
+van een AI-antwoord (`AiAnswerPdfSource`) en dossiers, inclusief de
+artikel-PDF-export (`DossierSource.exportArticlePdf`). De optionele
 gebruikerssessie staat in `lib/auth/user_session.dart`. Deze clients
 roepen de bijbehorende routes onder `/api/collections`, `/api/ai-search`,
 `/api/dossiers`, `/api/articles` en `/api/auth` aan. De homepage gebruikt geen
