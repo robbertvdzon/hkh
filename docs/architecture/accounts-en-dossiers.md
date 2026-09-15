@@ -213,7 +213,13 @@ POST   /api/articles/{id}/proposals                 { instruction, basedOnVersio
 POST   /api/articles/{id}/proposals/{v}/accept
 POST   /api/articles/{id}/proposals/{v}/reject
 DELETE /api/articles/{id}
+GET    /api/dossiers/{id}/articles/{articleId}/export/pdf   huidige versie als PDF (attachment)
 ```
+
+De PDF-export gebruikt exact dezelfde autorisatie als de overige artikelroutes en de gedeelde
+module `nl.vdzon.hkh.docexport`; de gerenderde HTML en de bronvermeldingen zijn die van het
+artikelscherm. Zonder toegang is het antwoord dezelfde `404` als bij een onbekend artikel, een
+renderfout geeft `500` zonder lichaam. Er wordt niets opgeslagen of gecachet.
 
 ## 4. Schermen in de publieke app
 
@@ -237,8 +243,11 @@ DELETE /api/articles/{id}
   "Laten bijwerken". *Artikelen* toont de artikelen met titel, versie en of er een open voorstel
   is.
 - **Artikel**: gerenderde weergave, knop "Bewerken" (Markdown-tekstveld, opslaan, annuleren),
-  knop "Vraag AI om een wijziging" (instructieveld), knop "Geschiedenis". Een open voorstel wordt
-  bovenaan getoond als verschil met de huidige versie, met "Accepteren" en "Verwerpen".
+  knop "Vraag AI om een wijziging" (instructieveld) en rechtsboven het artikelmenu met
+  "Geschiedenis", "Exporteren als PDF" en — voor wie mag bewerken — "Artikel verwijderen". Het
+  menu verschijnt pas als er een artikelversie geladen is en is tijdens het bewerken afwezig, zodat
+  een export nooit zonder inhoud start. Een open voorstel wordt bovenaan getoond als verschil met
+  de huidige versie, met "Accepteren" en "Verwerpen".
 - **Geschiedenis**: lijst van versies met nummer, auteur, tijd, samenvatting en de gebruikte
   AI-instructie. Twee versies selecteren toont het verschil. Knop "Terugzetten".
 - **Delen**: dialoog in het dossier met leden, rol per lid en een veld voor een nieuw e-mailadres.
@@ -254,7 +263,7 @@ DELETE /api/articles/{id}
    AI-voorstellen, geschiedenis en verschillen, per-gebruiker joblimiet.
 4. **Later.** Bewust nog niet gebouwd; ideeën voor een volgende versie, vastgelegd op
    12 september 2026:
-   - export van een artikel naar Word of PDF;
+   - export van een artikel naar Word (PDF-export is er inmiddels wel, via het artikelmenu);
    - oude antwoorden als invoerobjecten aan de runtime meegeven zodra een dossier te groot
      wordt voor het promptbudget;
    - notificatie bij een nieuw AI-voorstel in een gedeeld dossier;

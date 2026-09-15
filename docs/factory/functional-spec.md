@@ -136,6 +136,40 @@ geen account: hij loopt via dezelfde anonieme bezoekerscookie als de rest van
 het AI-zoeken. De export hoort bij het publieke AI-antwoordscherm; het tabblad
 *Vragen* in een dossier toont deze actie niet en blijft ongewijzigd.
 
+## PDF-export van een dossierartikel
+
+Het artikelscherm in een dossier heeft rechtsboven het bestaande artikelmenu.
+Zodra een artikelversie geladen is, staat daarin tussen **Geschiedenis** en
+**Artikel verwijderen** het item **Exporteren als PDF** (ux-05 desktop, ux-06
+mobiel). Iedereen met toegang tot het dossier ziet het item, ook een lezer;
+**Artikel verwijderen** blijft voorbehouden aan wie mag bewerken, dus voor een
+lezer sluit het exportitem het menu af. Zolang er nog geen artikelversie geladen
+is, toont het scherm het artikelmenu niet, zodat er nooit een export zonder
+inhoud aangevraagd kan worden. Ook tijdens het bewerken van een artikel is het
+menu er niet. Een tweede keuze tijdens een lopende export start geen tweede
+verzoek. De rest van het scherm — lay-out, navigatie en de overige menu-items —
+blijft ongewijzigd.
+
+Een geslaagde export levert de huidige (laatst getoonde) artikelversie als PDF:
+de titel van het artikel, de inhoud zoals die op het scherm staat en het
+bronnenblok **Bronnen** als tekst (titel, collectie/ident en de verwijzing naar
+de bron). De PDF bevat exact dezelfde gesaniteerde inhoud als het scherm, dus
+geen scripts; bronminiaturen worden niet ingesloten. Op web start meteen een
+download van `artikel-<articleId>.pdf`, op Android opent dezelfde
+deel-/opslagdialoog als bij de AI-antwoord-export, zonder extra
+Android-permissies. De PDF wordt per verzoek gemaakt en blijft nergens op de
+server achter. Historische versies en een dossier als geheel zijn niet te
+exporteren.
+
+De export vraagt dezelfde toegang als de rest van het artikelscherm: wie het
+dossier niet mag zien, krijgt dezelfde foutmelding als op de bestaande
+artikelroutes. Mislukt de export (netwerkfout, foutstatus, leeg of onvolledig
+antwoord, mislukte download- of deelactie), dan verschijnt de snackbar
+**PDF-export mislukt. Probeer het opnieuw.** met de actie **Opnieuw**, die
+dezelfde poging herhaalt (ux-07 desktop, ux-08 mobiel). Het artikel blijft
+inclusief bronnenblok zichtbaar, er vindt geen navigatie plaats en er wordt geen
+leeg of onvolledig bestand aangeboden.
+
 ## Testerregels van de factory
 
 Een testerresultaat bereikt alleen `tested` met compleet groen machinebewijs uit

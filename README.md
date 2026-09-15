@@ -106,4 +106,14 @@ en AI-voorstellen (`/api/articles`). Dossiers zijn per e-mailadres deelbaar met 
 onderzoeker en bewerker. Het volledige ontwerp staat in
 [docs/architecture/accounts-en-dossiers.md](docs/architecture/accounts-en-dossiers.md).
 
+De huidige versie van een artikel is als PDF mee te nemen via
+`GET /api/dossiers/{dossierId}/articles/{articleId}/export/pdf`. Die route gebruikt exact dezelfde
+autorisatie als de overige artikel-endpoints (sessietoken plus dossiertoegang) en levert bij succes
+status 200 met `Content-Type: application/pdf` en `Content-Disposition: attachment`
+(`artikel-<articleId>.pdf`). De PDF bevat de artikeltitel, de al gesaniteerde artikel-HTML van het
+scherm en de bronvermeldingen als tekst. Een onbekend artikel, een artikel uit een ander dossier of
+een dossier zonder toegang geeft dezelfde foutstatus als de bestaande artikelroutes (`404`); een
+renderfout geeft `500` zonder lichaam. Ook deze PDF's worden on-demand gemaakt en nergens bewaard
+of gecachet; de gedeelde renderer uit `nl.vdzon.hkh.docexport` is dezelfde als bij de AI-antwoorden.
+
 Echte secrets, lokale overrides, buildoutput en IDE-bestanden worden niet gecommit.

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../ai_search/ai_search.dart';
 
 /// Rol van de ingelogde gebruiker in een dossier. De volgorde loopt op in rechten.
@@ -518,4 +520,7 @@ abstract interface class DossierSource {
   });
   Future<ArticleDetail> acceptProposal(String articleId, String versionId);
   Future<ArticleDetail> rejectProposal(String articleId, String versionId);
+
+  /// De huidige versie van een artikel als PDF-bytes; de backend rendert per verzoek.
+  Future<Uint8List> exportArticlePdf(String dossierId, String articleId);
 }

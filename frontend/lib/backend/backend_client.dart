@@ -583,6 +583,29 @@ class BackendClient
     ),
   );
 
+  /// Haalt de PDF van de huidige artikelversie op. Alleen een niet-lege `application/pdf`
+  /// telt als geslaagd; alles anders wordt een fout, zodat er nooit een leeg of onvolledig
+  /// bestand wordt aangeboden.
+  @override
+  Future<Uint8List> exportArticlePdf(String dossierId, String articleId) async {
+    final response = await _client
+        .get(
+          Uri.parse(
+            '$apiBaseUrl/api/dossiers/$dossierId/articles/$articleId/export/pdf',
+          ),
+          headers: _headers(),
+        )
+        .timeout(_pdfExportTimeout);
+    if (response.statusCode == 401) onUnauthorized?.call();
+    final contentType = response.headers['content-type'] ?? '';
+    if (response.statusCode != 200 ||
+        !contentType.startsWith('application/pdf') ||
+        response.bodyBytes.isEmpty) {
+      throw StateError('De PDF-export kon niet worden opgehaald.');
+    }
+    return response.bodyBytes;
+  }
+
   // ---- Hulpmethodes voor dossierroutes ----
 
   Future<http.Response> _request(
