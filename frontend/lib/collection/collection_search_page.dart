@@ -898,13 +898,33 @@ class CollectionResultCard extends StatelessWidget {
         width: gallery ? double.infinity : 76,
         height: gallery ? 180 : 92,
         child: IgnorePointer(
-          child: item.imageUrl == null
-              ? ColoredBox(
-                  color: appAccentBackground,
-                  child: Icon(config.icon, color: appMutedText, size: 28),
-                )
+          child: item.imageUrl == null && item.thumbnailUrl == null
+              ? item.hasPdf
+                    ? ColoredBox(
+                        color: appAccentBackground,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.picture_as_pdf_outlined,
+                              color: appMutedText,
+                              size: 34,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Scan beschikbaar',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: appMutedText),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ColoredBox(
+                        color: appAccentBackground,
+                        child: Icon(config.icon, color: appMutedText, size: 28),
+                      )
               : buildNetworkImage(
-                  item.imageUrl!,
+                  item.imageUrl ?? item.thumbnailUrl!,
                   fit: gallery ? BoxFit.contain : BoxFit.cover,
                   placeholder: (context) => ColoredBox(
                     color: appAccentBackground,

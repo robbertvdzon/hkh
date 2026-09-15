@@ -1,6 +1,8 @@
 package nl.vdzon.hkh.collection.api
 
 import nl.vdzon.hkh.collection.CollectionLinks
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -25,10 +27,32 @@ class CollectionMediaController {
 
     @GetMapping("/api/collection-media/{token}")
     fun get(@PathVariable token: String): ResponseEntity<StreamingResponseBody> {
-        var url = runCatching {
-            require(token.length <= 8192)
-            String(Base64.getUrlDecoder().decode(token), Charsets.UTF_8)
-        }.getOrElse { throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Ongeldige mediaverwijzing") }
+        val upstream = open(token)
+        val stream = StreamingResponseBody { output -> upstream.body.use { it.copyTo(output) } }
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(upstream.type))
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(24)).cachePublic())
+            .header("X-Content-Type-Options", "nosniff").body(stream)
+    }
+
+    @GetMapping("/api/collection-thumbnail/{token}")
+    fun thumbnail(@PathVariable token: String): ResponseEntity<ByteArray> {
+        val upstream = open(token)
+        if (upstream.type != "application/pdf") {
+            upstream.body.close()
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geen scan beschikbaar")
+        }
+        val jpeg = try {
+            upstream.body.use { PdfThumbnailRenderer.render(readLimited(it)) }
+        } catch (_: Exception) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Voorvertoning niet beschikbaar")
+        }
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG)
+            .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic())
+            .header("X-Content-Type-Options", "nosniff").body(jpeg)
+    }
+
+    private fun open(token: String): RemoteMedia {
+        var url = decode(token)
         repeat(4) {
             if (!CollectionLinks.isImportUrl(url)) throw ResponseStatusException(HttpStatus.NOT_FOUND)
             val upstream = try {
@@ -46,12 +70,35 @@ class CollectionMediaController {
                     upstream.body().close()
                     throw ResponseStatusException(HttpStatus.NOT_FOUND, "Media niet beschikbaar")
                 }
-                val stream = StreamingResponseBody { output -> upstream.body().use { it.copyTo(output) } }
-                return ResponseEntity.ok().contentType(MediaType.parseMediaType(type))
-                    .cacheControl(CacheControl.maxAge(Duration.ofHours(24)).cachePublic())
-                    .header("X-Content-Type-Options", "nosniff").body(stream)
+                return RemoteMedia(type, upstream.body())
             }
         }
         throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Media kon niet worden geladen")
+    }
+
+    private fun decode(token: String): String = runCatching {
+        require(token.length <= 8192)
+        String(Base64.getUrlDecoder().decode(token), Charsets.UTF_8)
+    }.getOrElse { throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Ongeldige mediaverwijzing") }
+
+    private fun readLimited(input: InputStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) return output.toByteArray()
+            total += read
+            if (total > MAX_THUMBNAIL_SOURCE_BYTES) {
+                throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Scan is te groot voor een voorvertoning")
+            }
+            output.write(buffer, 0, read)
+        }
+    }
+
+    private data class RemoteMedia(val type: String, val body: InputStream)
+
+    private companion object {
+        const val MAX_THUMBNAIL_SOURCE_BYTES = 20 * 1024 * 1024
     }
 }

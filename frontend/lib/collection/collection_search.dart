@@ -35,6 +35,7 @@ class CollectionItemSummary {
     required this.year,
     required this.imageUrl,
     required this.hasPdf,
+    this.thumbnailUrl,
     this.fields = const {},
   });
 
@@ -46,6 +47,7 @@ class CollectionItemSummary {
         description: json['description'] as String? ?? '',
         year: json['year'] as int?,
         imageUrl: json['imageUrl'] as String?,
+        thumbnailUrl: json['thumbnailUrl'] as String?,
         hasPdf: json['hasPdf'] as bool? ?? false,
         fields: (json['fields'] as Map<String, dynamic>? ?? {}).map(
           (k, v) => MapEntry(k, v.toString()),
@@ -58,6 +60,7 @@ class CollectionItemSummary {
   final String description;
   final int? year;
   final String? imageUrl;
+  final String? thumbnailUrl;
   final bool hasPdf;
   final Map<String, String> fields;
 }

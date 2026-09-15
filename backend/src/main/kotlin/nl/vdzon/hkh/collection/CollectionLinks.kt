@@ -23,8 +23,16 @@ object CollectionLinks {
     }.getOrDefault(false)
 
     fun media(value: String?): String? = value?.let {
-        if (isImportUrl(it)) "$PUBLIC_ORIGIN/api/collection-media/${Base64.getUrlEncoder().withoutPadding().encodeToString(it.toByteArray(UTF_8))}"
-        else it
+        val source = directPdf(it)
+        if (isImportUrl(source)) "$PUBLIC_ORIGIN/api/collection-media/${Base64.getUrlEncoder().withoutPadding().encodeToString(source.toByteArray(UTF_8))}"
+        else source
+    }
+
+    /** A lightweight JPEG of the first page when an archival scan has no separate image. */
+    fun thumbnail(value: String?): String? = value?.let {
+        val source = directPdf(it)
+        if (isImportUrl(source)) "$PUBLIC_ORIGIN/api/collection-thumbnail/${Base64.getUrlEncoder().withoutPadding().encodeToString(source.toByteArray(UTF_8))}"
+        else null
     }
 
     fun safeMedia(value: String?): String? = value?.takeIf { url ->
@@ -60,4 +68,23 @@ object CollectionLinks {
     }
 
     private fun encode(value: String) = URLEncoder.encode(value, UTF_8).replace("+", "%20")
+
+    /**
+     * Some old records store the pdf.js viewer as their PDF URL. The viewer is HTML, which the
+     * media proxy correctly refuses to serve as a PDF. Use its `file` parameter instead, so old
+     * imports start working after the application update; a full re-import is not needed.
+     */
+    private fun directPdf(value: String): String = runCatching {
+        val viewer = URI(value)
+        val file = viewer.rawQuery.orEmpty().split('&')
+            .firstOrNull { it.substringBefore('=').equals("file", ignoreCase = true) }
+            ?.substringAfter('=', missingDelimiterValue = "")
+            ?.let { URLDecoder.decode(it, UTF_8) }
+            ?.takeIf { it.isNotBlank() }
+            ?: return value
+        val candidate = viewer.resolve(file).toString()
+        candidate.takeIf {
+            isImportUrl(it) && URI(it).path.orEmpty().endsWith(".pdf", ignoreCase = true)
+        } ?: value
+    }.getOrDefault(value)
 }

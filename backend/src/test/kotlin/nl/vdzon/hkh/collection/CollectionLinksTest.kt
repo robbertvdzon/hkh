@@ -40,4 +40,21 @@ class CollectionLinksTest {
             assertFalse(CollectionLinks.isImportUrl(bad), bad)
         }
     }
+
+    @Test
+    fun `media proxy unwraps the PDF behind a legacy viewer link`() {
+        val media = CollectionLinks.media(
+            "https://www.historischekringheemskerk.nl/pdfjs3/web/viewer.html?file=/archief/pdf/10396.pdf",
+        )
+
+        val token = media!!.substringAfterLast('/')
+        assertEquals(
+            "https://www.historischekringheemskerk.nl/archief/pdf/10396.pdf",
+            String(Base64.getUrlDecoder().decode(token)),
+        )
+        val thumbnail = CollectionLinks.thumbnail(
+            "https://www.historischekringheemskerk.nl/pdfjs3/web/viewer.html?file=/archief/pdf/10396.pdf",
+        )!!
+        assertTrue(thumbnail.startsWith("${CollectionLinks.PUBLIC_ORIGIN}/api/collection-thumbnail/"))
+    }
 }

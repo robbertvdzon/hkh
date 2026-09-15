@@ -30,6 +30,7 @@ data class CollectionItemSummary(
     val description: String,
     val year: Int?,
     val imageUrl: String?,
+    val thumbnailUrl: String?,
     val hasPdf: Boolean,
     val fields: Map<String, String>,
 )
@@ -100,6 +101,7 @@ private fun CollectionItem.toSummary() = CollectionItemSummary(
     description = description,
     year = year,
     imageUrl = CollectionLinks.media(imageUrl),
+    thumbnailUrl = if (imageUrl == null) CollectionLinks.thumbnail(pdfUrl) else null,
     hasPdf = pdfUrl != null,
     fields = fields.filterKeys { key -> CollectionCatalog.documentFields.none { it.equals(key, ignoreCase = true) } },
 )

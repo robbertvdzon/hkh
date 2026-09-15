@@ -2,6 +2,8 @@ package nl.vdzon.hkh.collection
 
 import java.io.ByteArrayInputStream
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets.UTF_8
 import java.time.Duration
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -293,12 +295,29 @@ class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: Res
         return best?.let { absolute(it) }
     }
 
-    private fun extractPdfUrl(doc: Document, collection: String): String? {
-        val href = doc.select("a[href]").map { it.attr("href") }
-            .map { it.substringBefore('#') }
-            .firstOrNull { it.contains("/$collection/", ignoreCase = true) && it.endsWith(".pdf", ignoreCase = true) }
-        return href?.let { absolute(it) }
-    }
+    internal fun extractPdfUrl(doc: Document, collection: String): String? =
+        doc.select("a[href]").asSequence()
+            .map { it.attr("href").substringBefore('#') }
+            .mapNotNull { href ->
+                val direct = pdfFileFromViewer(href) ?: href
+                direct.takeIf { isCollectionPdf(it, collection) }?.let(::absolute)
+            }
+            .firstOrNull()
+
+    /** The legacy site wraps many scans in pdf.js: viewer.html?file=/archief/pdf/123.pdf. */
+    private fun pdfFileFromViewer(href: String): String? = runCatching {
+        val uri = URI(absolute(href))
+        uri.rawQuery.orEmpty().split('&')
+            .firstOrNull { it.substringBefore('=').equals("file", ignoreCase = true) }
+            ?.substringAfter('=', missingDelimiterValue = "")
+            ?.let { URLDecoder.decode(it, UTF_8) }
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    private fun isCollectionPdf(href: String, collection: String): Boolean = runCatching {
+        val path = URI(absolute(href)).path.orEmpty()
+        path.contains("/$collection/", ignoreCase = true) && path.endsWith(".pdf", ignoreCase = true)
+    }.getOrDefault(false)
 
     private fun absolute(url: String): String = when {
         url.startsWith("http://") || url.startsWith("https://") -> url
