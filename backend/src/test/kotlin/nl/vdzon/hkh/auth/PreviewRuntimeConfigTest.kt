@@ -56,4 +56,39 @@ class PreviewRuntimeConfigTest {
             PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, "jdbc:postgresql://database:5432/hkh", "42")
         }
     }
+    private val central = "jdbc:postgresql://postgres.postgres-nonproduction.svc:5432/"
+    private val tls = "?sslmode=verify-full&sslrootcert=/etc/postgres-ca/ca.crt"
+
+    @Test
+    fun `allows only the own central acceptance and PR databases`() {
+        assertTrue(PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, central + "hkh_acc" + tls, "").enabled)
+        assertTrue(PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, central + "hkh_pr_42_abcdef12" + tls, "42").enabled)
+    }
+
+    @Test
+    fun `rejects cross environment connections and JDBC overrides`() {
+        val invalid = listOf(
+            central + "hkh_prod" + tls,
+            central.replace("nonproduction", "production") + "hkh_acc" + tls,
+            central + "pvdd_acc" + tls,
+            central + "hkh_pr_43_abcdef12" + tls,
+            central + "hkh_acc",
+            central + "hkh_acc" + tls.replace("verify-full", "require"),
+            central + "hkh_acc" + tls + "&sslmode=disable",
+            central + "hkh_acc" + tls + "&host=production",
+            central + "hkh_acc" + tls + "&options=unsafe",
+            central.replace(":5432", ":5433") + "hkh_acc" + tls,
+            central.replace("//", "//user@") + "hkh_acc" + tls,
+            central + "hkh_acc" + tls + "#fragment",
+            "jdbc:postgresql://database:5432/hkh?host=production",
+        )
+        invalid.forEach { url ->
+            assertFailsWith<IllegalArgumentException> {
+                PreviewRuntimeConfig(true, PreviewRuntimeConfig.ACCEPTANCE_MARKER, url, "")
+            }
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PreviewRuntimeConfig(true, PreviewRuntimeConfig.REQUIRED_MARKER, central + "hkh_pr_43_abcdef12" + tls, "42")
+        }
+    }
 }
