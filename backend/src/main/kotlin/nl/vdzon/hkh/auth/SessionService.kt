@@ -53,13 +53,20 @@ class SessionService(
         return LoginResult(token, user.toAuthenticated())
     }
 
+    fun loginForAgent(email: String): LoginResult {
+        val user = store.findUserByEmail(email) ?: throw unauthorized()
+        val token = "ai_" + newToken()
+        store.createSession(user.id, hash(token), Instant.now().plusSeconds(3600))
+        return LoginResult(token, user.toAuthenticated())
+    }
+
     /** Null zonder Authorization-header; 401 bij een ongeldige, verlopen of ingetrokken sessie. */
     fun authenticate(authorization: String?): AuthenticatedUser? {
         val token = bearer(authorization) ?: return null
         val session = store.findSession(hash(token)) ?: throw unauthorized()
         val now = Instant.now()
         if (session.revokedAt != null || session.expiresAt.isBefore(now)) throw unauthorized()
-        if (Duration.between(session.lastUsedAt, now) > TOUCH_INTERVAL) {
+        if (!token.startsWith("ai_") && Duration.between(session.lastUsedAt, now) > TOUCH_INTERVAL) {
             store.touchSession(session.id, now.plus(sessionDuration()))
         }
         return session.user.toAuthenticated()
