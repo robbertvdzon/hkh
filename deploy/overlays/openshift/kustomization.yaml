@@ -11,9 +11,9 @@ images:
   newTag: sha-9aee82e
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-4f6abb8
+  newTag: sha-898ef3e
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-f517319
+  newTag: sha-898ef3e
 patches:
 - path: agent-access-patch.yaml
