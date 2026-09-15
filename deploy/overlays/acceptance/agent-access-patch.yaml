@@ -36,3 +36,6 @@ spec:
             secretKeyRef:
               name: ai-access
               key: HKH_ADMIN_ALLOWED_EMAILS
+        - name: HKH_CORS_ALLOWED_ORIGIN_PATTERNS
+          valueFrom: null
+          value: https://hkh-acceptance.vdzonsoftware.nl,https://hkh-admin-acceptance.vdzonsoftware.nl
