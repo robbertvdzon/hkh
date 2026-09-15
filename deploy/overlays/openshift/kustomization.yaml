@@ -4,13 +4,16 @@ namespace: hkh
 resources:
 - ../../base
 - postgres-backup.yaml
+- sealed-secret-ai-access.yaml
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
   newTag: sha-9aee82e
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-f517319
+  newTag: sha-4f6abb8
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-f517319
+patches:
+- path: agent-access-patch.yaml
