@@ -23,6 +23,7 @@ data class RuntimeActivity(val nextSequence: Long, val message: String?)
 @Component
 class AgentRuntimeClient(
     private val properties: AiSearchProperties,
+    private val fixtures: PreviewAiRuntimeFixtures,
     private val objectMapper: ObjectMapper,
 ) {
     private val client: RestClient by lazy {
@@ -36,7 +37,7 @@ class AgentRuntimeClient(
             .build()
     }
 
-    fun isConfigured(): Boolean = properties.enabled && properties.runtimeToken.isNotBlank()
+    fun isConfigured(): Boolean = fixtures.enabled || (properties.enabled && properties.runtimeToken.isNotBlank())
 
     val pollIntervalMs: Long get() = properties.pollIntervalMs.coerceIn(500, 15_000)
 
@@ -46,6 +47,7 @@ class AgentRuntimeClient(
         resultSchema: JsonNode = SEARCH_RESULT_SCHEMA,
         executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
     ): RuntimeJob {
+        if (fixtures.enabled) return fixtures.create(idempotencyKey, resultSchema)
         val body = mapOf(
             "idempotencyKey" to idempotencyKey,
             "jobKind" to "APPLICATION_WORK",
@@ -65,22 +67,26 @@ class AgentRuntimeClient(
     }
 
     fun getJob(jobId: String): RuntimeJob {
+        if (fixtures.enabled) return fixtures.job(jobId)
         val json = client.get().uri("/v2/jobs/{jobId}", jobId).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen jobstatus terug")
         return parseJob(objectMapper.readTree(json))
     }
 
     fun getResult(jobId: String): JsonNode {
+        if (fixtures.enabled) return fixtures.result(jobId)
         val json = client.get().uri("/v2/jobs/{jobId}/result", jobId).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen resultaat terug")
         return objectMapper.readTree(json).path("result")
     }
 
     fun cancel(jobId: String) {
+        if (fixtures.enabled) { fixtures.job(jobId); return }
         client.post().uri("/v2/jobs/{jobId}/cancel", jobId).retrieve().toBodilessEntity()
     }
 
     fun getActivity(jobId: String, afterSequence: Long): RuntimeActivity {
+        if (fixtures.enabled) { fixtures.job(jobId); return RuntimeActivity(afterSequence, null) }
         val json = client.get()
             .uri("/v2/jobs/{jobId}/events?afterSequence={after}&limit=100", jobId, afterSequence)
             .retrieve().body(String::class.java) ?: return RuntimeActivity(afterSequence, null)

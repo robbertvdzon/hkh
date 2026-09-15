@@ -27,6 +27,8 @@ class AiAnswerExportFailedException(message: String, cause: Throwable? = null) :
 class AiAnswerExportService(
     private val repository: AiSearchRepository,
     private val renderer: HtmlToPdfRenderer,
+    @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
+    private val publicOrigin: String = CollectionLinks.PUBLIC_ORIGIN,
 ) {
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
@@ -39,7 +41,7 @@ class AiAnswerExportService(
         val title = CollectionLinks.rewrite(turn.title?.takeIf(String::isNotBlank) ?: turn.question)
         val bodyHtml = CollectionLinks.rewrite(turn.answerHtml.orEmpty())
         val sources = turn.sources.map { ref ->
-            "${ref.collection} · ${ref.ident} — ${CollectionLinks.detail(ref.collection, ref.ident)}"
+            "${ref.collection} · ${ref.ident} — ${CollectionLinks.detail(ref.collection, ref.ident, publicOrigin)}"
         }
         return AiAnswerPdf(fileName(turn.id), render(title, bodyHtml, sources))
     }

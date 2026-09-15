@@ -27,7 +27,10 @@ data class RenderedMarkdown(val html: String, val sources: List<RenderedSource>,
  * andere links, afbeeldingen en ruwe HTML worden niet gerenderd.
  */
 @Component
-class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
+class MarkdownRenderer(private val collectionSearch: CollectionSearchService,
+    @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
+    private val publicOrigin: String = CollectionLinks.PUBLIC_ORIGIN,
+) {
     private val parser = Parser.builder().extensions(listOf(TablesExtension.create())).build()
     private val renderer = HtmlRenderer.builder().extensions(listOf(TablesExtension.create())).escapeHtml(true).build()
 
@@ -44,7 +47,7 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
                 link.removeAttr("href").removeAttr("target").removeAttr("rel")
                 link.attr("data-hkh-unknown", "true")
             } else {
-                link.attr("href", CollectionLinks.detail(item.collection, item.ident)).attr("target", "_blank").attr("rel", "noopener")
+                link.attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin)).attr("target", "_blank").attr("rel", "noopener")
                 link.attr("data-hkh-collection", ref.first).attr("data-hkh-ident", ref.second)
                 sources.putIfAbsent("${ref.first}/${ref.second}", item.toRendered(ref.first, ref.second))
             }
@@ -67,7 +70,7 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService) {
         collection = collection,
         ident = ident,
         title = title.ifBlank { "$collection $ident" },
-        detailUrl = CollectionLinks.detail(collection, ident),
+        detailUrl = CollectionLinks.detail(collection, ident, publicOrigin),
         imageUrl = CollectionLinks.safeMedia(imageUrl)?.takeIf(String::isNotBlank),
     )
 

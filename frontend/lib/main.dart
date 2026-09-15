@@ -32,12 +32,11 @@ const _collectionBorder = appCardBorder;
 const _cardRadius = appCardRadius;
 
 void main() {
-  final UserSessionController session = AppConfig.googleClientId.isEmpty
-      ? DisabledUserSession()
-      : GoogleUserSession(
-          apiBaseUrl: AppConfig.apiBaseUrl,
-          googleClientId: AppConfig.googleClientId,
-        );
+  WidgetsFlutterBinding.ensureInitialized();
+  final UserSessionController session = GoogleUserSession(
+    apiBaseUrl: AppConfig.apiBaseUrl,
+    googleClientId: AppConfig.googleClientId,
+  );
   final backend = BackendClient(
     AppConfig.apiBaseUrl,
     tokenProvider: () => session.token,
@@ -706,7 +705,9 @@ class _SessionActions extends StatelessWidget {
             ],
           );
         }
-        if (!session.configured) return const SizedBox.shrink();
+        if (!session.configured && !session.signedIn) {
+          return const SizedBox.shrink();
+        }
         if (session.busy) {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),

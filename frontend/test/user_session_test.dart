@@ -12,6 +12,41 @@ const _userJson =
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'native session restores and logs out without Google configuration',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        GoogleUserSession.tokenPrefsKey: 'native-session',
+      });
+      final requests = <http.Request>[];
+      final controller = GoogleUserSession(
+        apiBaseUrl: 'https://example.test',
+        googleClientId: '',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            request.url.path == '/api/auth/me' ? _userJson : '',
+            200,
+          );
+        }),
+      );
+      expect(controller.configured, isFalse);
+      await controller.bootstrap();
+      expect(controller.signedIn, isTrue);
+      expect(requests.single.headers['Authorization'], 'Bearer native-session');
+      await controller.signOut();
+      expect(requests.last.url.path, '/api/auth/logout');
+      expect(controller.signedIn, isFalse);
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          GoogleUserSession.tokenPrefsKey,
+        ),
+        isNull,
+      );
+      controller.dispose();
+    },
+  );
+
   GoogleUserSession session(MockClient client) => GoogleUserSession(
     apiBaseUrl: 'https://example.test',
     googleClientId: 'client-id',

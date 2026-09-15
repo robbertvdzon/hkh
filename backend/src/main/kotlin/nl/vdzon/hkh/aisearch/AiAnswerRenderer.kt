@@ -17,7 +17,10 @@ data class RenderedAiAnswer(
 )
 
 @Component
-class AiAnswerRenderer(private val collectionSearch: CollectionSearchService) {
+class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
+    @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
+    private val publicOrigin: String = CollectionLinks.PUBLIC_ORIGIN,
+) {
     fun render(result: JsonNode): RenderedAiAnswer {
         val title = result.path("title").asText("Antwoord uit het archief").ifBlank { "Antwoord uit het archief" }
         val requestedSources = mutableListOf<AiSourceRef>()
@@ -40,7 +43,7 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService) {
             if (item == null) {
                 link.removeAttr("href").removeAttr("target").removeAttr("rel")
             } else {
-                link.attr("href", CollectionLinks.detail(item.collection, item.ident)).attr("target", "_blank").attr("rel", "noopener")
+                link.attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin)).attr("target", "_blank").attr("rel", "noopener")
             }
             link.removeAttr("data-hkh-source")
         }
@@ -66,14 +69,14 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService) {
             val article = section.appendElement("article")
             val heading = article.appendElement("h3")
             heading.appendElement("a")
-                .attr("href", CollectionLinks.detail(item.collection, item.ident))
+                .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
                 .attr("target", "_blank")
                 .attr("rel", "noopener")
                 .text(item.title.ifBlank { "${ref.collection} ${ref.ident}" })
             CollectionLinks.safeMedia(item.imageUrl)?.takeIf(String::isNotBlank)?.let { imageUrl ->
                 val figure = article.appendElement("figure")
                 figure.appendElement("a")
-                    .attr("href", CollectionLinks.detail(item.collection, item.ident))
+                    .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
                     .attr("target", "_blank")
                     .attr("rel", "noopener")
                     .appendElement("img")
@@ -84,7 +87,7 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService) {
             }
             item.description.takeIf(String::isNotBlank)?.let { article.appendElement("p").text(it) }
             article.appendElement("p").appendElement("a")
-                .attr("href", CollectionLinks.detail(item.collection, item.ident))
+                .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
                 .attr("target", "_blank")
                 .attr("rel", "noopener")
                 .text("Bekijk dit object in de collectie")

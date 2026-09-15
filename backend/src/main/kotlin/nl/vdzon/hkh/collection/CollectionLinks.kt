@@ -13,8 +13,8 @@ object CollectionLinks {
     private val legacyUrl = Regex("""(?i)(?:https?://|//)?(?:[a-z0-9-]+\.)*historischekringheemskerk\.nl(?::\d+)?(?:/[^\s<>"'\[\]{}]*)?""")
     private val recordPath = Regex("/cgi-bin/([A-Za-z0-9_-]+)\\.pl", RegexOption.IGNORE_CASE)
 
-    fun detail(collection: String, ident: String): String =
-        "$PUBLIC_ORIGIN/#/objecten/${encode(collection)}/${encode(ident)}"
+    fun detail(collection: String, ident: String, origin: String = PUBLIC_ORIGIN): String =
+        "${origin.trimEnd('/')}/#/objecten/${encode(collection)}/${encode(ident)}"
 
     fun isImportUrl(value: String): Boolean = runCatching {
         val uri = URI(value)

@@ -87,12 +87,14 @@ class GoogleUserSession extends UserSessionController {
     required String googleClientId,
     http.Client? client,
   }) : _client = client ?? http.Client(),
-       _googleSignIn = GoogleSignIn(
-         clientId: kIsWeb ? googleClientId : null,
-         serverClientId: kIsWeb ? null : googleClientId,
-         scopes: const ['email'],
-       ) {
-    _accountSubscription = _googleSignIn.onCurrentUserChanged.listen(
+       _googleSignIn = googleClientId.isEmpty
+           ? null
+           : GoogleSignIn(
+               clientId: kIsWeb ? googleClientId : null,
+               serverClientId: kIsWeb ? null : googleClientId,
+               scopes: const ['email'],
+             ) {
+    _accountSubscription = _googleSignIn?.onCurrentUserChanged.listen(
       _onGoogleAccount,
     );
   }
@@ -103,7 +105,7 @@ class GoogleUserSession extends UserSessionController {
 
   final String apiBaseUrl;
   final http.Client _client;
-  final GoogleSignIn _googleSignIn;
+  final GoogleSignIn? _googleSignIn;
   StreamSubscription<GoogleSignInAccount?>? _accountSubscription;
 
   UserIdentity? _identity;
@@ -111,7 +113,7 @@ class GoogleUserSession extends UserSessionController {
   String? _error;
 
   @override
-  bool get configured => true;
+  bool get configured => _googleSignIn != null;
   @override
   UserIdentity? get identity => _identity;
   @override
@@ -152,7 +154,7 @@ class GoogleUserSession extends UserSessionController {
   @override
   Future<void> signIn() async {
     // Op web levert de GIS-knop het account via onCurrentUserChanged.
-    if (kIsWeb) return;
+    if (kIsWeb || _googleSignIn == null) return;
     _error = null;
     _setBusy(true);
     try {
@@ -241,7 +243,7 @@ class GoogleUserSession extends UserSessionController {
     }
     await _clearStored(prefs);
     try {
-      await _googleSignIn.signOut();
+      await _googleSignIn?.signOut();
     } catch (_) {
       // Zonder Google-plugin (bijv. in tests) is er niets uit te loggen.
     }
