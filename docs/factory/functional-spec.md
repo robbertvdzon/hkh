@@ -33,26 +33,31 @@ vraag opent de bestaande AI-zoekpagina en start die vraag; een lege start en de
 link Eerdere vragen openen het bestaande overzicht. De AI-knop is de enige
 gevulde primaire actie in de homepage-inhoud.
 
-De collectiekaart bevat het gelabelde veld **Zoekterm**, de ondergeschikte,
-omrande actie **Zoeken**, de onafhankelijke uitklappers **Zoektips** en
-**Uitgebreid zoeken**, en de link **Doorzoek de collectie**. Beide uitklappers
-beginnen bij iedere eerste weergave ingeklapt. Zoektips toont bij uitklappen
-letterlijk de bestaande zoeksyntax:
+De collectiekaart toont direct de collectie-ingangen Archief, Beeldbank, Bibliotheek,
+Bidprentjes, Artikelen en Objecten, het gelabelde veld **Zoekterm**, de omrande actie
+**Zoeken** en de onafhankelijke uitklappers **Zoektips** en **Uitgebreid zoeken**.
+De uitklappers beginnen gesloten. De algemene zoekterm kan woorden of een frase tussen
+aanhalingstekens bevatten. De homepage biedt bovendien de veldfilters Titel, Beschrijving
+en Jaar met zichtbare, programmatisch gekoppelde labels.
 
-> Los woorden voor een EN-zoekopdracht, of zet een zin tussen "aanhalingstekens" voor een exacte frase.
+Een zoekopdracht opent direct de volledige zoekpagina. Een leeg zoekveld toont de collectie.
+De zoekpagina biedt:
 
-Uitgebreid zoeken toont de velden Titel, Beschrijving en Jaar, elk met een
-zichtbaar en programmatisch gekoppeld veldlabel. Het openen of sluiten van een
-uitklapper verandert de toestand van de andere niet.
+- Zichtbare collectiekeuze en zoeken in alle collecties, met collectie-aantallen.
+- Doorzoekbare filters per collectie. Keuzelijsten komen uit de database en houden rekening
+  met de overige filters; meerdere waarden binnen één filter gelden als OF.
+- Inklapbaar uitgebreid zoeken: alle woorden (AND), één van de woorden (OR), exacte tekst,
+  delen van woorden en extra velden. Documenttekst wordt alleen aangeboden als die is geïmporteerd.
+- Inclusieve periodegrenzen; bij bidprentjes betekent dit geboortejaar.
+- Sortering op standaardvolgorde, nummer, titel/naam, jaar, auteur of eerste toevoegdatum.
+- Lijst- en galerijweergave met de eigen metadata van iedere collectie.
+- Verwijderbare filterchips, lege resultaten met herstelactie en een herhaalactie bij fouten.
+- URL-behoud van alle zoekinstellingen en paginanummer, ook via details en na verversen.
+- Collectie-eigen detailvelden, alle bronvelden, beschikbaar beeld/PDF en vorige/volgende resultaten.
 
-Een collectiezoekopdracht toont maximaal drie treffers op de homepage en linkt
-met **Alle _n_ resultaten** door naar de bestaande volledige resultatenpagina.
-Zonder treffers staat er **Geen resultaten gevonden.** Bij een fout staat er
-**Zoeken in de collectie is niet gelukt. Controleer de verbinding en probeer
-het opnieuw.** De ingevoerde algemene en uitgebreide zoekwaarden blijven bij
-deze fout staan. Resultaten en de resultaalteller van een vorige zoekactie
-verdwijnen zodra een nieuwe zoekactie begint en worden bij een fout niet naast
-de foutmelding getoond.
+De laatste zoekactie wint bij overlappende netwerkverzoeken; een oudere respons mag de nieuwe
+resultaten niet overschrijven. Op kleine schermen zijn minder gebruikte filters bereikbaar
+via **Alle filters**. Filterkeuzes worden tijdens het wisselen per collectie onthouden.
 
 ## Responsief gedrag en toegankelijkheid
 

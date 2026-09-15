@@ -55,8 +55,13 @@ class BackendClient
     int? year,
     int page = 0,
     int size = 20,
+    CollectionSearchOptions? options,
   }) async {
-    final params = <String, dynamic>{'page': '$page', 'size': '$size'};
+    final params = <String, dynamic>{
+      'page': '$page',
+      'size': '$size',
+      ...?options?.toParameters(includeView: false),
+    };
     if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
     if (collection != null && collection.isNotEmpty) {
       params['collection'] = collection;
@@ -77,6 +82,42 @@ class BackendClient
       throw StateError('Zoeken is mislukt.');
     }
     return SearchPage.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<CollectionFacet> loadFacet({
+    required String collection,
+    required String field,
+    String query = '',
+    Map<String, String> fieldQueries = const {},
+    int? year,
+    CollectionSearchOptions? options,
+    String valueQuery = '',
+  }) async {
+    final params = <String, dynamic>{
+      'collection': collection,
+      'facet': field,
+      'facetQuery': valueQuery,
+      'q': query,
+      ...?options?.toParameters(includeView: false),
+      if (year != null) 'year': '$year',
+      if (fieldQueries.isNotEmpty)
+        'fq': [for (final e in fieldQueries.entries) '${e.key}:${e.value}'],
+    };
+    final response = await _client
+        .get(
+          Uri.parse(
+            '$apiBaseUrl/api/collections/facets',
+          ).replace(queryParameters: params),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw StateError('Filterwaarden konden niet worden geladen.');
+    }
+    return CollectionFacet.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }

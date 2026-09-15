@@ -64,6 +64,7 @@ class _SearchSource implements CollectionSearchSource {
     int? year,
     int page = 0,
     int size = 20,
+    CollectionSearchOptions? options,
   }) async {
     searchCalls++;
     lastQuery = query;
@@ -78,6 +79,17 @@ class _SearchSource implements CollectionSearchSource {
       pageSize: size,
     );
   }
+
+  @override
+  Future<CollectionFacet> loadFacet({
+    required String collection,
+    required String field,
+    String query = '',
+    Map<String, String> fieldQueries = const {},
+    int? year,
+    CollectionSearchOptions? options,
+    String valueQuery = '',
+  }) async => CollectionFacet(field: field);
 
   @override
   Future<CollectionItemDetail> loadDetail(
@@ -287,6 +299,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(_searchTips), findsOneWidget);
     expect(find.text('Jaar'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Uitgebreid zoeken').hitTestable(),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Uitgebreid zoeken'));
     await tester.pumpAndSettle();
     expect(find.text(_searchTips), findsOneWidget);
@@ -426,7 +444,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('27 resultaten'), findsNothing);
-    expect(find.text('Zoekresultaten'), findsOneWidget);
+    expect(find.text('Collecties'), findsOneWidget);
     final field = tester.widget<TextField>(find.byType(TextField).first);
     expect(field.controller!.text, 'Slot Assumburg');
   });

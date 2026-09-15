@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import '../navigation.dart';
-
+import '../theme/app_style.dart';
+import 'collection_config.dart';
 import 'collection_search.dart';
+import 'collection_detail_page.dart';
+import 'collection_filters.dart';
 import 'img_embed/img_embed.dart';
-import 'pdf_embed/pdf_embed.dart';
 import 'search_controls.dart';
+export 'collection_detail_page.dart';
 
-/// Zoekscherm over alle gescrapete ZCBS-collecties.
 class CollectionSearchPage extends StatefulWidget {
   const CollectionSearchPage({
     required this.source,
@@ -18,18 +18,15 @@ class CollectionSearchPage extends StatefulWidget {
     this.initialYear,
     this.initialCollection,
     this.initialPage = 0,
+    this.initialOptions = const CollectionSearchOptions(),
     super.key,
   });
-
   final CollectionSearchSource source;
-
-  /// Vooraf ingevulde zoekterm (bv. vanaf de startpagina); start meteen een zoekopdracht.
-  final String? initialQuery;
+  final String? initialQuery, initialCollection;
   final Map<String, String> initialFieldQueries;
   final int? initialYear;
-  final String? initialCollection;
   final int initialPage;
-
+  final CollectionSearchOptions initialOptions;
   @override
   State<CollectionSearchPage> createState() => _CollectionSearchPageState();
 }
@@ -37,36 +34,57 @@ class CollectionSearchPage extends StatefulWidget {
 class _CollectionSearchPageState extends State<CollectionSearchPage> {
   late final _controller = TextEditingController(text: widget.initialQuery);
   final _scrollController = ScrollController();
-  late final _fieldControllers = SearchFieldControllers()
-    ..title.text = widget.initialFieldQueries['title'] ?? ''
-    ..description.text = widget.initialFieldQueries['description'] ?? ''
-    ..year.text = widget.initialYear?.toString() ?? '';
-
+  final _fieldControllers = SearchFieldControllers();
   CollectionOverview? _overview;
-  late String? _collectionFilter = widget.initialCollection;
-  late bool _advancedOpen =
-      widget.initialFieldQueries.isNotEmpty ||
-      widget.initialYear != null ||
-      widget.initialCollection != null;
-  final List<CollectionItemSummary> _results = [];
+  late String? _collection = widget.initialCollection;
+  late CollectionSearchOptions _options = widget.initialOptions;
   late int _page = widget.initialPage;
-  int _request = 0;
-  int _total = 0;
-  bool _loading = false;
+  late bool _advancedOpen =
+      widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
+  bool _moreFilters = false, _loading = true, _documentTextAvailable = false;
+  List<CollectionItemSummary> _results = [];
+  int _request = 0, _total = 0;
   String? _error;
-  bool _searched = false;
-
+  final _saved =
+      <
+        String,
+        ({
+          CollectionSearchOptions options,
+          Map<String, String> fields,
+          int? year,
+        })
+      >{};
   @override
   void initState() {
     super.initState();
+    _fieldControllers.load(widget.initialFieldQueries, widget.initialYear);
     _loadOverview();
-    if (widget.initialQuery != null || _advancedOpen) {
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(covariant CollectionSearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery ||
+        oldWidget.initialCollection != widget.initialCollection ||
+        oldWidget.initialPage != widget.initialPage ||
+        oldWidget.initialYear != widget.initialYear ||
+        oldWidget.initialOptions.toParameters().toString() !=
+            widget.initialOptions.toParameters().toString() ||
+        oldWidget.initialFieldQueries.toString() !=
+            widget.initialFieldQueries.toString()) {
+      _controller.text = widget.initialQuery ?? '';
+      _collection = widget.initialCollection;
+      _options = widget.initialOptions;
+      _page = widget.initialPage;
+      _fieldControllers.load(widget.initialFieldQueries, widget.initialYear);
       _fetch();
     }
   }
 
   @override
   void dispose() {
+    _request++;
     _controller.dispose();
     _scrollController.dispose();
     _fieldControllers.dispose();
@@ -78,252 +96,689 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       final overview = await widget.source.loadOverview();
       if (mounted) setState(() => _overview = overview);
     } catch (_) {
-      // Overzicht is niet kritiek; het zoeken werkt ook zonder.
+      /* Collection entrances remain available without counts. */
     }
   }
 
   void _runSearch({int page = 0}) {
+    final yearText = _fieldControllers.year.text.trim();
+    if (yearText.isNotEmpty &&
+        (int.tryParse(yearText) == null ||
+            int.parse(yearText) < 1 ||
+            int.parse(yearText) > 2100)) {
+      setState(() => _error = 'Vul een geldig jaar tussen 1 en 2100 in.');
+      return;
+    }
+    final location = searchLocation(
+      query: _controller.text.trim(),
+      collection: _collection,
+      fields: _fieldControllers.fieldQueries,
+      year: _fieldControllers.yearValue,
+      page: page,
+      options: _options,
+    );
     final router = GoRouter.maybeOf(context);
-    if (router != null) {
-      final location = searchLocation(
-        query: _controller.text.trim(),
-        collection: _collectionFilter,
-        fields: _fieldControllers.fieldQueries,
-        year: _fieldControllers.yearValue,
-        page: page,
-      );
-      if (router.routeInformationProvider.value.uri.toString() != location) {
-        router.go(location);
-        return;
-      }
+    if (router != null &&
+        router.routeInformationProvider.value.uri.toString() != location) {
+      router.go(location);
+      return;
     }
     _page = page;
     _fetch();
   }
 
   Future<void> _fetch() async {
-    final request = ++_request;
+    final id = ++_request;
     setState(() {
       _loading = true;
       _error = null;
-      _searched = true;
-      _results.clear();
+      _results = [];
     });
     try {
       final result = await widget.source.search(
         query: _controller.text.trim(),
-        collection: _collectionFilter,
+        collection: _collection,
         fieldQueries: _fieldControllers.fieldQueries,
         year: _fieldControllers.yearValue,
         page: _page,
         size: 20,
+        options: _options,
       );
-      if (!mounted || request != _request) return;
+      if (!mounted || id != _request) return;
+      if (result.items.isEmpty && result.total > 0 && _page > 0) {
+        _runSearch(page: (result.total - 1) ~/ 20);
+        return;
+      }
       setState(() {
-        _results.addAll(result.items);
+        _results = result.items;
         _total = result.total;
         _loading = false;
+        _documentTextAvailable = result.documentTextAvailable;
       });
     } catch (_) {
-      if (!mounted || request != _request) return;
-      setState(() {
-        _loading = false;
-        _error = 'Zoeken is mislukt. Probeer het opnieuw.';
-      });
+      if (mounted && id == _request) {
+        setState(() {
+          _loading = false;
+          _error = 'Zoeken is mislukt. Probeer het opnieuw.';
+        });
+      }
     }
   }
 
-  void _selectCollection(String? collection) {
-    setState(() => _collectionFilter = collection);
-    if (_searched) _runSearch();
+  void _selectCollection(String? key) {
+    _saved[_collection ?? 'all'] = (
+      options: _options,
+      fields: _fieldControllers.fieldQueries,
+      year: _fieldControllers.yearValue,
+    );
+    final restored = _saved[key ?? 'all'];
+    setState(() {
+      _collection = key;
+      _options = restored?.options ?? const CollectionSearchOptions();
+      _fieldControllers.load(restored?.fields ?? {}, restored?.year);
+      _moreFilters = false;
+    });
+    _runSearch();
+  }
+
+  void _reset() {
+    _controller.clear();
+    _fieldControllers.load({}, null);
+    _options = const CollectionSearchOptions();
+    _runSearch();
+  }
+
+  bool get _gallery =>
+      (_options.view ??
+          (collectionConfig(_collection).gallery ? 'gallery' : 'list')) ==
+      'gallery';
+  bool get _hasFilters =>
+      _controller.text.trim().isNotEmpty ||
+      _fieldControllers.fieldQueries.isNotEmpty ||
+      _fieldControllers.yearValue != null ||
+      _options.filters.isNotEmpty ||
+      _options.yearFrom != null ||
+      _options.yearTo != null ||
+      _options.recentDays != null ||
+      _options.field != 'all' ||
+      _options.mode == 'or' ||
+      _options.mode == 'phrase';
+  Future<void> _facet(String field) async {
+    final selected = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => CollectionFacetDialog(
+        source: widget.source,
+        collection: _collection!,
+        field: field,
+        query: _controller.text.trim(),
+        fieldQueries: _fieldControllers.fieldQueries,
+        year: _fieldControllers.yearValue,
+        options: _options,
+      ),
+    );
+    if (!mounted || selected == null) return;
+    final filters = {..._options.filters};
+    if (selected.isEmpty) {
+      filters.remove(field);
+    } else {
+      filters[field] = selected;
+    }
+    _options = _options.copyWith(filters: filters);
+    _runSearch();
+  }
+
+  Future<void> _period() async {
+    final next = await showPeriodFilter(
+      context,
+      _options,
+      collectionConfig(_collection).periodLabel,
+    );
+    if (mounted && next != null) {
+      _options = next;
+      _fieldControllers.year.clear();
+      _runSearch();
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Zoekresultaten')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) => Theme(
+    data: appDossierTheme(context),
+    child: Builder(
+      builder: (context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Collecties'),
+          actions: [
+            IconButton(
+              tooltip: 'Hulp bij zoeken',
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => AppDialog(
+                  title: 'Zoeken zoals u gewend bent',
+                  content: const Text(
+                    'Kies uw vertrouwde collectie of zoek in alles tegelijk. Een leeg zoekveld toont de hele collectie. Kies een thema of type om te bladeren. Uitgebreid zoeken biedt afzonderlijke velden, alle woorden (AND), één van de woorden (OR) en exacte tekst. Filters worden per collectie onthouden.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Sluiten'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1160),
               child: ListView(
                 controller: _scrollController,
+                padding: EdgeInsets.all(isNarrowLayout(context) ? 16 : 28),
                 children: [
-                  _SearchBar(
-                    controller: _controller,
-                    onSubmit: () => _runSearch(),
-                  ),
-                  const SizedBox(height: 4),
                   Text(
-                    'Los woorden voor een EN-zoekopdracht, of zet een zin '
-                    'tussen "aanhalingstekens" voor een exacte frase.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    'HET GEHEUGEN VAN HEEMSKERK',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: appMutedText,
+                      letterSpacing: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _advancedOpen = !_advancedOpen),
-                    icon: Icon(
-                      _advancedOpen ? Icons.expand_less : Icons.expand_more,
+                  Text(
+                    'Wat wilt u ontdekken?',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontFamily: 'Georgia',
+                      color: appGreen,
                     ),
-                    label: const Text('Uitgebreid zoeken'),
                   ),
-                  if (_advancedOpen) ...[
-                    const SizedBox(height: 8),
-                    CollectionChips(
-                      overview: _overview,
-                      selected: _collectionFilter,
-                      onSelect: _selectCollection,
-                    ),
-                    const SizedBox(height: 8),
-                    AdvancedSearchFields(
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Zoek een naam, straat, onderwerp of collectienummer.',
+                    style: TextStyle(color: appMutedText),
+                  ),
+                  const SizedBox(height: 20),
+                  CollectionChips(
+                    overview: _overview,
+                    selected: _collection,
+                    onSelect: _selectCollection,
+                  ),
+                  const SizedBox(height: 20),
+                  LayoutBuilder(
+                    builder: (context, c) {
+                      final field = TextField(
+                        key: const Key('collection-query'),
+                        controller: _controller,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _runSearch(),
+                        decoration: InputDecoration(
+                          labelText: 'Zoekterm',
+                          hintText: _collection == 'bidprent'
+                              ? 'Naam, geboorteplaats of volgnummer'
+                              : 'Bijvoorbeeld: Marquette of Dorpskerk',
+                          prefixIcon: const Icon(Icons.search),
+                        ),
+                      );
+                      final button = FilledButton.icon(
+                        onPressed: () => _runSearch(),
+                        icon: const Icon(Icons.search),
+                        label: const Text('Zoeken'),
+                      );
+                      return c.maxWidth < 420
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                field,
+                                const SizedBox(height: 10),
+                                button,
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(child: field),
+                                const SizedBox(width: 12),
+                                button,
+                              ],
+                            );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        'Zoeken in ${collectionConfig(_collection).label.toLowerCase()} · leeg = alles',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: appMutedText),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _advancedOpen = !_advancedOpen),
+                        icon: const Icon(Icons.tune),
+                        label: const Text('Uitgebreid zoeken'),
+                      ),
+                    ],
+                  ),
+                  if (_advancedOpen)
+                    CollectionAdvancedControls(
+                      collection: _collection,
                       controllers: _fieldControllers,
+                      options: _options,
+                      documentTextAvailable: _documentTextAvailable,
+                      onChanged: (o) => setState(() => _options = o),
                       onSubmit: () => _runSearch(),
                     ),
-                    const SizedBox(height: 8),
-                  ],
                   const SizedBox(height: 12),
-                  _buildBody(context),
+                  _filters(context),
+                  if (_hasFilters) ...[const SizedBox(height: 12), _chips()],
+                  const SizedBox(height: 24),
+                  _body(context),
                 ],
               ),
             ),
           ),
         ),
       ),
+    ),
+  );
+  Widget _filters(BuildContext context) {
+    final config = collectionConfig(_collection);
+    final narrow = isNarrowLayout(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final field in config.facets)
+          if (!narrow ||
+              _moreFilters ||
+              config.facets.indexOf(field) < 2 ||
+              _options.filters.containsKey(field))
+            OutlinedButton(
+              onPressed: () => _facet(field),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '$field${_options.filters[field]?.isNotEmpty == true ? ' · ${_options.filters[field]!.length}' : ''}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.expand_more, size: 18),
+                ],
+              ),
+            ),
+        OutlinedButton.icon(
+          onPressed: _period,
+          icon: const Icon(Icons.date_range_outlined, size: 18),
+          label: Text(config.periodLabel),
+        ),
+        if (!narrow || _moreFilters || config.facets.isEmpty)
+          PopupMenuButton<int>(
+            tooltip: 'Recent toegevoegd',
+            onSelected: (days) {
+              _options = _options.copyWith(
+                recentDays: days == 0 ? null : days,
+                clearRecent: true,
+              );
+              _runSearch();
+            },
+            itemBuilder: (_) => [
+              for (final e in {
+                7: 'Laatste week',
+                30: 'Laatste maand',
+                90: 'Laatste kwartaal',
+                183: 'Laatste halfjaar',
+                365: 'Laatste jaar',
+                0: 'Alle toevoegdatums',
+              }.entries)
+                PopupMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history, size: 18),
+                  SizedBox(width: 6),
+                  Text('Recent toegevoegd'),
+                  Icon(Icons.expand_more, size: 18),
+                ],
+              ),
+            ),
+          ),
+        if (narrow && config.facets.isNotEmpty)
+          TextButton.icon(
+            onPressed: () => setState(() => _moreFilters = !_moreFilters),
+            icon: const Icon(Icons.tune, size: 18),
+            label: Text(_moreFilters ? 'Minder filters' : 'Alle filters'),
+          ),
+      ],
     );
   }
 
-  Widget _buildBody(BuildContext context) {
+  Widget _chips() => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      if (_controller.text.trim().isNotEmpty)
+        Chip(
+          label: Text('Zoekterm: ${_controller.text.trim()}'),
+          onDeleted: () {
+            _controller.clear();
+            _runSearch();
+          },
+        ),
+      for (final entry in _options.filters.entries)
+        for (final value in entry.value)
+          Chip(
+            label: Text('${entry.key}: $value'),
+            onDeleted: () {
+              final filters = {..._options.filters};
+              final values = entry.value.where((v) => v != value).toList();
+              if (values.isEmpty) {
+                filters.remove(entry.key);
+              } else {
+                filters[entry.key] = values;
+              }
+              _options = _options.copyWith(filters: filters);
+              _runSearch();
+            },
+          ),
+      if (_options.yearFrom != null || _options.yearTo != null)
+        Chip(
+          label: Text(
+            '${_collection == 'bidprent' ? 'Geboren' : 'Jaar'}: ${_options.yearFrom ?? '…'}–${_options.yearTo ?? '…'}',
+          ),
+          onDeleted: () {
+            _options = _options.copyWith(clearPeriod: true);
+            _runSearch();
+          },
+        ),
+      if (_options.recentDays != null)
+        Chip(
+          label: Text('Toegevoegd: laatste ${_options.recentDays} dagen'),
+          onDeleted: () {
+            _options = _options.copyWith(clearRecent: true);
+            _runSearch();
+          },
+        ),
+      for (final entry in _fieldControllers.fieldQueries.entries)
+        Chip(
+          label: Text(
+            '${searchFields(_collection)[entry.key] ?? entry.key}: ${entry.value}',
+          ),
+          onDeleted: () {
+            if (entry.key == 'title') {
+              _fieldControllers.title.clear();
+            } else if (entry.key == 'description') {
+              _fieldControllers.description.clear();
+            } else {
+              _fieldControllers.extra.remove(entry.key)?.dispose();
+            }
+            _runSearch();
+          },
+        ),
+      if (_fieldControllers.yearValue != null)
+        Chip(
+          label: Text('Jaar: ${_fieldControllers.yearValue}'),
+          onDeleted: () {
+            _fieldControllers.year.clear();
+            _runSearch();
+          },
+        ),
+      if (_options.field != 'all' ||
+          _options.mode == 'or' ||
+          _options.mode == 'phrase')
+        ActionChip(
+          label: Text(
+            '${_options.mode == 'or'
+                ? 'Eén van de woorden'
+                : _options.mode == 'phrase'
+                ? 'Exacte tekst'
+                : 'Alle woorden'} · ${searchFields(_collection)[_options.field] ?? _options.field}',
+          ),
+          onPressed: () => setState(() => _advancedOpen = true),
+        ),
+      TextButton(onPressed: _reset, child: const Text('Wis zoekopdracht')),
+    ],
+  );
+  Widget _body(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _fetch,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Opnieuw proberen'),
-            ),
-          ],
-        ),
+      return Column(
+        children: [
+          Text(_error!, semanticsLabel: _error),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _fetch,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Opnieuw proberen'),
+          ),
+        ],
       );
-    }
-    if (!_searched) {
-      final total = _overview?.total;
-      return Center(
-        child: Text(
-          total == null
-              ? 'Typ een zoekterm om de historische collectie te doorzoeken.'
-              : 'Doorzoek $total items uit de collectie van de HKH.',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-    if (_results.isEmpty) {
-      return const Center(child: Text('Geen resultaten gevonden.'));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '$_total resultaten',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _results.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (_, index) => _ResultCard(
-            item: _results[index],
-            onTap: () => _openDetail(_results[index]),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 12,
           children: [
-            IconButton(
-              tooltip: 'Vorige pagina',
-              onPressed: _page > 0 ? () => _runSearch(page: _page - 1) : null,
-              icon: const Icon(Icons.chevron_left),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                '$_total ${_total == 1 ? 'resultaat' : 'resultaten'}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-            Text('Pagina ${_page + 1} van ${(_total / 20).ceil()}'),
-            IconButton(
-              tooltip: 'Volgende pagina',
-              onPressed: (_page + 1) * 20 < _total
-                  ? () => _runSearch(page: _page + 1)
-                  : null,
-              icon: const Icon(Icons.chevron_right),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(_options.sort),
+                    initialValue: _options.sort,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Sorteer op',
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final e in {
+                        'relevance': 'Standaardvolgorde',
+                        'number': collectionConfig(_collection).number,
+                        'title': _collection == 'bidprent'
+                            ? 'Naam A–Z'
+                            : 'Titel A–Z',
+                        'newest': _collection == 'bidprent'
+                            ? 'Geboortejaar: nieuw–oud'
+                            : 'Jaar: nieuw–oud',
+                        'oldest': _collection == 'bidprent'
+                            ? 'Geboortejaar: oud–nieuw'
+                            : 'Jaar: oud–nieuw',
+                        'author': 'Auteur A–Z',
+                        'added': 'Recent toegevoegd',
+                      }.entries)
+                        DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      _options = _options.copyWith(sort: value);
+                      _runSearch();
+                    },
+                  ),
+                ),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'list',
+                      label: Text('Lijst'),
+                      icon: Icon(Icons.view_list_outlined),
+                    ),
+                    ButtonSegment(
+                      value: 'gallery',
+                      label: Text('Galerij'),
+                      icon: Icon(Icons.grid_view),
+                    ),
+                  ],
+                  selected: {_gallery ? 'gallery' : 'list'},
+                  onSelectionChanged: (values) {
+                    _options = _options.copyWith(view: values.single);
+                    _runSearch(page: _page);
+                  },
+                ),
+              ],
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        if (_results.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              children: [
+                const Text('Geen resultaten gevonden.'),
+                const SizedBox(height: 8),
+                const Text('Probeer minder woorden of verwijder een filter.'),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: _reset,
+                  child: const Text('Wis filters en bekijk alles'),
+                ),
+              ],
+            ),
+          )
+        else if (_gallery)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth < 480
+                  ? 1
+                  : constraints.maxWidth < 850
+                  ? 2
+                  : 3;
+              final width =
+                  (constraints.maxWidth - (columns - 1) * 12) / columns;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final item in _results)
+                    SizedBox(
+                      width: width,
+                      child: CollectionResultCard(
+                        item: item,
+                        gallery: true,
+                        onTap: () => _openDetail(item),
+                      ),
+                    ),
+                ],
+              );
+            },
+          )
+        else ...[
+          for (final item in _results)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: CollectionResultCard(
+                item: item,
+                onTap: () => _openDetail(item),
+              ),
+            ),
+        ],
+        if (_total > 20)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Vorige pagina',
+                  onPressed: _page > 0
+                      ? () => _runSearch(page: _page - 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Flexible(
+                  child: Text(
+                    'Pagina ${_page + 1} van ${(_total / 20).ceil()}',
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Volgende pagina',
+                  onPressed: (_page + 1) * 20 < _total
+                      ? () => _runSearch(page: _page + 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
 
   void _openDetail(CollectionItemSummary item) {
-    final query = GoRouter.maybeOf(
-      context,
-    )?.routeInformationProvider.value.uri.query;
-    final location = Uri(
+    final router = GoRouter.maybeOf(context);
+    final searchUri =
+        router?.routeInformationProvider.value.uri ??
+        Uri.parse(
+          searchLocation(
+            query: _controller.text,
+            collection: _collection,
+            fields: _fieldControllers.fieldQueries,
+            year: _fieldControllers.yearValue,
+            page: _page,
+            options: _options,
+          ),
+        );
+    final location = searchUri.replace(
       path:
           '/zoeken/objecten/${Uri.encodeComponent(item.collection)}/${Uri.encodeComponent(item.ident)}',
-      query: query?.isEmpty == true ? null : query,
-    ).toString();
-    openAppPage(
-      context,
-      location,
-      () => CollectionDetailPage(
-        source: widget.source,
-        collection: item.collection,
-        ident: item.ident,
-        title: item.title,
-      ),
     );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onSubmit});
-
-  final TextEditingController controller;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      onSubmitted: (_) => onSubmit(),
-      decoration: InputDecoration(
-        labelText: 'Zoekterm',
-        hintText: 'Zoek op titel, auteur, plaats, jaar…',
-        prefixIcon: const Icon(Icons.search),
-        border: const OutlineInputBorder(),
-        suffixIcon: IconButton(
-          tooltip: 'Zoeken',
-          icon: const Icon(Icons.arrow_forward),
-          onPressed: onSubmit,
+    final results = CollectionResultContext(
+      items: _results,
+      total: _total,
+      page: _page,
+      searchUri: searchUri,
+    );
+    if (router != null) {
+      router.push(location.toString(), extra: results);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CollectionDetailPage(
+            source: widget.source,
+            collection: item.collection,
+            ident: item.ident,
+            title: item.title,
+            resultContext: results,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 }
 
-/// Lijst van alle bekende velden onder elkaar, elk met een eigen invulveld.
-/// Ingevulde velden gelden als EN, naast de algemene zoekbalk; leeg = geen
-/// beperking op dat veld.
 class CollectionChips extends StatelessWidget {
   const CollectionChips({
     required this.overview,
@@ -331,352 +786,154 @@ class CollectionChips extends StatelessWidget {
     required this.onSelect,
     super.key,
   });
-
   final CollectionOverview? overview;
   final String? selected;
   final ValueChanged<String?> onSelect;
-
   @override
   Widget build(BuildContext context) {
-    final overview = this.overview;
-    if (overview == null) return const SizedBox.shrink();
+    final counts = {
+      for (final c in overview?.collections ?? <CollectionCount>[])
+        c.collection: c.count,
+    };
+    final keys = [
+      ...collectionConfigs.map((c) => c.key),
+      ...counts.keys.where((k) => !collectionConfigs.any((c) => c.key == k)),
+    ];
     return Wrap(
       spacing: 8,
-      runSpacing: 4,
+      runSpacing: 6,
       children: [
         ChoiceChip(
-          label: Text('Alles (${overview.total})'),
+          label: Text(
+            'Alles${overview == null ? '' : ' (${overview!.total})'}',
+          ),
           selected: selected == null,
           onSelected: (_) => onSelect(null),
         ),
-        for (final c in overview.collections)
-          ChoiceChip(
-            label: Text('${_label(c.collection)} (${c.count})'),
-            selected: selected == c.collection,
-            onSelected: (_) => onSelect(c.collection),
+        for (final key in keys)
+          Tooltip(
+            message: counts.containsKey(key)
+                ? '${counts[key]} items in deze collectie'
+                : 'Zoeken in ${collectionConfig(key).label}',
+            child: ChoiceChip(
+              label: Text(
+                '${collectionConfig(key).label}${counts.containsKey(key) ? ' (${counts[key]})' : ''}',
+              ),
+              selected: selected == key,
+              onSelected: (_) => onSelect(key),
+            ),
           ),
       ],
     );
   }
-
-  String _label(String key) => switch (key) {
-    'artikelen' => 'Artikelen',
-    'archief' => 'Archief',
-    'beeldbank' => "Foto's",
-    'library' => 'Bibliotheek',
-    'bidprent' => 'Bidprentjes',
-    'objecten' => 'Objecten',
-    'transcripties' => 'Transcripties',
-    _ => key,
-  };
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.item, required this.onTap});
-
+class CollectionResultCard extends StatelessWidget {
+  const CollectionResultCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.gallery = false,
+  });
   final CollectionItemSummary item;
   final VoidCallback onTap;
-
+  final bool gallery;
   @override
   Widget build(BuildContext context) {
+    final config = collectionConfig(item.collection);
+    final metadata = itemMetadata(item.collection, item.year, item.fields);
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Icon(config.icon, size: 15, color: appMutedText),
+            Text(
+              config.label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: appMutedText),
+            ),
+            Text(
+              item.ident,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: appMutedText),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          collectionTitle(item.title, item.collection, item.fields),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontFamily: 'Georgia',
+            color: appGreen,
+          ),
+        ),
+        if (metadata.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            metadata,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: appMutedText),
+          ),
+        ],
+        if (!gallery && item.description.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(item.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+        ],
+      ],
+    );
+    final image = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: gallery ? double.infinity : 76,
+        height: gallery ? 180 : 92,
+        child: IgnorePointer(
+          child: item.imageUrl == null
+              ? ColoredBox(
+                  color: appAccentBackground,
+                  child: Icon(config.icon, color: appMutedText, size: 28),
+                )
+              : buildNetworkImage(
+                  item.imageUrl!,
+                  fit: gallery ? BoxFit.contain : BoxFit.cover,
+                  placeholder: (context) => ColoredBox(
+                    color: appAccentBackground,
+                    child: Icon(config.icon, color: appMutedText),
+                  ),
+                ),
+        ),
+      ),
+    );
     return Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Thumbnail(url: item.imageUrl, hasPdf: item.hasPdf),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+          padding: const EdgeInsets.all(14),
+          child: gallery
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [image, const SizedBox(height: 14), text],
+                )
+              : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.title.isEmpty ? '(zonder titel)' : item.title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        if (item.year != null) '${item.year}',
-                        item.collection,
-                      ].join(' · '),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (item.description.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        item.description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+                    image,
+                    const SizedBox(width: 14),
+                    Expanded(child: text),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.url, required this.hasPdf});
-
-  final String? url;
-  final bool hasPdf;
-
-  @override
-  Widget build(BuildContext context) {
-    const size = 72.0;
-    if (url == null) {
-      return Container(
-        width: size,
-        height: size,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(
-          hasPdf
-              ? Icons.picture_as_pdf_outlined
-              : Icons.image_not_supported_outlined,
-          color: Theme.of(context).colorScheme.outline,
-        ),
-      );
-    }
-    return SizedBox(
-      width: size,
-      height: size,
-      child: buildNetworkImage(
-        url!,
-        fit: BoxFit.cover,
-        placeholder: (context) => ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: Icon(
-            Icons.broken_image_outlined,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Detailpagina die alle metadata + het volledige beeld toont.
-class CollectionDetailPage extends StatefulWidget {
-  const CollectionDetailPage({
-    required this.source,
-    required this.collection,
-    required this.ident,
-    required this.title,
-    super.key,
-  });
-
-  final CollectionSearchSource source;
-  final String collection;
-  final String ident;
-  final String title;
-
-  @override
-  State<CollectionDetailPage> createState() => _CollectionDetailPageState();
-}
-
-class _CollectionDetailPageState extends State<CollectionDetailPage> {
-  late Future<CollectionItemDetail> _detail;
-
-  @override
-  void initState() {
-    super.initState();
-    _detail = widget.source.loadDetail(widget.collection, widget.ident);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title.isEmpty ? 'Detail' : widget.title),
-      ),
-      body: SafeArea(
-        child: FutureBuilder<CollectionItemDetail>(
-          future: _detail,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return const Center(
-                child: Text('Dit item kon niet worden geladen.'),
-              );
-            }
-            final detail = snapshot.requireData;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: SelectionArea(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (detail.imageUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            height: 420,
-                            child: buildNetworkImage(
-                              detail.imageUrl!,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      Text(
-                        detail.title.isEmpty ? '(zonder titel)' : detail.title,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      if (detail.description.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(detail.description),
-                      ],
-                      if (detail.pdfUrl != null) ...[
-                        const SizedBox(height: 16),
-                        _PdfBlock(url: detail.pdfUrl!),
-                      ],
-                      const SizedBox(height: 16),
-                      _FieldsTable(fields: detail.fields),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Link naar dit object:',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      _LinkText(url: detail.detailUrl),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldsTable extends StatelessWidget {
-  const _FieldsTable({required this.fields});
-
-  final Map<String, String> fields;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = fields.entries
-        .where((e) => e.value.trim().isNotEmpty)
-        .toList(growable: false);
-    if (entries.isEmpty) return const SizedBox.shrink();
-    return Table(
-      columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth()},
-      defaultVerticalAlignment: TableCellVerticalAlignment.top,
-      children: [
-        for (final e in entries)
-          TableRow(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16, bottom: 8),
-                child: Text(
-                  e.key,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(e.value),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-/// Toont de PDF ingesloten in de pagina (op web), met daaronder knoppen om 'm
-/// in een nieuw tabblad te openen of te downloaden. Op platforms zonder
-/// ingesloten weergave (nog) blijven alleen de knoppen over.
-class _PdfBlock extends StatelessWidget {
-  const _PdfBlock({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (supportsEmbeddedPdf)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: 600,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              child: buildEmbeddedPdf(url),
-            ),
-          ),
-        SizedBox(height: supportsEmbeddedPdf ? 8 : 0),
-        SelectionContainer.disabled(
-          child: Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Open in nieuwe pagina'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('Download'),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Klikbare bron-URL. Selectie staat hier bewust uit (SelectionContainer.disabled)
-/// zodat een tik betrouwbaar de link opent i.p.v. tekst te selecteren.
-class _LinkText extends StatelessWidget {
-  const _LinkText({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return SelectionContainer.disabled(
-      child: InkWell(
-        onTap: () =>
-            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-        child: Text(
-          url,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            decoration: TextDecoration.underline,
-          ),
         ),
       ),
     );

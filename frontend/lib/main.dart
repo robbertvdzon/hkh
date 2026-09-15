@@ -457,6 +457,7 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
       collection: _collection,
       fields: _fieldControllers.fieldQueries,
       year: _fieldControllers.yearValue,
+      options: const CollectionSearchOptions(),
     );
     openAppPage(
       context,
@@ -490,6 +491,12 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
               color: _homeGreen,
               fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 12),
+          CollectionChips(
+            overview: _overview,
+            selected: _collection,
+            onSelect: (value) => setState(() => _collection = value),
           ),
           const SizedBox(height: 16),
           if (widget.isNarrow) ...[
@@ -535,12 +542,6 @@ class _HomeSearchSectionState extends State<_HomeSearchSection> {
           ),
           if (_advancedOpen) ...[
             const SizedBox(height: 4),
-            CollectionChips(
-              overview: _overview,
-              selected: _collection,
-              onSelect: (value) => setState(() => _collection = value),
-            ),
-            const SizedBox(height: 8),
             AdvancedSearchFields(
               controllers: _fieldControllers,
               onSubmit: _search,

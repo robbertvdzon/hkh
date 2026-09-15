@@ -1,5 +1,9 @@
 package nl.vdzon.hkh.collection.api
 
+import nl.vdzon.hkh.collection.CollectionCatalog
+import nl.vdzon.hkh.collection.CollectionFacet
+import nl.vdzon.hkh.collection.CollectionSearchOptions
+import org.springframework.util.MultiValueMap
 import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.collection.CollectionItem
 import nl.vdzon.hkh.collection.CollectionSearchService
@@ -27,6 +31,7 @@ data class CollectionItemSummary(
     val year: Int?,
     val imageUrl: String?,
     val hasPdf: Boolean,
+    val fields: Map<String, String>,
 )
 
 data class CollectionItemDetail(
@@ -46,6 +51,7 @@ data class SearchResponse(
     val total: Long,
     val page: Int,
     val pageSize: Int,
+    val documentTextAvailable: Boolean,
 )
 
 @RestController
@@ -60,31 +66,23 @@ class CollectionController(private val service: CollectionSearchService) {
         )
 
     @GetMapping("/search")
-    fun search(
-        @RequestParam(name = "q", required = false) query: String?,
-        @RequestParam(name = "collection", required = false) collection: String?,
-        @RequestParam(name = "fq", required = false) fieldQueries: List<String>?,
-        @RequestParam(name = "year", required = false) year: Int?,
-        @RequestParam(name = "page", defaultValue = "0") page: Int,
-        @RequestParam(name = "size", defaultValue = "20") size: Int,
-    ): SearchResponse {
-        val result = service.search(query, collection, parseFieldQueries(fieldQueries), page, size, year)
-        return SearchResponse(
-            items = result.items.map(CollectionItem::toSummary),
-            total = result.total,
-            page = result.page,
-            pageSize = result.pageSize,
-        )
+    fun search(@RequestParam params: MultiValueMap<String, String>): SearchResponse {
+        val input = SearchInput(params)
+        val result = service.search(input.query, input.collection, input.fields,
+            input.integer("page") ?: 0, input.integer("size") ?: 20, input.year, input.options)
+        return SearchResponse(result.items.map(CollectionItem::toSummary), result.total, result.page,
+            result.pageSize, service.documentTextAvailable())
     }
 
-    /** Elke `fq`-parameter heeft de vorm `veldnaam:zoekterm`, bv. `fq=Auteur(s):Jansen`. */
-    private fun parseFieldQueries(raw: List<String>?): Map<String, String> =
-        raw.orEmpty()
-            .mapNotNull { entry ->
-                val colon = entry.indexOf(':')
-                if (colon <= 0) null else entry.substring(0, colon) to entry.substring(colon + 1)
-            }
-            .toMap()
+    @GetMapping("/facets")
+    fun facet(@RequestParam params: MultiValueMap<String, String>): CollectionFacet {
+        val input = SearchInput(params)
+        val collection = input.collection ?: badRequest("Kies een collectie voor dit filter.")
+        val field = params.getFirst("facet") ?: badRequest("Filter ontbreekt.")
+        if (field !in CollectionCatalog.facets[collection].orEmpty()) badRequest("Onbekend filter.")
+        val valueQuery = params.getFirst("facetQuery").orEmpty().take(200)
+        return service.facet(input.query, collection, input.fields, input.year, input.options, field, valueQuery)
+    }
 
     @GetMapping("/{collection}/{ident}")
     fun detail(
@@ -103,6 +101,7 @@ private fun CollectionItem.toSummary() = CollectionItemSummary(
     year = year,
     imageUrl = CollectionLinks.media(imageUrl),
     hasPdf = pdfUrl != null,
+    fields = fields.filterKeys { key -> CollectionCatalog.documentFields.none { it.equals(key, ignoreCase = true) } },
 )
 
 private fun CollectionItem.toDetail() = CollectionItemDetail(
@@ -116,3 +115,42 @@ private fun CollectionItem.toDetail() = CollectionItemDetail(
     detailUrl = CollectionLinks.detail(collection, ident),
     fields = fields,
 )
+
+/** All user values stay JDBC parameters. Reject malformed ranges/settings instead of silently broadening a search. */
+private class SearchInput(private val params: MultiValueMap<String, String>) {
+    val query = params.getFirst("q")?.trim()?.takeIf { it.isNotEmpty() }
+    val collection = params.getFirst("collection")?.takeIf { it.isNotBlank() }
+    val fields = pairs("fq").associate { it }
+    val year = integer("year")
+    val options: CollectionSearchOptions
+
+    init {
+        if (query.orEmpty().length > 2000 || fields.size > 20 || fields.values.any { it.length > 2000 }) badRequest("Zoekopdracht is te lang.")
+        val mode = params.getFirst("mode") ?: "web"
+        if (mode !in setOf("web", "and", "or", "phrase")) badRequest("Onbekende zoekwijze.")
+        val sort = params.getFirst("sort") ?: "relevance"
+        if (sort !in setOf("relevance", "number", "title", "newest", "oldest", "author", "added")) badRequest("Onbekende sortering.")
+        val from = integer("from")
+        val to = integer("to")
+        if (listOfNotNull(from, to, year).any { it !in 1..2100 } || (from != null && to != null && from > to)) badRequest("Ongeldige periode.")
+        val recent = integer("recent")
+        if (recent != null && recent !in 1..3650) badRequest("Ongeldige toevoegperiode.")
+        val filters = pairs("filter").groupBy({ it.first }, { it.second }).mapValues { it.value.distinct() }
+        if (filters.size > 10 || filters.values.sumOf { it.size } > 50) badRequest("Te veel filters.")
+        if (filters.keys.any { it !in CollectionCatalog.facets[collection].orEmpty() }) badRequest("Dit filter hoort niet bij de gekozen collectie.")
+        options = CollectionSearchOptions(mode, boolean("partial", false), params.getFirst("field") ?: "all",
+            from, to, filters, sort, recent, boolean("documentText", true))
+    }
+
+    fun integer(key: String): Int? = params.getFirst(key)?.let { it.toIntOrNull() ?: badRequest("Ongeldige waarde voor $key.") }
+    private fun boolean(key: String, default: Boolean): Boolean = params.getFirst(key)?.let {
+        it.toBooleanStrictOrNull() ?: badRequest("Ongeldige waarde voor $key.")
+    } ?: default
+    private fun pairs(key: String): List<Pair<String, String>> = params[key].orEmpty().map { raw ->
+        val colon = raw.indexOf(':')
+        if (colon <= 0 || colon > 100 || raw.length > 2200) badRequest("Ongeldig zoekveld.")
+        raw.substring(0, colon) to raw.substring(colon + 1).trim()
+    }.filter { it.second.isNotEmpty() }
+}
+
+private fun badRequest(message: String): Nothing = throw ResponseStatusException(HttpStatus.BAD_REQUEST, message)

@@ -20,12 +20,24 @@ class _RecordingSearchSource implements CollectionSearchSource {
     int? year,
     int page = 0,
     int size = 20,
+    CollectionSearchOptions? options,
   }) async {
     lastQuery = query;
     lastFieldQueries = fieldQueries;
     lastYear = year;
     return const SearchPage(items: [], total: 0, page: 0, pageSize: 20);
   }
+
+  @override
+  Future<CollectionFacet> loadFacet({
+    required String collection,
+    required String field,
+    String query = '',
+    Map<String, String> fieldQueries = const {},
+    int? year,
+    CollectionSearchOptions? options,
+    String valueQuery = '',
+  }) async => CollectionFacet(field: field);
 
   @override
   Future<CollectionItemDetail> loadDetail(

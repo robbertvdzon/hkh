@@ -65,7 +65,7 @@ class MarkdownRendererTest {
         override fun counts(): List<CollectionCount> = emptyList()
         override fun totalCount(): Long = items.size.toLong()
         override fun find(collection: String, ident: String): CollectionItem? = items["$collection/$ident"]
-        override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?): List<CollectionItem> = emptyList()
-        override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?): Long = 0
+        override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?, options: nl.vdzon.hkh.collection.CollectionSearchOptions): List<CollectionItem> = emptyList()
+        override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: nl.vdzon.hkh.collection.CollectionSearchOptions): Long = 0
     }
 }

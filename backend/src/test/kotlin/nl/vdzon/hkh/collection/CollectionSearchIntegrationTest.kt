@@ -21,6 +21,7 @@ class CollectionSearchIntegrationTest(
     @param:Autowired private val mockMvc: MockMvc,
     @param:Autowired private val store: CollectionItemStore,
     @param:Autowired private val service: CollectionSearchService,
+    @param:Autowired private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
 ) {
     @Test
     fun `equal search scores have stable ordering across pages`() {
@@ -177,6 +178,111 @@ class CollectionSearchIntegrationTest(
         val result = service.search(null, null, emptyMap(), 0, 20, year = 1954)
 
         assertEquals(listOf("50"), result.items.map { it.ident })
+    }
+
+    @Test
+    fun `literal modes distinguish AND OR phrase partial and whole words`() {
+        store.upsert(fullRecord("literal-a", "kerk plein", "literal-set"))
+        store.upsert(fullRecord("literal-b", "kerk met een plein", "literal-set"))
+        store.upsert(fullRecord("literal-c", "kerkplein", "literal-set"))
+        fun find(query: String, mode: String, partial: Boolean) = service.search(query, null,
+            mapOf("description" to "literal-set"), 0, 20,
+            options = CollectionSearchOptions(mode = mode, partial = partial, field = "title")).items.map { it.ident }.toSet()
+        assertEquals(setOf("literal-a", "literal-b"), find("kerk plein", "and", false))
+        assertEquals(setOf("literal-a"), find("kerk plein", "phrase", false))
+        assertEquals(setOf("literal-a", "literal-b", "literal-c"), find("kerk", "and", true))
+        assertEquals(setOf("literal-a", "literal-b"), find("kerk onbekend", "or", false))
+        assertEquals(emptySet(), find("kerk onbekend", "and", false))
+    }
+
+    @Test
+    fun `substring queries escape SQL wildcard characters and regex punctuation`() {
+        store.upsert(fullRecord("literal-percent", "100%_juist", "special-set"))
+        store.upsert(fullRecord("literal-other", "1000 onjuist", "special-set"))
+        val result = service.search("%_", null, mapOf("description" to "special-set"), 0, 20,
+            options = CollectionSearchOptions(mode = "and", partial = true))
+        assertEquals(listOf("literal-percent"), result.items.map { it.ident })
+        val regex = service.search("kerk|plein", null, emptyMap(), 0, 20,
+            options = CollectionSearchOptions(mode = "and", partial = false))
+        assertEquals(0, regex.total)
+    }
+
+    @Test
+    fun `exact facets combine alternatives with OR and different facets with AND`() {
+        listOf("facet-a" to "Kaart", "facet-b" to "Krantenartikel", "facet-c" to "Kaartboek").forEach { (id, type) ->
+            store.upsert(fullRecord(id, "Facettoets", fields = mapOf("Type publicatie" to type, "Thema" to "Kastelen")).copy(collection = "archief"))
+        }
+        store.upsert(fullRecord("facet-d", "Facettoets", fields = mapOf("Type publicatie" to "Kaart", "Thema" to "Sport")).copy(collection = "archief"))
+        val options = CollectionSearchOptions(filters = mapOf("Type publicatie" to listOf("Kaart", "Krantenartikel"), "Thema" to listOf("Kastelen")))
+        val result = service.search("Facettoets", "archief", emptyMap(), 0, 20, options = options)
+        assertEquals(setOf("facet-a", "facet-b"), result.items.map { it.ident }.toSet())
+        val facet = service.facet("Facettoets", "archief", emptyMap(), null, options, "Type publicatie", "")
+        assertEquals(mapOf("Kaart" to 1L, "Kaartboek" to 1L, "Krantenartikel" to 1L), facet.values.associate { it.value to it.count })
+    }
+
+    @Test
+    fun `facet value search reaches values beyond the first hundred`() {
+        (0..109).forEach { n -> store.upsert(fullRecord("facet-many-$n", "Facetpaginatoets", fields = mapOf("Auteur(s)" to "Auteur %03d".format(n)))) }
+        val first = service.facet("Facetpaginatoets", "artikelen", emptyMap(), null, CollectionSearchOptions(), "Auteur(s)", "")
+        assertEquals(110, first.totalValues)
+        assertEquals(100, first.values.size)
+        val last = service.facet("Facetpaginatoets", "artikelen", emptyMap(), null, CollectionSearchOptions(), "Auteur(s)", "109")
+        assertEquals(listOf("Auteur 109"), last.values.map { it.value })
+    }
+
+    @Test
+    fun `birth period uses birth date and never death or publication year`() {
+        store.upsert(fullRecord("birth-a", "Geboortetoets", year = 1970, fields = mapOf("Geboren op" to "03-02-1890")).copy(collection = "bidprent"))
+        store.upsert(fullRecord("birth-b", "Geboortetoets", year = 1890, fields = mapOf("Geboren op" to "onbekend")).copy(collection = "bidprent"))
+        store.upsert(fullRecord("birth-c", "Geboortetoets", year = 1960, fields = mapOf("Geboren op" to "1900-05-10")).copy(collection = "bidprent"))
+        val result = service.search("Geboortetoets", "bidprent", emptyMap(), 0, 20,
+            options = CollectionSearchOptions(yearFrom = 1890, yearTo = 1900, sort = "oldest"))
+        assertEquals(listOf("birth-a", "birth-c"), result.items.map { it.ident })
+    }
+
+    @Test
+    fun `document text can be included separately and is omitted from result metadata`() {
+        store.upsert(fullRecord("ocr-only", "Uniek OCR document", fields = mapOf("OCR-tekst" to "documenttekstmatch", "Auteur(s)" to "Auteur")))
+        assertTrue(service.documentTextAvailable())
+        assertEquals(1, service.search("documenttekstmatch", null, emptyMap(), 0, 20,
+            options = CollectionSearchOptions(mode = "and", partial = true, documentText = true)).total)
+        assertEquals(0, service.search("documenttekstmatch", null, emptyMap(), 0, 20,
+            options = CollectionSearchOptions(mode = "and", partial = true, documentText = false)).total)
+        mockMvc.get("/api/collections/search") { param("q", "documenttekstmatch") }.andExpect {
+            status { isOk() }
+            jsonPath("$.items[0].fields['Auteur(s)']") { value("Auteur") }
+            jsonPath("$.items[0].fields['OCR-tekst']") { doesNotExist() }
+            jsonPath("$.documentTextAvailable") { value(true) }
+        }
+    }
+
+    @Test
+    fun `recent means first import and excludes rows whose arrival is unknown`() {
+        val record = fullRecord("recent-old", "Recentheidstoets")
+        store.upsert(record)
+        jdbc.update("UPDATE collection_item SET added_at = CURRENT_TIMESTAMP - INTERVAL '400 days' WHERE ident = ?", record.ident)
+        store.upsert(record.copy(description = "Opnieuw geïmporteerd"))
+        store.upsert(fullRecord("recent-unknown", "Recentheidstoets"))
+        jdbc.update("UPDATE collection_item SET added_at = NULL WHERE ident = 'recent-unknown'")
+        store.upsert(fullRecord("recent-new", "Recentheidstoets"))
+        val result = service.search("Recentheidstoets", null, emptyMap(), 0, 20, options = CollectionSearchOptions(recentDays = 7))
+        assertEquals(listOf("recent-new"), result.items.map { it.ident })
+    }
+
+    @Test
+    fun `explicit title and number sorts stay stable across pages`() {
+        listOf("sort-20", "sort-2", "sort-1").forEach { store.upsert(fullRecord(it, "Sorteertoets")) }
+        val options = CollectionSearchOptions(sort = "number")
+        val items = (0..2).flatMap { service.search("Sorteertoets", null, emptyMap(), it, 1, options = options).items }
+        assertEquals(listOf("sort-1", "sort-2", "sort-20"), items.map { it.ident })
+    }
+
+    @Test
+    fun `API rejects malformed ranges and collection mismatched filters`() {
+        for (params in listOf(mapOf("from" to "2000", "to" to "1900"), mapOf("from" to "abc"), mapOf("mode" to "sql"), mapOf("sort" to "drop"), mapOf("partial" to "maybe"), mapOf("filter" to "Materiaal:Hout", "collection" to "bidprent"))) {
+            mockMvc.get("/api/collections/search") { params.forEach { (k, v) -> param(k, v) } }.andExpect { status { isBadRequest() } }
+        }
+        mockMvc.get("/api/collections/facets") { param("collection", "archief"); param("facet", "password") }.andExpect { status { isBadRequest() } }
     }
 
     private fun fullRecord(

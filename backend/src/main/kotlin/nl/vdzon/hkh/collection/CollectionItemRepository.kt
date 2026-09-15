@@ -14,8 +14,10 @@ interface CollectionItemStore {
     fun counts(): List<CollectionCount>
     fun totalCount(): Long
     fun find(collection: String, ident: String): CollectionItem?
-    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int? = null): List<CollectionItem>
-    fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int? = null): Long
+    fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int? = null, options: CollectionSearchOptions = CollectionSearchOptions()): List<CollectionItem>
+    fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int? = null, options: CollectionSearchOptions = CollectionSearchOptions()): Long
+    fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String): CollectionFacet = CollectionFacet(field, emptyList(), 0)
+    fun documentTextAvailable(): Boolean = false
 }
 
 @Repository
@@ -122,87 +124,116 @@ class CollectionItemRepository(
             ident,
         ).singleOrNull()
 
-    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?): List<CollectionItem> {
-        val (where, args) = buildWhere(query, collection, fieldQueries, year)
-        val ordering: String
-        val orderArgs: List<Any>
-        val rankMatch = rankingMatch(query, fieldQueries)
-        if (rankMatch == null) {
-            ordering = "ORDER BY collection, year DESC NULLS LAST, ident"
-            orderArgs = emptyList()
-        } else {
-            val (match, matchQuery) = rankMatch
-            ordering = "ORDER BY ts_rank(${match.expr}, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST, collection, ident"
-            orderArgs = match.exprArgs + listOf(matchQuery)
+    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?, options: CollectionSearchOptions): List<CollectionItem> {
+        val (where, args) = buildWhere(query, collection, fieldQueries, year, options)
+        val orderArgs = mutableListOf<Any>()
+        val ordering = when (options.sort) {
+            "title" -> "lower(title), collection, ident"
+            "number" -> "collection, length(ident), ident"
+            "newest" -> "$dateYear DESC NULLS LAST, collection, ident"
+            "oldest" -> "$dateYear ASC NULLS LAST, collection, ident"
+            "author" -> "lower(coalesce(fields ->> 'Auteur(s)', '')), collection, ident"
+            "added" -> "added_at DESC NULLS LAST, collection, ident"
+            else -> if (!query.isNullOrBlank() && options.mode == "web" && options.field == "all" && options.documentText) {
+                orderArgs += query
+                "ts_rank(search_vector, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST, collection, ident"
+            } else "collection, $dateYear DESC NULLS LAST, ident"
         }
-        val fullArgs = args + orderArgs + listOf(limit, offset)
-        return jdbc.query(
-            "SELECT * FROM collection_item $where $ordering LIMIT ? OFFSET ?",
-            rowMapper,
-            *fullArgs.toTypedArray(),
+        return jdbc.query("SELECT * FROM collection_item $where ORDER BY $ordering LIMIT ? OFFSET ?",
+            rowMapper, *(args + orderArgs + listOf(limit, offset)).toTypedArray())
+    }
+
+    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): Long {
+        val (where, args) = buildWhere(query, collection, fieldQueries, year, options)
+        return jdbc.queryForObject("SELECT COUNT(*) FROM collection_item $where", Long::class.java, *args.toTypedArray()) ?: 0
+    }
+
+    override fun documentTextAvailable(): Boolean = jdbc.queryForObject(
+        "SELECT EXISTS (SELECT 1 FROM collection_item WHERE ($documentText) <> '')", Boolean::class.java,
+    ) == true
+
+    override fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String): CollectionFacet {
+        // Exclude this facet's own selections so alternatives remain selectable (OR within one facet).
+        val (where, args) = buildWhere(query, collection, fieldQueries, year, options.copy(filters = options.filters - field))
+        val rows = jdbc.query(
+            """SELECT value, COUNT(*) AS n, COUNT(*) OVER () AS total_values
+               FROM (SELECT btrim(coalesce(fields ->> ?, '')) AS value FROM collection_item $where) candidates
+               WHERE value <> '' AND value ILIKE ? ESCAPE '!'
+               GROUP BY value ORDER BY lower(value), value LIMIT 100""",
+            { rs, _ -> Triple(rs.getString("value"), rs.getLong("n"), rs.getLong("total_values")) },
+            *(listOf(field) + args + listOf("%" + escapeLike(valueQuery) + "%")).toTypedArray(),
         )
+        return CollectionFacet(field, rows.map { FacetValue(it.first, it.second) }, rows.firstOrNull()?.third ?: 0)
     }
 
-    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?): Long {
-        val (where, args) = buildWhere(query, collection, fieldQueries, year)
-        return jdbc.queryForObject(
-            "SELECT COUNT(*) FROM collection_item $where",
-            Long::class.java,
-            *args.toTypedArray(),
-        ) ?: 0
+    private data class Expression(val sql: String, val args: List<Any> = emptyList())
+
+    private val documentKeys = CollectionCatalog.documentFields.joinToString(",") { "'${it.lowercase()}'" }
+    private val documentText get() = "coalesce((SELECT string_agg(value, ' ') FROM jsonb_each_text(fields) WHERE lower(key) IN ($documentKeys)), '')"
+    private val metadataText get() = "concat_ws(' ', title, description, ident, (SELECT string_agg(value, ' ') FROM jsonb_each_text(fields) WHERE lower(key) NOT IN ($documentKeys)))"
+    // A bidprent's generic year can denote death/publication; never treat that as its birth year.
+    private val dateYear = "CASE WHEN collection = 'bidprent' THEN substring(fields ->> 'Geboren op' from '(?:^|[^0-9])([12][0-9]{3})(?:[^0-9]|$)')::integer ELSE year END"
+
+    private fun expression(field: String, includeDocument: Boolean): Expression = when (field.lowercase()) {
+        "all" -> Expression(if (includeDocument) "search_text" else metadataText)
+        "title" -> Expression("title")
+        "description" -> Expression("description")
+        "ident" -> Expression("ident")
+        "title_description" -> Expression("concat_ws(' ', title, description)")
+        "name_place" -> Expression("concat_ws(' ', fields ->> 'Achternaam overledene', fields ->> 'Geboren te')")
+        else -> Expression("coalesce(fields ->> ?, '')", listOf(field))
     }
 
-    /** Sorteert op relevantie van de algemene zoekterm, anders van het eerste ingevulde veld, anders niet. */
-    private fun rankingMatch(query: String?, fieldQueries: Map<String, String>): Pair<MatchClause, String>? = when {
-        !query.isNullOrBlank() -> matchClause(null) to query
-        fieldQueries.isNotEmpty() -> {
-            val (field, value) = fieldQueries.entries.first()
-            matchClause(field) to value
-        }
-        else -> null
-    }
-
-
-    /** Bepaalt tegen welke tsvector-expressie gezocht wordt: alles, een vaste kolom, of één los veld uit [fields]. */
-    private fun matchClause(field: String?): MatchClause = when {
-        field.isNullOrBlank() || field.equals("all", ignoreCase = true) -> MatchClause("search_vector", emptyList())
-        field.equals("title", ignoreCase = true) -> MatchClause("to_tsvector('dutch', title)", emptyList())
-        field.equals("description", ignoreCase = true) -> MatchClause("to_tsvector('dutch', description)", emptyList())
-        else -> MatchClause("to_tsvector('dutch', coalesce(fields ->> ?, ''))", listOf(field))
-    }
-
-    private data class MatchClause(val expr: String, val exprArgs: List<Any>)
-
-    /**
-     * Combineert de algemene zoekterm (tegen alle velden) met nul of meer losse veld-beperkingen
-     * (elk hun eigen tsvector-match) tot één AND-conditie - zo kan iemand bv. "Rubriek" en
-     * "Auteur(s)" tegelijk invullen, naast of in plaats van de algemene zoekbalk.
-     */
-    private fun buildWhere(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?): Pair<String, List<Any>> {
+    private fun buildWhere(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): Pair<String, List<Any>> {
         val clauses = mutableListOf<String>()
         val args = mutableListOf<Any>()
-        if (!query.isNullOrBlank()) {
-            val match = matchClause(null)
-            clauses += "${match.expr} @@ websearch_to_tsquery('dutch', ?)"
-            args += query
+        fun match(field: String, value: String, mode: String) {
+            if (value.isBlank()) return
+            val expr = expression(field, options.documentText)
+            if (mode == "web") {
+                val vector = if (field == "all" && options.documentText) "search_vector" else "to_tsvector('dutch', ${expr.sql})"
+                clauses += "$vector @@ websearch_to_tsquery('dutch', ?)"
+                args.addAll(if (vector == "search_vector") emptyList() else expr.args)
+                args += value
+                return
+            }
+            val words = if (mode == "phrase") listOf(value.trim().removeSurrounding("\"")) else
+                Regex("\"([^\"]+)\"|(\\S+)").findAll(value).map { it.groupValues[1].ifEmpty { it.groupValues[2] } }.toList()
+            clauses += words.joinToString(if (mode == "or") " OR " else " AND ", "(", ")") { word ->
+                args.addAll(expr.args)
+                if (options.partial) {
+                    args += "%" + escapeLike(word) + "%"
+                    "${expr.sql} ILIKE ? ESCAPE '!'"
+                } else {
+                    // PostgreSQL word boundaries, without stemming or user-supplied regex syntax.
+                    args += "\\m" + escapeRegex(word) + "\\M"
+                    "${expr.sql} ~* ?"
+                }
+            }
         }
-        for ((field, value) in fieldQueries) {
-            if (value.isBlank()) continue
-            val match = matchClause(field)
-            clauses += "${match.expr} @@ websearch_to_tsquery('dutch', ?)"
-            args.addAll(match.exprArgs)
-            args += value
+        if (!query.isNullOrBlank()) match(options.field, query, options.mode)
+        fieldQueries.forEach { (field, value) -> match(field, value, if (options.mode == "web") "web" else "and") }
+        if (!collection.isNullOrBlank()) { clauses += "collection = ?"; args += collection }
+        if (year != null) { clauses += "year = ?"; args += year } // Legacy exact-year links retain their meaning.
+        if (options.yearFrom != null) { clauses += "$dateYear >= ?"; args += options.yearFrom }
+        if (options.yearTo != null) { clauses += "$dateYear <= ?"; args += options.yearTo }
+        if (options.recentDays != null) { clauses += "added_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 day')"; args += options.recentDays }
+        options.filters.forEach { (field, values) ->
+            if (values.isNotEmpty()) {
+                clauses += "btrim(coalesce(fields ->> ?, '')) IN (${values.joinToString(",") { "?" }})"
+                args += field
+                args.addAll(values)
+            }
         }
-        if (!collection.isNullOrBlank()) {
-            clauses += "collection = ?"
-            args += collection
+        return (if (clauses.isEmpty()) "" else "WHERE " + clauses.joinToString(" AND ")) to args
+    }
+
+    private fun escapeLike(value: String) = value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    private fun escapeRegex(value: String) = buildString {
+        value.forEach { ch ->
+            if (ch in "\\.^$|?*+()[]{}") append('\\')
+            append(ch)
         }
-        if (year != null) {
-            clauses += "year = ?"
-            args += year
-        }
-        val where = if (clauses.isEmpty()) "" else "WHERE " + clauses.joinToString(" AND ")
-        return where to args
     }
 
     private fun buildSearchText(title: String, description: String, ident: String, fields: Map<String, String>): String =

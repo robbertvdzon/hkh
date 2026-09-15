@@ -23,8 +23,9 @@ class CollectionSearchService(private val store: CollectionItemStore) {
         page: Int,
         pageSize: Int,
         year: Int? = null,
+        options: CollectionSearchOptions = CollectionSearchOptions(),
     ): SearchResult {
-        val safePage = page.coerceAtLeast(0)
+        val safePage = page.coerceIn(0, 100000)
         val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
         val cleanedQuery = query?.trim()?.takeIf { it.isNotEmpty() }
         val cleanedCollection = collection?.trim()?.takeIf { it.isNotEmpty() }
@@ -32,10 +33,15 @@ class CollectionSearchService(private val store: CollectionItemStore) {
             .mapValues { it.value.trim() }
             .filterKeys { it.isNotBlank() }
             .filterValues { it.isNotEmpty() }
-        val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize, year)
-        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries, year)
+        val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize, year, options)
+        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries, year, options)
         return SearchResult(items, total, safePage, safeSize)
     }
+
+    fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String) =
+        store.facet(query, collection, fieldQueries, year, options, field, valueQuery)
+
+    fun documentTextAvailable() = store.documentTextAvailable()
 
     private companion object {
         const val MAX_PAGE_SIZE = 100

@@ -20,6 +20,7 @@ String searchLocation({
   Map<String, String> fields = const {},
   int? year,
   int page = 0,
+  CollectionSearchOptions? options,
 }) => Uri(
   path: '/zoeken',
   queryParameters: {
@@ -28,6 +29,7 @@ String searchLocation({
     for (final entry in fields.entries) 'field.${entry.key}': entry.value,
     if (year != null) 'year': '$year',
     if (page > 0) 'page': '$page',
+    ...?options?.toParameters(),
   },
 ).toString();
 
@@ -58,6 +60,10 @@ GoRouter createAppRouter({
     collection: state.pathParameters['collection']!,
     ident: state.pathParameters['ident']!,
     title: '',
+    resultContext: state.extra is CollectionResultContext
+        ? state.extra as CollectionResultContext
+        : null,
+    searchUri: state.uri.path.startsWith('/zoeken/') ? state.uri : null,
   );
   Widget accountPage(Widget child) {
     if (session == null) return child;
@@ -91,9 +97,12 @@ GoRouter createAppRouter({
             builder: (_, state) {
               final q = state.uri.queryParameters;
               return CollectionSearchPage(
-                key: ValueKey(state.uri.query),
+                key: const ValueKey('collection-search'),
                 source: searchSource,
                 initialQuery: q['q'] ?? '',
+                initialOptions: CollectionSearchOptions.fromParameters(
+                  state.uri.queryParametersAll,
+                ),
                 initialCollection: q['collection'],
                 initialFieldQueries: {
                   for (final entry in q.entries)

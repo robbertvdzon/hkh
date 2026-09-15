@@ -42,14 +42,33 @@ mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 
 ## Zoeken en objectlinks
 
-De zoekbalk op de homepage opent de volledige collectieresultaten, standaard over alle collecties.
-Uitgebreid zoeken biedt collectiekeuze, titel, beschrijving en jaar; hiervoor wordt dezelfde
-collectie-API gebruikt. Zoeken start geen AI-opdracht. De aparte ingang ‘Doorzoek de collectie’ is vervallen.
+De homepage en zoekpagina tonen de vertrouwde ingangen Archief, Beeldbank, Bibliotheek,
+Bidprentjes, Artikelen en Objecten. Een lege zoekterm laat bezoekers bladeren; een zoekterm
+kan over alle collecties of binnen één collectie worden gebruikt. Dit start geen AI-opdracht.
 
-De web-URL bewaart zoekterm, collectie, veldfilters en paginanummer (`/#/zoeken?...`).
-Objecten hebben een eigen route (`/#/objecten/{collectie}/{ident}`). Bij openen vanuit de resultaten
-blijft de zoekcontext in de object-URL staan, ook na verversen. Dossiers, artikelen en AI-vragen
-hebben eveneens eigen routes. De importserver blijft alleen een backend-databron: publieke bronlinks
+Compacte filters bieden de oorspronkelijke collectievelden, zoals Type publicatie, Thema,
+Straatnaam, Genre, Geboren te en Materiaal. Filterwaarden worden op verzoek uit de database
+gehaald; zoeken in een lange keuzelijst werkt ook voorbij de eerste 100 waarden. Alternatieven
+binnen hetzelfde filter gelden als OF, verschillende filters samen als EN. Uitgebreid zoeken
+biedt alle woorden, één van de woorden, exacte tekst, woorddelen en afzonderlijke zoekvelden.
+Bestaande zoeklinks zonder deze nieuwe opties behouden hun eerdere zoeksyntax.
+
+Resultaten tonen collectie-eigen metadata en kunnen als lijst of galerij worden bekeken en
+worden gesorteerd. Details tonen eerst de relevante velden, met daarnaast alle bronvelden,
+beschikbare afbeeldingen en PDF’s. Vorige/volgende resultaten en terugnavigatie behouden de
+zoekcontext. Ook na verversen bewaart de URL zoekterm, collectie, veldfilters, periode,
+zoekwijze, sortering, weergave en paginanummer (`/#/zoeken?...`).
+
+Periodefilters voor bidprentjes gebruiken **Geboren op**, niet het overlijdensjaar. ‘Recent
+toegevoegd’ gebruikt de eerste importdatum; een herimport maakt een oud stuk niet nieuw.
+Voor bestaande records zonder betrouwbare eerste importdatum wordt geen datum verzonnen.
+Documenttekst (OCR) is beschikbaar zodra die als bronveld is geïmporteerd; de optie is
+uitgeschakeld zolang de database geen documenttekst bevat. Deze functie voert geen OCR uit
+op afbeeldingen of PDF’s.
+
+Objecten hebben een eigen route (`/#/objecten/{collectie}/{ident}`). Bij openen vanuit de
+resultaten blijft de zoekcontext in de object-URL staan. Dossiers, artikelen en AI-vragen
+hebben eveneens eigen routes. De importserver blijft een backend-databron: publieke bronlinks
 openen onze objecten en afbeeldingen/pdf’s worden via `/api/collection-media/{token}` gestreamd.
 Bestaande opgeslagen antwoorden worden bij uitlezen ook omgezet naar interne verwijzingen.
 

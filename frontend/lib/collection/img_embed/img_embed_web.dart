@@ -31,7 +31,8 @@ Widget buildNetworkImage(
         ..alt = 'Archieffoto'
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = objectFit;
+        ..style.objectFit = objectFit
+        ..style.pointerEvents = linkUrl == null ? 'none' : 'auto';
       if (linkUrl == null) return img;
       final link = web.HTMLAnchorElement()
         ..href = linkUrl

@@ -31,6 +31,7 @@ class RecordingSource implements CollectionSearchSource {
     int? year,
     int page = 0,
     int size = 20,
+    CollectionSearchOptions? options,
   }) async {
     requests.add((
       query: query,
@@ -58,6 +59,17 @@ class RecordingSource implements CollectionSearchSource {
       ),
     );
   }
+
+  @override
+  Future<CollectionFacet> loadFacet({
+    required String collection,
+    required String field,
+    String query = '',
+    Map<String, String> fieldQueries = const {},
+    int? year,
+    CollectionSearchOptions? options,
+    String valueQuery = '',
+  }) async => CollectionFacet(field: field);
 
   @override
   Future<CollectionItemDetail> loadDetail(
@@ -134,11 +146,11 @@ void main() {
       expect(request.year, 1928);
       expect(request.page, 1);
       await tester.scrollUntilVisible(
-        find.text('Object 20'),
+        find.text('Object 20').hitTestable(),
         250,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Object 20'));
+      await tester.tap(find.text('Object 20').hitTestable());
       await tester.pumpAndSettle();
       expect(source.details, ['beeldbank/20']);
       final detailUri = router.routeInformationProvider.value.uri;
@@ -215,7 +227,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Uitgebreid zoeken'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text("Foto's (45)"));
+    await tester.tap(find.text('Beeldbank (45)'));
     await tester.enterText(find.widgetWithText(TextField, 'Titel'), 'Kerk');
     await tester.tap(find.byKey(const Key('collection-search-button')));
     await tester.pumpAndSettle();

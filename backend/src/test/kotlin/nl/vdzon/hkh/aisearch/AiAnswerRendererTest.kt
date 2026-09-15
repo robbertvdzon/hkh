@@ -66,6 +66,6 @@ private class FakeStore(private val item: CollectionItem) : CollectionItemStore 
     override fun completeIdents(collection: String) = emptySet<String>()
     override fun counts() = emptyList<CollectionCount>()
     override fun totalCount() = 0L
-    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?) = emptyList<CollectionItem>()
-    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?) = 0L
+    override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?, options: nl.vdzon.hkh.collection.CollectionSearchOptions) = emptyList<CollectionItem>()
+    override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: nl.vdzon.hkh.collection.CollectionSearchOptions) = 0L
 }
