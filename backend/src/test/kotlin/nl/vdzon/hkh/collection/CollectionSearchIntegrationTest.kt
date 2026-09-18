@@ -320,6 +320,32 @@ class CollectionSearchIntegrationTest(
         mockMvc.get("/api/collections/facets") { param("collection", "archief"); param("facet", "password") }.andExpect { status { isBadRequest() } }
     }
 
+    @Test
+    fun `document matches include bounded excerpts without exposing the full OCR field`() {
+        store.upsert(fullRecord("ocr-excerpt", "Bijzondere dorpskroniek", fields = mapOf(
+            "OCR-tekst" to "In deze kroniek staat dat de fragmenttoetsschool aan de Kerklaan werd geopend. " + "Overige tekst. ".repeat(100),
+        )))
+        val documentOnly = service.search("fragmenttoetsschool", null, emptyMap(), 0, 20).items.single()
+        assertTrue(documentOnly.documentSnippet!!.contains("fragmenttoetsschool"))
+        assertTrue(documentOnly.documentSnippet.length <= 500)
+        assertFalse(documentOnly.documentSnippet.contains("HKHMATCH"))
+        val mixed = service.search("dorpskroniek fragmenttoetsschool", null, emptyMap(), 0, 20).items.single()
+        assertTrue(mixed.documentSnippet!!.contains("fragmenttoetsschool"))
+        val partial = service.search("fragmenttoets", null, emptyMap(), 0, 20,
+            options = CollectionSearchOptions(mode = "and", partial = true)).items.single()
+        assertTrue(partial.documentSnippet!!.contains("fragmenttoetsschool"))
+        val metadataOnly = service.search("dorpskroniek", null, emptyMap(), 0, 20).items.single()
+        assertEquals(null, metadataOnly.documentSnippet)
+        assertTrue(service.search("fragmenttoetsschool", null, emptyMap(), 0, 20,
+            options = CollectionSearchOptions(documentText = false)).items.isEmpty())
+        assertTrue(service.search(null, null, mapOf("description" to "fragmenttoetsschool"), 0, 20).items.isEmpty())
+        mockMvc.get("/api/collections/search") { param("q", "fragmenttoetsschool") }.andExpect {
+            status { isOk() }
+            jsonPath("$.items[0].documentSnippet") { isNotEmpty() }
+            jsonPath("$.items[0].fields['OCR-tekst']") { doesNotExist() }
+        }
+    }
+
     private fun fullRecord(
         ident: String,
         title: String = "Titel $ident",

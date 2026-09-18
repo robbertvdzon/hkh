@@ -141,8 +141,44 @@ class CollectionItemRepository(
                 "ts_rank(search_vector, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST, collection, ident"
             } else "collection, $dateYear DESC NULLS LAST, ident"
         }
-        return jdbc.query("SELECT * FROM collection_item $where ORDER BY $ordering LIMIT ? OFFSET ?",
-            rowMapper, *(args + orderArgs + listOf(limit, offset)).toTypedArray())
+        val pageSql = "SELECT * FROM collection_item $where ORDER BY $ordering LIMIT ? OFFSET ?"
+        val pageArgs = args + orderArgs + listOf(limit, offset)
+        if (!query.isNullOrBlank() && options.field == "all" && options.documentText && options.mode == "web") {
+            // Generate excerpts only for this result page. Headline marks matching words even
+            // when the rest of the query matched metadata rather than document text.
+            return jdbc.query(
+                """SELECT matched.*, ts_headline('dutch', $documentText,
+                    websearch_to_tsquery('dutch', ?),
+                    'StartSel=HKHMATCHSTART, StopSel=HKHMATCHEND, MaxWords=35, MinWords=15, MaxFragments=1') AS document_snippet
+                    FROM ($pageSql) matched""",
+                { rs, index ->
+                    val headline = rs.getString("document_snippet")
+                    rowMapper.mapRow(rs, index)!!.copy(documentSnippet = headline
+                        ?.takeIf { it.contains("HKHMATCHSTART") }
+                        ?.replace("HKHMATCHSTART", "")?.replace("HKHMATCHEND", "")
+                        ?.take(500))
+                }, *(listOf(query) + pageArgs).toTypedArray(),
+            )
+        }
+        val items = jdbc.query(pageSql, rowMapper, *pageArgs.toTypedArray())
+        if (query.isNullOrBlank() || options.field != "all" || !options.documentText) return items
+        return items.map { it.copy(documentSnippet = literalDocumentSnippet(it, query, options)) }
+    }
+
+    private fun literalDocumentSnippet(item: CollectionItem, query: String, options: CollectionSearchOptions): String? {
+        val text = item.fields.entries.filter { (key, _) ->
+            CollectionCatalog.documentFields.any { it.equals(key, ignoreCase = true) }
+        }.joinToString(" ") { it.value }.replace(Regex("\\s+"), " ")
+        val words = if (options.mode == "phrase") listOf(query.trim().removeSurrounding("\"")) else
+            Regex("\"([^\"]+)\"|(\\S+)").findAll(query).map { it.groupValues[1].ifEmpty { it.groupValues[2] } }.toList()
+        val match = words.filter { it.isNotBlank() }.mapNotNull { word ->
+            val pattern = if (options.partial) Regex.escape(word) else
+                "(?<![\\p{L}\\p{N}_])${Regex.escape(word)}(?![\\p{L}\\p{N}_])"
+            Regex(pattern, RegexOption.IGNORE_CASE).find(text)
+        }.minByOrNull { it.range.first } ?: return null
+        val start = (match.range.first - 80).coerceAtLeast(0)
+        val end = (start + 350).coerceAtMost(text.length)
+        return (if (start > 0) "…" else "") + text.substring(start, end).trim() + (if (end < text.length) "…" else "")
     }
 
     override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): Long {

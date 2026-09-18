@@ -385,7 +385,7 @@ void main() {
         searchSource: source,
       );
       expect(find.byKey(const Key('collection-search-field')), findsNothing);
-      expect(find.text('Uitgebreid zoeken'), findsNothing);
+      expect(find.text('Gericht zoeken'), findsNothing);
       await tester.scrollUntilVisible(
         find.byKey(const Key('collection-search-button')),
         200,
@@ -468,7 +468,7 @@ void main() {
       expect(source.lastSize, 20);
       await tester.enterText(find.byKey(const Key('collection-query')), '');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Uitgebreid zoeken'));
+      await tester.tap(find.text('Gericht zoeken'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, 'Titel'),

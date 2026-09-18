@@ -20,6 +20,7 @@ data class CollectionItem(
     val fields: Map<String, String>,
     val isComplete: Boolean,
     val scrapedAt: Instant,
+    val documentSnippet: String? = null,
 )
 
 /** Ruwe, geparste weergave van een recordpagina, vóór opslag. */

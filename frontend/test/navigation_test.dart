@@ -222,7 +222,7 @@ void main() {
   });
 
   testWidgets(
-    'advanced search starts across all collections and preserves its field',
+    'targeted search keeps the chosen collection and its fields in the URL',
     (tester) async {
       tester.view.physicalSize = const Size(1000, 1100);
       tester.view.devicePixelRatio = 1;
@@ -240,14 +240,26 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Beeldbank'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Uitgebreid zoeken'));
+      await tester.tap(find.text('Gericht zoeken'));
       await tester.pumpAndSettle();
       await tester.enterText(find.widgetWithText(TextField, 'Titel'), 'Kerk');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
-      expect(source.requests.single.collection, isNull);
+      expect(source.requests.single.collection, 'beeldbank');
       expect(source.requests.single.fields, {'title': 'Kerk'});
       expect(source.requests.single.query, '');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['collection'],
+        'beeldbank',
+      );
+      expect(
+        router
+            .routeInformationProvider
+            .value
+            .uri
+            .queryParameters['field.title'],
+        'Kerk',
+      );
     },
   );
 }

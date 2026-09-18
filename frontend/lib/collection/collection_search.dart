@@ -36,6 +36,7 @@ class CollectionItemSummary {
     required this.imageUrl,
     required this.hasPdf,
     this.thumbnailUrl,
+    this.documentSnippet,
     this.fields = const {},
   });
 
@@ -48,6 +49,7 @@ class CollectionItemSummary {
         year: json['year'] as int?,
         imageUrl: json['imageUrl'] as String?,
         thumbnailUrl: json['thumbnailUrl'] as String?,
+        documentSnippet: json['documentSnippet'] as String?,
         hasPdf: json['hasPdf'] as bool? ?? false,
         fields: (json['fields'] as Map<String, dynamic>? ?? {}).map(
           (k, v) => MapEntry(k, v.toString()),
@@ -61,6 +63,7 @@ class CollectionItemSummary {
   final int? year;
   final String? imageUrl;
   final String? thumbnailUrl;
+  final String? documentSnippet;
   final bool hasPdf;
   final Map<String, String> fields;
 }
@@ -165,8 +168,8 @@ abstract interface class CollectionSearchSource {
 /// URL-serializable search settings. Filters are exact alternatives within a field.
 class CollectionSearchOptions {
   const CollectionSearchOptions({
-    this.mode = 'and',
-    this.partial = true,
+    this.mode = 'web',
+    this.partial = false,
     this.field = 'all',
     this.yearFrom,
     this.yearTo,

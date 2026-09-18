@@ -3,10 +3,7 @@ import 'collection_config.dart';
 import 'collection_search.dart';
 import '../theme/app_style.dart';
 
-/// Bundelt de invulvelden voor "Uitgebreid zoeken": Titel en Beschrijving (dezelfde
-/// velden als in het zoekresultaat) en Jaar (exacte match). Bewust geen losse
-/// invulvelden per collectie-specifiek attribuut - dat gaf een onoverzichtelijke,
-/// tientallen velden lange lijst.
+/// Invoer voor gericht zoeken, inclusief zelf toegevoegde collectievelden.
 class SearchFieldControllers {
   final title = TextEditingController();
   final description = TextEditingController();
@@ -48,70 +45,6 @@ class SearchFieldControllers {
   }
 }
 
-/// De drie invulvelden onder elkaar, elk optioneel; alle ingevulde velden gelden
-/// als EN naast de algemene zoekbalk.
-class AdvancedSearchFields extends StatelessWidget {
-  const AdvancedSearchFields({
-    required this.controllers,
-    required this.onSubmit,
-    super.key,
-  });
-
-  final SearchFieldControllers controllers;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            _row(context, 'Titel', controllers.title),
-            _row(context, 'Beschrijving', controllers.description),
-            _row(
-              context,
-              'Jaar',
-              controllers.year,
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(
-    BuildContext context,
-    String label,
-    TextEditingController controller, {
-    TextInputType? keyboardType,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        textInputAction: TextInputAction.search,
-        onSubmitted: (_) => onSubmit(),
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          border: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class CollectionAdvancedControls extends StatelessWidget {
   const CollectionAdvancedControls({
     super.key,
@@ -120,200 +53,160 @@ class CollectionAdvancedControls extends StatelessWidget {
     required this.options,
     required this.onChanged,
     required this.onSubmit,
-    required this.documentTextAvailable,
+    required this.onReset,
+    required this.onPeriod,
+    this.yearError,
   });
   final String? collection;
+  final String? yearError;
   final SearchFieldControllers controllers;
   final CollectionSearchOptions options;
   final ValueChanged<CollectionSearchOptions> onChanged;
-  final VoidCallback onSubmit;
-  final bool documentTextAvailable;
+  final VoidCallback onSubmit, onReset, onPeriod;
 
   @override
   Widget build(BuildContext context) {
     final fields = searchFields(collection);
-    if (!fields.containsKey(options.field)) {
-      fields[options.field] = options.field;
-    }
+    final available = fields.entries
+        .where(
+          (e) =>
+              ![
+                'all',
+                'title',
+                'description',
+                'title_description',
+                'name_place',
+              ].contains(e.key) &&
+              !controllers.extra.containsKey(e.key),
+        )
+        .toList();
+    final period = options.yearFrom != null || options.yearTo != null;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final controls = [
-                  DropdownButtonFormField<String>(
-                    initialValue: options.mode,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Zoekwoorden combineren',
-                    ),
-                    items: [
-                      if (options.mode == 'web')
-                        const DropdownMenuItem(
-                          value: 'web',
-                          child: Text('Alle woorden / aanhalingstekens'),
-                        ),
-                      const DropdownMenuItem(
-                        value: 'and',
-                        child: Text('Alle woorden (AND)'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'or',
-                        child: Text('Eén van de woorden (OR)'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'phrase',
-                        child: Text('Exacte tekst'),
-                      ),
-                    ],
-                    onChanged: (v) => onChanged(options.copyWith(mode: v)),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: options.field,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Zoeken in veld',
-                    ),
-                    items: [
-                      for (final e in fields.entries)
-                        DropdownMenuItem(
-                          value: e.key,
-                          child: Text(e.value, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    onChanged: (v) => onChanged(options.copyWith(field: v)),
-                  ),
-                ];
-                return constraints.maxWidth < 580
-                    ? Column(
-                        children: [
-                          controls[0],
-                          const SizedBox(height: 16),
-                          controls[1],
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(child: controls[0]),
-                          const SizedBox(width: 16),
-                          Expanded(child: controls[1]),
-                        ],
-                      );
-              },
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Ook delen van woorden'),
-              value: options.partial,
-              onChanged: (v) => onChanged(
-                options.copyWith(
-                  partial: v,
-                  mode: options.mode == 'web' ? 'and' : options.mode,
-                ),
-              ),
-            ),
-            if (collection == null ||
-                collection == 'archief' ||
-                collection == 'artikelen')
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Ook documenttekst (OCR)'),
-                subtitle: Text(
-                  documentTextAvailable
-                      ? 'Zoekt ook in geïmporteerde documenttekst.'
-                      : 'Er is nog geen documenttekst geïmporteerd.',
-                ),
-                value: documentTextAvailable && options.documentText,
-                onChanged: documentTextAvailable
-                    ? (v) => onChanged(options.copyWith(documentText: v))
-                    : null,
-              ),
-            const Divider(),
             const Text(
-              'En deze velden bevatten:',
+              'Vul in wat u weet. Resultaten voldoen aan alle ingevulde velden.',
               style: TextStyle(color: appMutedText),
             ),
-            const SizedBox(height: 8),
-            AdvancedSearchFields(controllers: controllers, onSubmit: onSubmit),
+            const SizedBox(height: 20),
+            _field('Titel', controllers.title),
+            const SizedBox(height: 20),
+            _field('Beschrijving', controllers.description),
+            const SizedBox(height: 20),
+            if (!period)
+              _field('Jaar', controllers.year, number: true)
+            else
+              Text(
+                '${collectionConfig(collection).periodLabel}: '
+                '${options.yearFrom ?? '…'} – ${options.yearTo ?? '…'}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: onPeriod,
+                    icon: const Icon(Icons.date_range_outlined, size: 18),
+                    label: Text(
+                      period ? 'Periode wijzigen' : 'Periode invullen',
+                    ),
+                  ),
+                  if (period)
+                    TextButton(
+                      onPressed: () =>
+                          onChanged(options.copyWith(clearPeriod: true)),
+                      child: const Text('Eén jaar invullen'),
+                    ),
+                ],
+              ),
+            ),
             for (final entry in controllers.extra.entries)
               Padding(
+                key: ValueKey(entry.key),
                 padding: const EdgeInsets.only(top: 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: entry.value,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => onSubmit(),
-                        decoration: InputDecoration(
-                          labelText: fields[entry.key] ?? entry.key,
-                        ),
+                      child: _field(
+                        fields[entry.key] ?? entry.key,
+                        entry.value,
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Veld verwijderen',
+                      tooltip: '${fields[entry.key] ?? entry.key} verwijderen',
                       onPressed: () {
-                        controllers.extra.remove(entry.key)?.dispose();
+                        final removed = controllers.extra.remove(entry.key);
                         onChanged(options);
+                        // The old field is still mounted until the next frame.
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => removed?.dispose(),
+                        );
                       },
                       icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
               ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final available = fields.entries
-                        .where(
-                          (e) =>
-                              ![
-                                'all',
-                                'title',
-                                'description',
-                              ].contains(e.key) &&
-                              !controllers.extra.containsKey(e.key),
-                        )
-                        .toList();
-                    if (available.isEmpty) return;
-                    final chosen = await showDialog<String>(
-                      context: context,
-                      builder: (context) => SimpleDialog(
-                        title: const Text('Veld toevoegen'),
-                        children: [
-                          for (final e in available)
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, e.key),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: available.isEmpty
+                    ? null
+                    : () async {
+                        final chosen = await showDialog<String>(
+                          context: context,
+                          builder: (context) => SimpleDialog(
+                            title: const Text('Zoekveld toevoegen'),
+                            children: [
+                              for (final entry in available)
+                                SimpleDialogOption(
+                                  onPressed: () =>
+                                      Navigator.pop(context, entry.key),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: Text(entry.value),
+                                  ),
                                 ),
-                                child: Text(e.value),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                    if (chosen != null && context.mounted) {
-                      controllers.extra[chosen] = TextEditingController();
-                      onChanged(options);
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Veld toevoegen'),
-                ),
-                FilledButton(
+                            ],
+                          ),
+                        );
+                        if (chosen != null && context.mounted) {
+                          controllers.extra[chosen] = TextEditingController();
+                          onChanged(options);
+                        }
+                      },
+                icon: const Icon(Icons.add),
+                label: const Text('Zoekveld toevoegen'),
+              ),
+            ),
+            if (collection == null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Kies een collectie voor extra zoekvelden, zoals Straatnaam bij Beeldbank.',
+                style: TextStyle(color: appMutedText),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 12,
+              children: [
+                TextButton(onPressed: onReset, child: const Text('Wissen')),
+                FilledButton.icon(
+                  key: const Key('targeted-search-submit'),
                   onPressed: onSubmit,
-                  child: const Text('Zoek met deze instellingen'),
+                  icon: const Icon(Icons.search),
+                  label: const Text('Zoeken'),
                 ),
               ],
             ),
@@ -322,4 +215,21 @@ class CollectionAdvancedControls extends StatelessWidget {
       ),
     );
   }
+
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    bool number = false,
+  }) => TextField(
+    controller: controller,
+    keyboardType: number ? TextInputType.number : null,
+    textInputAction: TextInputAction.search,
+    onSubmitted: (_) => onSubmit(),
+    decoration: InputDecoration(
+      labelText: label,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      hintText: number ? 'Bijvoorbeeld 1950' : null,
+      errorText: number ? yearError : null,
+    ),
+  );
 }

@@ -43,11 +43,21 @@ en Jaar met zichtbare, programmatisch gekoppelde labels.
 Een zoekopdracht opent direct de volledige zoekpagina. Een leeg zoekveld toont de collectie.
 De zoekpagina biedt:
 
-- Zichtbare collectiekeuze en zoeken in alle collecties, met collectie-aantallen.
+- Eén veld **Zoek overal** doorzoekt alle gegevens en beschikbare documenttekst binnen de
+  gekozen collectie. **Alles** doorzoekt alle collecties. Een nieuwe zoekopdracht behoudt
+  de gekozen collectie; de collectieknoppen tonen de aantallen per collectie.
 - Doorzoekbare filters per collectie. Keuzelijsten komen uit de database en houden rekening
   met de overige filters; meerdere waarden binnen één filter gelden als OF.
-- Inklapbaar uitgebreid zoeken: alle woorden (AND), één van de woorden (OR), exacte tekst,
-  delen van woorden en extra velden. Documenttekst wordt alleen aangeboden als die is geïmporteerd.
+- Inklapbaar **Gericht zoeken** met optionele, blijvend gelabelde velden Titel, Beschrijving
+  en Jaar. Alle ingevulde velden gelden samen met de algemene zoekterm. **Zoekveld toevoegen**
+  voegt een verwijderbaar invoerveld toe uit de gekozen collectie, zoals Straatnaam bij Beeldbank.
+- Jaar en periode delen één plek: **Periode invullen** vervangt het exacte jaar door een bereik;
+  **Eén jaar invullen** verwijdert de periode. Er is geen losse periodeknop naast het formulier.
+- Geen keuzelijsten voor zoekwoordcombinaties of zoeken in een veld, en geen OCR-checkbox.
+  Gewoon zoeken ondersteunt aanhalingstekens; alleen bij nul resultaten wordt zoeken op delen
+  van woorden aangeboden, met een voorbeeld. Oude URL-instellingen blijven herkenbaar en wisbaar.
+- Treffers in documenttekst tonen **Gevonden in documenttekst** met een kort fragment. De volledige
+  documenttekst staat niet in de zoekresultaten-API.
 - Inclusieve periodegrenzen; bij bidprentjes betekent dit geboortejaar.
 - Sortering op standaardvolgorde, nummer, titel/naam, jaar, auteur of eerste toevoegdatum.
 - Lijst- en galerijweergave met de eigen metadata van iedere collectie.

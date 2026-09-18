@@ -192,7 +192,7 @@ void main() {
     },
   );
   testWidgets(
-    'counts cover every collection and a new query resets the selected tab',
+    'counts cover every collection and a new query keeps the selected tab',
     (tester) async {
       final source = ExplorerSource();
       await setup(tester, source);
@@ -214,7 +214,7 @@ void main() {
       );
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
-      expect(source.lastCollection, isNull);
+      expect(source.lastCollection, 'bidprent');
       final searches = source.searches;
       await tester.enterText(find.byKey(const Key('collection-query')), '');
       await tester.pumpAndSettle();
@@ -233,7 +233,9 @@ void main() {
   ) async {
     final source = ExplorerSource();
     await setup(tester, source, collection: 'bidprent');
-    await tester.tap(find.text('Geboorteperiode'));
+    await tester.tap(find.text('Gericht zoeken'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Periode invullen'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Van jaar'),
@@ -254,8 +256,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
+    expect(source.searches, 0);
+    await tester.tap(find.byKey(const Key('targeted-search-submit')));
+    await tester.pumpAndSettle();
+    expect(source.lastCollection, 'bidprent');
     expect(source.lastOptions!.yearFrom, 1900);
     expect(source.lastOptions!.yearTo, 1910);
+    await tester.tap(find.text('Eén jaar invullen'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Jaar'), '1905');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(source.lastOptions!.yearFrom, isNull);
+    expect(source.lastOptions!.yearTo, isNull);
   });
   testWidgets('an older request cannot overwrite a newer search', (
     tester,

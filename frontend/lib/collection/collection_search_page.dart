@@ -40,11 +40,14 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   late CollectionSearchOptions _options = widget.initialOptions;
   late int _page = widget.initialPage;
   late bool _advancedOpen =
-      widget.initialFieldQueries.isNotEmpty || widget.initialYear != null;
-  bool _moreFilters = false, _loading = true, _documentTextAvailable = false;
+      widget.initialFieldQueries.isNotEmpty ||
+      widget.initialYear != null ||
+      widget.initialOptions.yearFrom != null ||
+      widget.initialOptions.yearTo != null;
+  bool _moreFilters = false, _loading = true;
   List<CollectionItemSummary> _results = [];
   int _request = 0, _total = 0;
-  String? _error;
+  String? _error, _yearError;
   @override
   void initState() {
     super.initState();
@@ -66,8 +69,15 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       _controller.text = widget.initialQuery ?? '';
       _collection = widget.initialCollection;
       _options = widget.initialOptions;
+      _yearError = null;
       _page = widget.initialPage;
       _fieldControllers.load(widget.initialFieldQueries, widget.initialYear);
+      if (widget.initialFieldQueries.isNotEmpty ||
+          widget.initialYear != null ||
+          _options.yearFrom != null ||
+          _options.yearTo != null) {
+        _advancedOpen = true;
+      }
       _fetch();
     }
   }
@@ -91,7 +101,12 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       _options.recentDays != null;
 
   void _submitSearch() {
-    _collection = null;
+    _options = _options.copyWith(
+      mode: 'web',
+      partial: false,
+      field: 'all',
+      documentText: true,
+    );
     _runSearch();
   }
 
@@ -101,9 +116,13 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
         (int.tryParse(yearText) == null ||
             int.parse(yearText) < 1 ||
             int.parse(yearText) > 2100)) {
-      setState(() => _error = 'Vul een geldig jaar tussen 1 en 2100 in.');
+      setState(() {
+        _yearError = 'Vul een geldig jaar tussen 1 en 2100 in.';
+        _advancedOpen = true;
+      });
       return;
     }
+    _yearError = null;
     final location = searchLocation(
       query: _controller.text.trim(),
       collection: _collection,
@@ -166,7 +185,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
           collections: result.collectionCounts,
         );
         _loading = false;
-        _documentTextAvailable = result.documentTextAvailable;
       });
     } catch (_) {
       if (mounted && id == _request) {
@@ -188,7 +206,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   void _reset() {
     _controller.clear();
-    _collection = null;
     _fieldControllers.load({}, null);
     _options = const CollectionSearchOptions();
     _runSearch();
@@ -208,7 +225,9 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       _options.recentDays != null ||
       _options.field != 'all' ||
       _options.mode == 'or' ||
-      _options.mode == 'phrase';
+      _options.mode == 'phrase' ||
+      _options.partial ||
+      !_options.documentText;
   Future<void> _facet(String field) async {
     final selected = await showDialog<List<String>>(
       context: context,
@@ -240,9 +259,13 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       collectionConfig(_collection).periodLabel,
     );
     if (mounted && next != null) {
-      _options = next;
-      _fieldControllers.year.clear();
-      _runSearch();
+      setState(() {
+        _options = next;
+        _yearError = null;
+        if (next.yearFrom != null || next.yearTo != null) {
+          _fieldControllers.year.clear();
+        }
+      });
     }
   }
 
@@ -261,9 +284,9 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
               onPressed: () => showDialog<void>(
                 context: context,
                 builder: (context) => AppDialog(
-                  title: 'Zoeken zoals u gewend bent',
+                  title: 'Hulp bij zoeken',
                   content: const Text(
-                    'Elke zoekopdracht doorzoekt alle collecties. De knoppen tonen het aantal resultaten per collectie; klik om die resultaten te bekijken. Voer een zoekterm in of kies een filter om te beginnen. Uitgebreid zoeken biedt afzonderlijke velden, alle woorden (AND), één van de woorden (OR) en exacte tekst. Actieve filters blijven gelden bij het wisselen van collectie.',
+                    'Zoek overal doorzoekt de gegevens en beschikbare documenttekst binnen de gekozen collectie. Kies Alles om alle collecties te doorzoeken. Met Gericht zoeken kunt u zoeken op titel, beschrijving en jaar of periode. Via Zoekveld toevoegen kiest u extra velden die bij de collectie horen. Elk veld is optioneel; alle ingevulde velden gelden samen. Zet een woordgroep tussen aanhalingstekens om de woorden bij elkaar te zoeken. Actieve filters blijven zichtbaar bij het wisselen van collectie.',
                   ),
                   actions: [
                     TextButton(
@@ -322,7 +345,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                         },
                         onSubmitted: (_) => _submitSearch(),
                         decoration: InputDecoration(
-                          labelText: 'Zoekterm',
+                          labelText: 'Zoek overal',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
                           hintText: _collection == 'bidprent'
                               ? 'Naam, geboorteplaats of volgnummer'
                               : 'Bijvoorbeeld: Marquette of Dorpskerk',
@@ -334,6 +358,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                         icon: const Icon(Icons.search),
                         label: const Text('Zoeken'),
                       );
+                      if (_advancedOpen) return field;
                       return c.maxWidth < 420
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -360,7 +385,9 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                     runSpacing: 4,
                     children: [
                       Text(
-                        'Zoek in alle collecties en kies daarna een collectie.',
+                        _collection == null
+                            ? 'Zoek in alle collecties, of kies hierboven een collectie.'
+                            : 'Zoek in alle gegevens van ${collectionConfig(_collection).label}.',
                         style: Theme.of(
                           context,
                         ).textTheme.bodySmall?.copyWith(color: appMutedText),
@@ -369,7 +396,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                         onPressed: () =>
                             setState(() => _advancedOpen = !_advancedOpen),
                         icon: const Icon(Icons.tune),
-                        label: const Text('Uitgebreid zoeken'),
+                        label: const Text('Gericht zoeken'),
                       ),
                     ],
                   ),
@@ -378,9 +405,11 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                       collection: _collection,
                       controllers: _fieldControllers,
                       options: _options,
-                      documentTextAvailable: _documentTextAvailable,
                       onChanged: (o) => setState(() => _options = o),
                       onSubmit: _submitSearch,
+                      onReset: _reset,
+                      onPeriod: _period,
+                      yearError: _yearError,
                     ),
                   const SizedBox(height: 12),
                   _filters(context),
@@ -423,11 +452,6 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                 ],
               ),
             ),
-        OutlinedButton.icon(
-          onPressed: _period,
-          icon: const Icon(Icons.date_range_outlined, size: 18),
-          label: Text(config.periodLabel),
-        ),
         if (!narrow || _moreFilters || config.facets.isEmpty)
           PopupMenuButton<int>(
             tooltip: 'Recent toegevoegd',
@@ -544,17 +568,28 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
           },
         ),
       if (_options.field != 'all' ||
-          _options.mode == 'or' ||
-          _options.mode == 'phrase')
-        ActionChip(
+          _options.mode != 'web' ||
+          _options.partial ||
+          !_options.documentText)
+        Chip(
           label: Text(
             '${_options.mode == 'or'
                 ? 'Eén van de woorden'
                 : _options.mode == 'phrase'
                 ? 'Exacte tekst'
-                : 'Alle woorden'} · ${searchFields(_collection)[_options.field] ?? _options.field}',
+                : 'Alle woorden'} · ${searchFields(_collection)[_options.field] ?? _options.field}'
+            '${_options.partial ? ' · Delen van woorden' : ''}'
+            '${!_options.documentText ? ' · Zonder documenttekst' : ''}',
           ),
-          onPressed: () => setState(() => _advancedOpen = true),
+          onDeleted: () {
+            _options = _options.copyWith(
+              mode: 'web',
+              partial: false,
+              field: 'all',
+              documentText: true,
+            );
+            _runSearch();
+          },
         ),
       TextButton(onPressed: _reset, child: const Text('Wis zoekopdracht')),
     ],
@@ -678,10 +713,23 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                 const Text('Geen resultaten gevonden.'),
                 const SizedBox(height: 8),
                 const Text('Probeer minder woorden of verwijder een filter.'),
+                if (!_options.partial &&
+                    (_controller.text.trim().isNotEmpty ||
+                        _fieldControllers.fieldQueries.isNotEmpty)) ...[
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      _options = _options.copyWith(mode: 'and', partial: true);
+                      _runSearch();
+                    },
+                    child: const Text('Zoek ook op delen van woorden'),
+                  ),
+                  const Text('Bijvoorbeeld: kerk vindt ook Kerkstraat.'),
+                ],
                 const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: _reset,
-                  child: const Text('Wis filters en bekijk alles'),
+                  child: const Text('Wis zoekopdracht'),
                 ),
               ],
             ),
@@ -908,6 +956,21 @@ class CollectionResultCard extends StatelessWidget {
         if (!gallery && item.description.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(item.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+        ],
+        if (item.documentSnippet?.isNotEmpty == true) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Gevonden in documenttekst',
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: appGreen),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.documentSnippet!,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ],
     );
