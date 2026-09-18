@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_style.dart';
 import 'article_diff_view.dart';
 import 'dossier.dart';
 import 'dossier_format.dart';
@@ -80,7 +81,7 @@ class _ArticleHistoryPageState extends State<ArticleHistoryPage> {
     final current = widget.article.current.versionNumber;
     final canEdit = widget.article.role.canEdit;
     return Scaffold(
-      appBar: AppBar(title: const Text('Geschiedenis')),
+      appBar: HkhAppBar(title: const Text('Geschiedenis')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

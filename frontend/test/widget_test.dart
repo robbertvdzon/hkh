@@ -7,10 +7,6 @@ import 'package:hkh_app/main.dart';
 
 import 'dossier_test_support.dart';
 
-const _searchTips =
-    'Los woorden voor een EN-zoekopdracht, of zet een zin tussen '
-    '"aanhalingstekens" voor een exacte frase.';
-
 class _SignedInSession extends UserSessionController {
   UserIdentity? _identity = const UserIdentity(
     email: 'jan@example.com',
@@ -256,14 +252,12 @@ void main() {
     final aiButton = tester.getRect(
       find.byKey(const Key('ai-question-button')),
     );
-    final collectionField = tester.getRect(
-      find.byKey(const Key('collection-search-field')),
-    );
+    expect(find.byKey(const Key('collection-search-field')), findsNothing);
     final collectionButton = tester.getRect(
       find.byKey(const Key('collection-search-button')),
     );
     expect(aiField.top, aiButton.top);
-    expect(collectionField.top, collectionButton.top);
+    expect(collectionButton.width, greaterThan(300));
     expect(find.byType(FilledButton), findsOneWidget);
   });
 
@@ -276,48 +270,36 @@ void main() {
     final aiButton = tester.getRect(
       find.byKey(const Key('ai-question-button')),
     );
-    final collectionField = tester.getRect(
-      find.byKey(const Key('collection-search-field')),
-    );
+    expect(find.byKey(const Key('collection-search-field')), findsNothing);
     final collectionButton = tester.getRect(
       find.byKey(const Key('collection-search-button')),
     );
     expect(aiButton.top, greaterThan(aiField.bottom));
     expect(aiButton.width, aiField.width);
-    expect(collectionButton.top, greaterThan(collectionField.bottom));
-    expect(collectionButton.width, collectionField.width);
+    expect(collectionButton.width, closeTo(aiField.width, 2));
   });
 
-  testWidgets('Zoektips and Uitgebreid zoeken are independent disclosures', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(800, 1000));
-
-    expect(find.text(_searchTips), findsNothing);
-    expect(find.text('Jaar'), findsNothing);
-    await tester.tap(find.text('Zoektips'));
-    await tester.pumpAndSettle();
-    expect(find.text(_searchTips), findsOneWidget);
-    expect(find.text('Jaar'), findsNothing);
-    await tester.scrollUntilVisible(
-      find.text('Uitgebreid zoeken').hitTestable(),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Uitgebreid zoeken'));
-    await tester.pumpAndSettle();
-    expect(find.text(_searchTips), findsOneWidget);
-    expect(find.text('Titel'), findsOneWidget);
-    expect(find.text('Beschrijving'), findsOneWidget);
-    expect(find.text('Jaar'), findsOneWidget);
-
-    final semantics = tester.ensureSemantics();
-    expect(find.bySemanticsLabel('Titel'), findsOneWidget);
-    expect(find.bySemanticsLabel('Beschrijving'), findsOneWidget);
-    expect(find.bySemanticsLabel('Jaar'), findsOneWidget);
-    semantics.dispose();
-  });
+  testWidgets(
+    'homepage opens an empty search page without querying the backend',
+    (tester) async {
+      final source = _SearchSource();
+      await _pumpHome(
+        tester,
+        size: const Size(800, 1000),
+        searchSource: source,
+      );
+      expect(find.byKey(const Key('collection-search-field')), findsNothing);
+      expect(find.text('Uitgebreid zoeken'), findsNothing);
+      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.pumpAndSettle();
+      expect(source.searchCalls, 0);
+      expect(
+        find.text('Voer een zoekterm in om de collectie te doorzoeken.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('collection-query')), findsOneWidget);
+    },
+  );
 
   testWidgets('filled AI question starts the existing AI search route', (
     tester,
@@ -366,22 +348,26 @@ void main() {
         size: const Size(800, 1200),
         searchSource: source,
       );
+      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.pumpAndSettle();
       await tester.enterText(
-        find.byKey(const Key('collection-search-field')),
+        find.byKey(const Key('collection-query')),
         'Kerklaan',
       );
-      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       expect(source.lastQuery, 'Kerklaan');
       expect(source.lastSize, 20);
-      await tester.pageBack();
+      await tester.enterText(find.byKey(const Key('collection-query')), '');
       await tester.pumpAndSettle();
-
       await tester.tap(find.text('Uitgebreid zoeken'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'Bouwtekening');
-      await tester.enterText(find.byType(TextField).at(4), '1928');
-      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Titel'),
+        'Bouwtekening',
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'Jaar'), '1928');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       expect(source.lastFieldQueries, {'title': 'Bouwtekening'});
       expect(source.lastYear, 1928);
@@ -397,11 +383,13 @@ void main() {
         size: const Size(800, 1200),
         searchSource: source,
       );
+      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.pumpAndSettle();
       await tester.enterText(
-        find.byKey(const Key('collection-search-field')),
+        find.byKey(const Key('collection-query')),
         'Kerklaan',
       );
-      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       expect(find.text(_result.title), findsOneWidget);
       expect(find.text('27 resultaten'), findsOneWidget);
@@ -413,11 +401,13 @@ void main() {
 
   testWidgets('empty collection results show the empty state', (tester) async {
     await _pumpHome(tester, size: const Size(800, 1000));
+    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const Key('collection-search-field')),
+      find.byKey(const Key('collection-query')),
       'xyzyxzyx',
     );
-    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
     expect(find.text('Geen resultaten gevonden.'), findsOneWidget);
   });
@@ -427,11 +417,13 @@ void main() {
   ) async {
     final source = _SearchSource(results: const [_result], total: 27);
     await _pumpHome(tester, size: const Size(800, 1000), searchSource: source);
+    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const Key('collection-search-field')),
+      find.byKey(const Key('collection-query')),
       'Kerklaan',
     );
-    await tester.tap(find.byKey(const Key('collection-search-button')));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
     expect(find.text('27 resultaten'), findsOneWidget);
 
@@ -461,7 +453,7 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     expect(find.text('Vraag stellen'), findsOneWidget);
-    expect(find.text('Zoeken'), findsOneWidget);
+    expect(find.text('Zoeken in de collectie'), findsOneWidget);
   });
 
   testWidgets('signed-in wide app bar has a separate dossiers action', (

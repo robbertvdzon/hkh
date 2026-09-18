@@ -45,20 +45,10 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   List<CollectionItemSummary> _results = [];
   int _request = 0, _total = 0;
   String? _error;
-  final _saved =
-      <
-        String,
-        ({
-          CollectionSearchOptions options,
-          Map<String, String> fields,
-          int? year,
-        })
-      >{};
   @override
   void initState() {
     super.initState();
     _fieldControllers.load(widget.initialFieldQueries, widget.initialYear);
-    _loadOverview();
     _fetch();
   }
 
@@ -91,13 +81,18 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     super.dispose();
   }
 
-  Future<void> _loadOverview() async {
-    try {
-      final overview = await widget.source.loadOverview();
-      if (mounted) setState(() => _overview = overview);
-    } catch (_) {
-      /* Collection entrances remain available without counts. */
-    }
+  bool get _hasSearchInput =>
+      _controller.text.trim().isNotEmpty ||
+      _fieldControllers.fieldQueries.isNotEmpty ||
+      _fieldControllers.yearValue != null ||
+      _options.filters.values.any((values) => values.isNotEmpty) ||
+      _options.yearFrom != null ||
+      _options.yearTo != null ||
+      _options.recentDays != null;
+
+  void _submitSearch() {
+    _collection = null;
+    _runSearch();
   }
 
   void _runSearch({int page = 0}) {
@@ -129,10 +124,21 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   Future<void> _fetch() async {
     final id = ++_request;
+    if (!_hasSearchInput) {
+      setState(() {
+        _loading = false;
+        _error = null;
+        _results = [];
+        _total = 0;
+        _overview = null;
+      });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
       _results = [];
+      _overview = null;
     });
     try {
       final result = await widget.source.search(
@@ -152,6 +158,13 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       setState(() {
         _results = result.items;
         _total = result.total;
+        _overview = CollectionOverview(
+          total: result.collectionCounts.fold(
+            0,
+            (sum, count) => sum + count.count,
+          ),
+          collections: result.collectionCounts,
+        );
         _loading = false;
         _documentTextAvailable = result.documentTextAvailable;
       });
@@ -166,16 +179,8 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
   }
 
   void _selectCollection(String? key) {
-    _saved[_collection ?? 'all'] = (
-      options: _options,
-      fields: _fieldControllers.fieldQueries,
-      year: _fieldControllers.yearValue,
-    );
-    final restored = _saved[key ?? 'all'];
     setState(() {
       _collection = key;
-      _options = restored?.options ?? const CollectionSearchOptions();
-      _fieldControllers.load(restored?.fields ?? {}, restored?.year);
       _moreFilters = false;
     });
     _runSearch();
@@ -183,6 +188,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
 
   void _reset() {
     _controller.clear();
+    _collection = null;
     _fieldControllers.load({}, null);
     _options = const CollectionSearchOptions();
     _runSearch();
@@ -245,7 +251,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     data: appDossierTheme(context),
     child: Builder(
       builder: (context) => Scaffold(
-        appBar: AppBar(
+        appBar: HkhAppBar(
           title: const Text('Collecties'),
           actions: [
             IconButton(
@@ -256,7 +262,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                 builder: (context) => AppDialog(
                   title: 'Zoeken zoals u gewend bent',
                   content: const Text(
-                    'Kies uw vertrouwde collectie of zoek in alles tegelijk. Een leeg zoekveld toont de hele collectie. Kies een thema of type om te bladeren. Uitgebreid zoeken biedt afzonderlijke velden, alle woorden (AND), één van de woorden (OR) en exacte tekst. Filters worden per collectie onthouden.',
+                    'Elke zoekopdracht doorzoekt alle collecties. De knoppen tonen het aantal resultaten per collectie; klik om die resultaten te bekijken. Voer een zoekterm in of kies een filter om te beginnen. Uitgebreid zoeken biedt afzonderlijke velden, alle woorden (AND), één van de woorden (OR) en exacte tekst. Actieve filters blijven gelden bij het wisselen van collectie.',
                   ),
                   actions: [
                     TextButton(
@@ -310,7 +316,10 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                         key: const Key('collection-query'),
                         controller: _controller,
                         textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => _runSearch(),
+                        onChanged: (value) {
+                          if (value.trim().isEmpty) _runSearch();
+                        },
+                        onSubmitted: (_) => _submitSearch(),
                         decoration: InputDecoration(
                           labelText: 'Zoekterm',
                           hintText: _collection == 'bidprent'
@@ -320,7 +329,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                         ),
                       );
                       final button = FilledButton.icon(
-                        onPressed: () => _runSearch(),
+                        onPressed: _submitSearch,
                         icon: const Icon(Icons.search),
                         label: const Text('Zoeken'),
                       );
@@ -350,7 +359,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                     runSpacing: 4,
                     children: [
                       Text(
-                        'Zoeken in ${collectionConfig(_collection).label.toLowerCase()} · leeg = alles',
+                        'Zoek in alle collecties en kies daarna een collectie.',
                         style: Theme.of(
                           context,
                         ).textTheme.bodySmall?.copyWith(color: appMutedText),
@@ -370,7 +379,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                       options: _options,
                       documentTextAvailable: _documentTextAvailable,
                       onChanged: (o) => setState(() => _options = o),
-                      onSubmit: () => _runSearch(),
+                      onSubmit: _submitSearch,
                     ),
                   const SizedBox(height: 12),
                   _filters(context),
@@ -567,6 +576,15 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
             label: const Text('Opnieuw proberen'),
           ),
         ],
+      );
+    }
+    if (!_hasSearchInput) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Text(
+          'Voer een zoekterm in om de collectie te doorzoeken.',
+          textAlign: TextAlign.center,
+        ),
       );
     }
     return Column(
@@ -812,12 +830,12 @@ class CollectionChips extends StatelessWidget {
         ),
         for (final key in keys)
           Tooltip(
-            message: counts.containsKey(key)
-                ? '${counts[key]} items in deze collectie'
+            message: overview != null
+                ? '${counts[key] ?? 0} resultaten in deze collectie'
                 : 'Zoeken in ${collectionConfig(key).label}',
             child: ChoiceChip(
               label: Text(
-                '${collectionConfig(key).label}${counts.containsKey(key) ? ' (${counts[key]})' : ''}',
+                '${collectionConfig(key).label}${overview != null ? ' (${counts[key] ?? 0})' : ''}',
               ),
               selected: selected == key,
               onSelected: (_) => onSelect(key),

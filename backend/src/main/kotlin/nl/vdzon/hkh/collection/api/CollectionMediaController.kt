@@ -22,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 /** Fixed import-host allowlist, bounded redirects; never redirects the browser to the import site. */
 @RestController
 class CollectionMediaController {
+    private val thumbnailPermit = java.util.concurrent.Semaphore(1)
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
         .followRedirects(HttpClient.Redirect.NEVER).build()
 
@@ -36,19 +37,27 @@ class CollectionMediaController {
 
     @GetMapping("/api/collection-thumbnail/{token}")
     fun thumbnail(@PathVariable token: String): ResponseEntity<ByteArray> {
-        val upstream = open(token)
-        if (upstream.type != "application/pdf") {
-            upstream.body.close()
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geen scan beschikbaar")
+        // Acquire before downloading: queued scans must not accumulate compressed PDFs in memory.
+        if (!thumbnailPermit.tryAcquire(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "2").build()
         }
-        val jpeg = try {
-            upstream.body.use { PdfThumbnailRenderer.render(readLimited(it)) }
-        } catch (_: Exception) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Voorvertoning niet beschikbaar")
+        try {
+            val upstream = open(token)
+            if (upstream.type != "application/pdf") {
+                upstream.body.close()
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geen scan beschikbaar")
+            }
+            val jpeg = try {
+                upstream.body.use { PdfThumbnailRenderer.render(readLimited(it)) }
+            } catch (_: Exception) {
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, "Voorvertoning niet beschikbaar")
+            }
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic())
+                .header("X-Content-Type-Options", "nosniff").body(jpeg)
+        } finally {
+            thumbnailPermit.release()
         }
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG)
-            .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic())
-            .header("X-Content-Type-Options", "nosniff").body(jpeg)
     }
 
     private fun open(token: String): RemoteMedia {

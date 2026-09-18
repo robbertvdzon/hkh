@@ -203,7 +203,7 @@ class _DossierPageState extends State<DossierPage>
       data: appDossierTheme(context),
       child: Scaffold(
         backgroundColor: appBackground,
-        appBar: AppBar(
+        appBar: HkhAppBar(
           title: Text(
             detail?.title ?? 'Dossier',
             maxLines: 1,

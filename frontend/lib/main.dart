@@ -15,7 +15,6 @@ import 'ai_search/ai_search_page.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
 import 'navigation.dart';
-import 'collection/search_controls.dart';
 import 'config/app_config.dart';
 import 'dossier/dossier.dart';
 import 'dossier/dossier_dialogs.dart';
@@ -108,6 +107,13 @@ class _HkhAppState extends State<HkhApp> {
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF315B52)),
       useMaterial3: true,
+      appBarTheme: appHeaderTheme,
+      pageTransitionsTheme: PageTransitionsTheme(
+        builders: {
+          for (final platform in TargetPlatform.values)
+            platform: const InstantPageTransitionsBuilder(),
+        },
+      ),
     ),
     routerConfig: _router,
   );
@@ -194,8 +200,7 @@ class _HomePageState extends State<HomePage> {
     final isNarrow = MediaQuery.sizeOf(context).width <= 600;
     return Scaffold(
       backgroundColor: _homeBackground,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: HkhAppBar(
         title: const Text(
           'Historisch Heemskerk',
           maxLines: 1,
@@ -427,182 +432,48 @@ class _AiHomeCardState extends State<_AiHomeCard> {
   );
 }
 
-/// Zoekbalk direct op de startpagina, mét "Uitgebreid zoeken": toont meteen een
-/// volledige resultatenlijst met dezelfde zoekinstellingen.
-class _HomeSearchSection extends StatefulWidget {
+class _HomeSearchSection extends StatelessWidget {
   const _HomeSearchSection({required this.source, required this.isNarrow});
-
   final CollectionSearchSource source;
   final bool isNarrow;
 
   @override
-  State<_HomeSearchSection> createState() => _HomeSearchSectionState();
-}
-
-class _HomeSearchSectionState extends State<_HomeSearchSection> {
-  final _controller = TextEditingController();
-  final _fieldControllers = SearchFieldControllers();
-  bool _advancedOpen = false;
-  bool _tipsOpen = false;
-  CollectionOverview? _overview;
-  String? _collection;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.source
-        .loadOverview()
-        .then((overview) {
-          if (mounted) setState(() => _overview = overview);
-        })
-        .catchError((Object _) {});
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _fieldControllers.dispose();
-    super.dispose();
-  }
-
-  void _search() {
-    final location = searchLocation(
-      query: _controller.text.trim(),
-      collection: _collection,
-      fields: _fieldControllers.fieldQueries,
-      year: _fieldControllers.yearValue,
-      options: const CollectionSearchOptions(),
-    );
-    openAppPage(
-      context,
-      location,
-      () => CollectionSearchPage(
-        source: widget.source,
-        initialQuery: _controller.text.trim(),
-        initialCollection: _collection,
-        initialFieldQueries: _fieldControllers.fieldQueries,
-        initialYear: _fieldControllers.yearValue,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('collection-search-section'),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _collectionBorder),
-        borderRadius: BorderRadius.circular(_cardRadius),
-      ),
-      padding: EdgeInsets.all(widget.isNarrow ? 20 : 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Zelf zoeken in de collectie',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _homeGreen,
-              fontWeight: FontWeight.w700,
-            ),
+  Widget build(BuildContext context) => Container(
+    key: const Key('collection-search-section'),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      border: Border.all(color: _collectionBorder),
+      borderRadius: BorderRadius.circular(_cardRadius),
+    ),
+    padding: EdgeInsets.all(isNarrow ? 20 : 24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Zelf zoeken in de collectie',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: _homeGreen,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 12),
-          CollectionChips(
-            overview: _overview,
-            selected: _collection,
-            onSelect: (value) => setState(() => _collection = value),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Ontdek foto’s, documenten en verhalen uit de geschiedenis van Heemskerk.',
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          key: const Key('collection-search-button'),
+          icon: const Icon(Icons.search),
+          label: const Text('Zoeken in de collectie'),
+          onPressed: () => openAppPage(
+            context,
+            searchLocation(options: const CollectionSearchOptions()),
+            () => CollectionSearchPage(source: source),
           ),
-          const SizedBox(height: 16),
-          if (widget.isNarrow) ...[
-            _searchField(),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              key: const Key('collection-search-button'),
-              onPressed: _search,
-              child: const Text('Zoeken'),
-            ),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _searchField()),
-                const SizedBox(width: 12),
-                OutlinedButton(
-                  key: const Key('collection-search-button'),
-                  onPressed: _search,
-                  child: const Text('Zoeken'),
-                ),
-              ],
-            ),
-          const SizedBox(height: 4),
-          _DisclosureButton(
-            label: 'Zoektips',
-            expanded: _tipsOpen,
-            onPressed: () => setState(() => _tipsOpen = !_tipsOpen),
-          ),
-          if (_tipsOpen)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Text(
-                'Los woorden voor een EN-zoekopdracht, of zet een zin tussen '
-                '"aanhalingstekens" voor een exacte frase.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          _DisclosureButton(
-            label: 'Uitgebreid zoeken',
-            expanded: _advancedOpen,
-            onPressed: () => setState(() => _advancedOpen = !_advancedOpen),
-          ),
-          if (_advancedOpen) ...[
-            const SizedBox(height: 4),
-            AdvancedSearchFields(
-              controllers: _fieldControllers,
-              onSubmit: _search,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _searchField() => TextField(
-    key: const Key('collection-search-field'),
-    controller: _controller,
-    textInputAction: TextInputAction.search,
-    onSubmitted: (_) => _search(),
-    decoration: const InputDecoration(
-      labelText: 'Zoekterm',
-      hintText: 'Zoek in de collectie…',
+        ),
+      ],
     ),
   );
-}
-
-class _DisclosureButton extends StatelessWidget {
-  const _DisclosureButton({
-    required this.label,
-    required this.expanded,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool expanded;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      expanded: expanded,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: onPressed,
-          icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
-          label: Text(label),
-        ),
-      ),
-    );
-  }
 }
 
 enum _AccountMenuItem { signOut }

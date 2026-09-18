@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
 /// Web: start een directe bestandsdownload via een Blob en een tijdelijke
-/// downloadlink. De object-URL wordt daarna meteen weer vrijgegeven.
+/// downloadlink. Houd de URL beschikbaar totdat de browser de download heeft gestart.
 Future<void> saveAnswerPdf(String fileName, Uint8List bytes) async {
   final blob = web.Blob(
     [bytes.toJS].toJS,
@@ -18,5 +19,5 @@ Future<void> saveAnswerPdf(String fileName, Uint8List bytes) async {
   web.document.body?.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  web.URL.revokeObjectURL(url);
+  Timer(const Duration(seconds: 30), () => web.URL.revokeObjectURL(url));
 }

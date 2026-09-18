@@ -111,6 +111,7 @@ class SearchPage {
     required this.page,
     required this.pageSize,
     this.documentTextAvailable = false,
+    this.collectionCounts = const [],
   });
 
   factory SearchPage.fromJson(Map<String, dynamic> json) => SearchPage(
@@ -121,6 +122,9 @@ class SearchPage {
     page: (json['page'] as num).toInt(),
     pageSize: (json['pageSize'] as num).toInt(),
     documentTextAvailable: json['documentTextAvailable'] as bool? ?? false,
+    collectionCounts: (json['collectionCounts'] as List<dynamic>? ?? [])
+        .map((e) => CollectionCount.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 
   final List<CollectionItemSummary> items;
@@ -128,6 +132,7 @@ class SearchPage {
   final int page;
   final int pageSize;
   final bool documentTextAvailable;
+  final List<CollectionCount> collectionCounts;
 }
 
 abstract interface class CollectionSearchSource {

@@ -104,11 +104,14 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
       expect(find.text('Doorzoek de collectie'), findsNothing);
+      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.pumpAndSettle();
+      expect(source.requests, isEmpty);
       await tester.enterText(
-        find.byKey(const Key('collection-search-field')),
+        find.byKey(const Key('collection-query')),
         'Kerklaan',
       );
-      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       expect(source.requests.single.size, 20);
       expect(source.requests.single.collection, isNull);
@@ -116,6 +119,11 @@ void main() {
       expect(
         router.routeInformationProvider.value.uri.queryParameters['q'],
         'Kerklaan',
+      );
+      await tester.scrollUntilVisible(
+        find.text('45 resultaten'),
+        200,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('45 resultaten'), findsOneWidget);
     },
@@ -213,26 +221,33 @@ void main() {
     expect(source.requests.last.query, 'kerk');
   });
 
-  testWidgets('advanced home search passes the selected collection and field', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1000, 1100);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final source = RecordingSource();
-    final router = createAppRouter(searchSource: source, initialLocation: '/');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Uitgebreid zoeken'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Beeldbank (45)'));
-    await tester.enterText(find.widgetWithText(TextField, 'Titel'), 'Kerk');
-    await tester.tap(find.byKey(const Key('collection-search-button')));
-    await tester.pumpAndSettle();
-    expect(source.requests.single.collection, 'beeldbank');
-    expect(source.requests.single.fields, {'title': 'Kerk'});
-    expect(source.requests.single.query, '');
-  });
+  testWidgets(
+    'advanced search starts across all collections and preserves its field',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final source = RecordingSource();
+      final router = createAppRouter(
+        searchSource: source,
+        initialLocation: '/',
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-search-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Beeldbank'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Uitgebreid zoeken'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Titel'), 'Kerk');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(source.requests.single.collection, isNull);
+      expect(source.requests.single.fields, {'title': 'Kerk'});
+      expect(source.requests.single.query, '');
+    },
+  );
 }

@@ -17,6 +17,8 @@ interface CollectionItemStore {
     fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int? = null, options: CollectionSearchOptions = CollectionSearchOptions()): List<CollectionItem>
     fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int? = null, options: CollectionSearchOptions = CollectionSearchOptions()): Long
     fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String): CollectionFacet = CollectionFacet(field, emptyList(), 0)
+    fun searchCounts(query: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): List<CollectionCount> =
+        counts().map { CollectionCount(it.collection, searchCount(query, it.collection, fieldQueries, year, options)) }
     fun documentTextAvailable(): Boolean = false
 }
 
@@ -146,6 +148,12 @@ class CollectionItemRepository(
     override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): Long {
         val (where, args) = buildWhere(query, collection, fieldQueries, year, options)
         return jdbc.queryForObject("SELECT COUNT(*) FROM collection_item $where", Long::class.java, *args.toTypedArray()) ?: 0
+    }
+
+    override fun searchCounts(query: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): List<CollectionCount> {
+        val (where, args) = buildWhere(query, null, fieldQueries, year, options)
+        return jdbc.query("SELECT collection, COUNT(*) AS n FROM collection_item $where GROUP BY collection ORDER BY collection",
+            { rs, _ -> CollectionCount(rs.getString("collection"), rs.getLong("n")) }, *args.toTypedArray())
     }
 
     override fun documentTextAvailable(): Boolean = jdbc.queryForObject(

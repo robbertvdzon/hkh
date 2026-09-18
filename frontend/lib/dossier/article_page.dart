@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../theme/app_style.dart';
 import '../ai_search/ai_search.dart';
 import '../ai_search/answer_pdf_saver.dart';
 import '../collection/img_embed/img_embed.dart';
@@ -217,7 +218,7 @@ class _ArticlePageState extends State<ArticlePage> {
     final article = _article;
     final canEdit = article?.role.canEdit ?? false;
     return Scaffold(
-      appBar: AppBar(
+      appBar: HkhAppBar(
         title: Text(article?.title ?? 'Artikel'),
         actions: [
           if (article != null && !_editing)

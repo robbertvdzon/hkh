@@ -33,9 +33,16 @@ class CollectionSearchService(private val store: CollectionItemStore) {
             .mapValues { it.value.trim() }
             .filterKeys { it.isNotBlank() }
             .filterValues { it.isNotEmpty() }
+        if (cleanedQuery == null && cleanedFieldQueries.isEmpty() && year == null &&
+            options.filters.values.all { it.isEmpty() } && options.yearFrom == null &&
+            options.yearTo == null && options.recentDays == null) {
+            return SearchResult(emptyList(), 0, safePage, safeSize)
+        }
         val items = store.search(cleanedQuery, cleanedCollection, cleanedFieldQueries, safeSize, safePage * safeSize, year, options)
-        val total = store.searchCount(cleanedQuery, cleanedCollection, cleanedFieldQueries, year, options)
-        return SearchResult(items, total, safePage, safeSize)
+        val counts = store.searchCounts(cleanedQuery, cleanedFieldQueries, year, options)
+        val total = if (cleanedCollection == null) counts.sumOf { it.count }
+            else counts.find { it.collection == cleanedCollection }?.count ?: 0L
+        return SearchResult(items, total, safePage, safeSize, counts)
     }
 
     fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String) =

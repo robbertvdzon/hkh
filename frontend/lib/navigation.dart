@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'theme/app_style.dart';
 import 'ai_search/ai_search.dart';
 import 'ai_search/ai_search_page.dart';
 import 'auth/user_session.dart';
@@ -40,10 +41,31 @@ Future<T?> openAppPage<T>(
 ) {
   final router = GoRouter.maybeOf(context);
   if (router != null) return router.push<T>(location);
-  return Navigator.of(
-    context,
-  ).push<T>(MaterialPageRoute(builder: (_) => fallback()));
+  return Navigator.of(context).push<T>(
+    PageRouteBuilder(
+      pageBuilder: (_, __, ___) => fallback(),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    ),
+  );
 }
+
+GoRoute instantRoute({
+  required String path,
+  GoRouterWidgetBuilder? builder,
+  GoRouterRedirect? redirect,
+  List<RouteBase> routes = const [],
+}) => GoRoute(
+  path: path,
+  redirect: redirect,
+  routes: routes,
+  pageBuilder: builder == null
+      ? null
+      : (context, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: builder(context, state),
+        ),
+);
 
 GoRouter createAppRouter({
   required CollectionSearchSource searchSource,
@@ -83,7 +105,7 @@ GoRouter createAppRouter({
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
-      GoRoute(
+      instantRoute(
         path: '/',
         builder: (_, __) => HomePage(
           searchSource: searchSource,
@@ -93,7 +115,7 @@ GoRouter createAppRouter({
           googleButtonBuilder: googleButtonBuilder,
         ),
         routes: [
-          GoRoute(
+          instantRoute(
             path: 'zoeken',
             builder: (_, state) {
               final q = state.uri.queryParameters;
@@ -118,23 +140,23 @@ GoRouter createAppRouter({
               );
             },
             routes: [
-              GoRoute(
+              instantRoute(
                 path: 'objecten/:collection/:ident',
                 builder: (_, state) => objectPage(state),
               ),
             ],
           ),
-          GoRoute(
+          instantRoute(
             path: 'objecten/:collection/:ident',
             builder: (_, state) => objectPage(state),
           ),
-          GoRoute(
+          instantRoute(
             path: 'collecties',
             redirect: (_, state) =>
                 state.uri.replace(path: '/zoeken').toString(),
           ),
           if (aiSearchSource != null)
-            GoRoute(
+            instantRoute(
               path: 'vragen',
               builder: (_, state) => AiSearchPage(
                 source: aiSearchSource,
@@ -150,7 +172,7 @@ GoRouter createAppRouter({
               ),
             ),
           if (dossierSource != null) ...[
-            GoRoute(
+            instantRoute(
               path: 'dossiers',
               builder: (_, __) => DossierListPage(
                 source: dossierSource,
@@ -158,7 +180,7 @@ GoRouter createAppRouter({
                 googleButtonBuilder: googleButtonBuilder,
               ),
               routes: [
-                GoRoute(
+                instantRoute(
                   path: ':id',
                   builder: (_, state) => accountPage(
                     DossierPage(
@@ -178,7 +200,7 @@ GoRouter createAppRouter({
                 ),
               ],
             ),
-            GoRoute(
+            instantRoute(
               path: 'artikelen/:id',
               builder: (_, state) => accountPage(
                 ArticlePage(
@@ -188,7 +210,7 @@ GoRouter createAppRouter({
                 ),
               ),
               routes: [
-                GoRoute(
+                instantRoute(
                   path: 'geschiedenis',
                   builder: (_, state) => accountPage(
                     _ArticleHistoryRoute(
@@ -204,7 +226,7 @@ GoRouter createAppRouter({
       ),
     ],
     errorBuilder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('Pagina niet gevonden')),
+      appBar: HkhAppBar(title: const Text('Pagina niet gevonden')),
       body: Center(
         child: TextButton(
           onPressed: () => context.go('/'),
@@ -236,7 +258,7 @@ class _ArticleHistoryRouteState extends State<_ArticleHistoryRoute> {
         );
       }
       return Scaffold(
-        appBar: AppBar(title: const Text('Artikelgeschiedenis')),
+        appBar: HkhAppBar(title: const Text('Artikelgeschiedenis')),
         body: Center(
           child: snapshot.hasError
               ? const Text('Het artikel kon niet worden geladen.')

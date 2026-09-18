@@ -1,3 +1,4 @@
+import '../theme/app_style.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -305,7 +306,8 @@ class _AiSearchPageState extends State<AiSearchPage> {
     final turns = _session?.turns;
     if (turns == null) return null;
     for (final turn in turns.reversed) {
-      if (turn.status == 'SUCCEEDED' && (turn.answerHtml?.isNotEmpty ?? false)) {
+      if (turn.status == 'SUCCEEDED' &&
+          (turn.answerHtml?.isNotEmpty ?? false)) {
         return turn;
       }
     }
@@ -486,7 +488,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
     );
     if (widget.embedded) return body;
     return Scaffold(
-      appBar: AppBar(
+      appBar: HkhAppBar(
         title: Text(
           widget.title ??
               (session == null ? 'AI-zoekopdrachten' : 'Vraag het archief'),
@@ -817,86 +819,88 @@ class _TurnCard extends StatelessWidget {
       );
     }
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (turn.title != null) ...[
-              Text(
-                turn.title!,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                const Icon(Icons.schedule, size: 18),
-                const SizedBox(width: 7),
-                Text(elapsed ?? ''),
+      child: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (turn.title != null) ...[
+                Text(
+                  turn.title!,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 14),
-            HtmlWidget(
-              turn.answerHtml ?? '',
-              customWidgetBuilder: (element) {
-                if (element.localName != 'img') return null;
-                final imageUrl = element.attributes['src'];
-                if (imageUrl == null || imageUrl.isEmpty) return null;
-                final linkUrl = element.parent?.localName == 'a'
-                    ? element.parent?.attributes['href']
-                    : null;
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth.isFinite
-                        ? constraints.maxWidth
-                        : 640.0;
-                    final height = (width * 0.72).clamp(220.0, 520.0);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: height,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: buildNetworkImage(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            linkUrl: linkUrl,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              onTapUrl: (url) => launchUrl(
-                Uri.parse(url),
-                mode: LaunchMode.externalApplication,
-              ),
-              textStyle: Theme.of(context).textTheme.bodyLarge,
-            ),
-            if (turn.suggestedFollowUps.isNotEmpty &&
-                onSuggestedQuestion != null) ...[
-              const SizedBox(height: 18),
-              Text(
-                'Misschien wil je ook weten:',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
                 children: [
-                  for (final question in turn.suggestedFollowUps)
-                    ActionChip(
-                      label: Text(question),
-                      onPressed: () => onSuggestedQuestion!(question),
-                    ),
+                  const Icon(Icons.schedule, size: 18),
+                  const SizedBox(width: 7),
+                  Text(elapsed ?? ''),
                 ],
               ),
+              const SizedBox(height: 14),
+              HtmlWidget(
+                turn.answerHtml ?? '',
+                customWidgetBuilder: (element) {
+                  if (element.localName != 'img') return null;
+                  final imageUrl = element.attributes['src'];
+                  if (imageUrl == null || imageUrl.isEmpty) return null;
+                  final linkUrl = element.parent?.localName == 'a'
+                      ? element.parent?.attributes['href']
+                      : null;
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth.isFinite
+                          ? constraints.maxWidth
+                          : 640.0;
+                      final height = (width * 0.72).clamp(220.0, 520.0);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: height,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: buildNetworkImage(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              linkUrl: linkUrl,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                onTapUrl: (url) => launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                ),
+                textStyle: Theme.of(context).textTheme.bodyLarge,
+              ),
+              if (turn.suggestedFollowUps.isNotEmpty &&
+                  onSuggestedQuestion != null) ...[
+                const SizedBox(height: 18),
+                Text(
+                  'Misschien wil je ook weten:',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final question in turn.suggestedFollowUps)
+                      ActionChip(
+                        label: Text(question),
+                        onPressed: () => onSuggestedQuestion!(question),
+                      ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -116,7 +116,7 @@ class _DossierListPageState extends State<DossierListPage> {
       child: Builder(
         builder: (context) => Scaffold(
           backgroundColor: appBackground,
-          appBar: AppBar(
+          appBar: HkhAppBar(
             title: const Text(
               'Mijn dossiers',
               maxLines: 1,

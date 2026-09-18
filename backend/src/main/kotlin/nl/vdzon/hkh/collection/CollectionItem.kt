@@ -42,4 +42,5 @@ data class SearchResult(
     val total: Long,
     val page: Int,
     val pageSize: Int,
+    val collectionCounts: List<CollectionCount> = emptyList(),
 )

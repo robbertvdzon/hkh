@@ -148,7 +148,9 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
     data: appDossierTheme(context),
     child: Builder(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: Text(collectionConfig(widget.collection).label)),
+        appBar: HkhAppBar(
+          title: Text(collectionConfig(widget.collection).label),
+        ),
         body: SafeArea(
           child: FutureBuilder<CollectionItemDetail>(
             future: _detail,

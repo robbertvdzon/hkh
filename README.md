@@ -42,9 +42,12 @@ mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 
 ## Zoeken en objectlinks
 
-De homepage en zoekpagina tonen de vertrouwde ingangen Archief, Beeldbank, Bibliotheek,
-Bidprentjes, Artikelen en Objecten. Een lege zoekterm laat bezoekers bladeren; een zoekterm
-kan over alle collecties of binnen één collectie worden gebruikt. Dit start geen AI-opdracht.
+De homepage verwijst met één knop naar de zoekpagina. Daar staan de vertrouwde ingangen Archief,
+Beeldbank, Bibliotheek, Bidprentjes, Artikelen en Objecten. Zonder zoekterm of ingevuld filter
+blijven de resultaten leeg. Een nieuwe zoekopdracht doorzoekt alle collecties; de collectieknoppen
+tonen het aantal treffers voor die opdracht, inclusief nul. Een klik beperkt de resultaten tot die
+collectie. Actieve filters blijven gelden bij het wisselen van collectie, zodat het getoonde aantal
+overeenkomt met de resultaten. Dit start geen AI-opdracht.
 
 Compacte filters bieden de oorspronkelijke collectievelden, zoals Type publicatie, Thema,
 Straatnaam, Genre, Geboren te en Materiaal. Filterwaarden worden op verzoek uit de database
@@ -117,3 +120,8 @@ renderfout geeft `500` zonder lichaam. Ook deze PDF's worden on-demand gemaakt e
 of gecachet; de gedeelde renderer uit `nl.vdzon.hkh.docexport` is dezelfde als bij de AI-antwoorden.
 
 Echte secrets, lokale overrides, buildoutput en IDE-bestanden worden niet gecommit.
+
+De publieke app gebruikt overal dezelfde groene HKH-header en directe paginaovergangen.
+Tekst in AI-antwoorden kan worden geselecteerd en gekopieerd. PDF-voorvertoningen worden
+begrensd tot 800 pixels en één gelijktijdige verwerking om geheugen beschikbaar te houden
+voor zoekvragen en PDF-downloads.

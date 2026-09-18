@@ -53,6 +53,7 @@ data class SearchResponse(
     val page: Int,
     val pageSize: Int,
     val documentTextAvailable: Boolean,
+    val collectionCounts: List<CollectionCountResponse>,
 )
 
 @RestController
@@ -72,7 +73,8 @@ class CollectionController(private val service: CollectionSearchService) {
         val result = service.search(input.query, input.collection, input.fields,
             input.integer("page") ?: 0, input.integer("size") ?: 20, input.year, input.options)
         return SearchResponse(result.items.map(CollectionItem::toSummary), result.total, result.page,
-            result.pageSize, service.documentTextAvailable())
+            result.pageSize, service.documentTextAvailable(),
+            result.collectionCounts.map { CollectionCountResponse(it.collection, it.count) })
     }
 
     @GetMapping("/facets")
@@ -139,7 +141,7 @@ private class SearchInput(private val params: MultiValueMap<String, String>) {
         if (recent != null && recent !in 1..3650) badRequest("Ongeldige toevoegperiode.")
         val filters = pairs("filter").groupBy({ it.first }, { it.second }).mapValues { it.value.distinct() }
         if (filters.size > 10 || filters.values.sumOf { it.size } > 50) badRequest("Te veel filters.")
-        if (filters.keys.any { it !in CollectionCatalog.facets[collection].orEmpty() }) badRequest("Dit filter hoort niet bij de gekozen collectie.")
+        if (filters.keys.any { it !in CollectionCatalog.facets.values.flatten() }) badRequest("Dit filter hoort niet bij de gekozen collectie.")
         options = CollectionSearchOptions(mode, boolean("partial", false), params.getFirst("field") ?: "all",
             from, to, filters, sort, recent, boolean("documentText", true))
     }

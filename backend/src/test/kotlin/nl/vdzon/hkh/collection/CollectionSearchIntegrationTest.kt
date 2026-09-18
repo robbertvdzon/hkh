@@ -24,6 +24,41 @@ class CollectionSearchIntegrationTest(
     @param:Autowired private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
 ) {
     @Test
+    fun `empty search does not enumerate the collection even when a tab is selected`() {
+        store.upsert(fullRecord("empty-search", "Een willekeurig object"))
+        for (collection in listOf(null, "artikelen")) {
+            val result = service.search("  ", collection, emptyMap(), 0, 20)
+            assertEquals(0, result.total)
+            assertTrue(result.items.isEmpty())
+            assertTrue(result.collectionCounts.isEmpty())
+        }
+    }
+
+    @Test
+    fun `collection counts match the query across all tabs and all pages`() {
+        store.upsert(fullRecord("counts-a", "Telkerk uniek").copy(collection = "archief"))
+        store.upsert(fullRecord("counts-b", "Telkerk uniek").copy(collection = "archief"))
+        store.upsert(fullRecord("counts-c", "Telkerk uniek").copy(collection = "beeldbank"))
+        store.upsert(fullRecord("counts-d", "Ander onderwerp").copy(collection = "beeldbank"))
+        val counts = mapOf("archief" to 2L, "beeldbank" to 1L)
+        val all = service.search("Telkerk", null, emptyMap(), 0, 1)
+        assertEquals(3, all.total)
+        assertEquals(1, all.items.size)
+        assertEquals(counts, all.collectionCounts.associate { it.collection to it.count })
+        for ((collection, count) in counts) {
+            val tab = service.search("Telkerk", collection, emptyMap(), 0, 20)
+            assertEquals(count, tab.total)
+            assertEquals(count.toInt(), tab.items.size)
+            assertEquals(counts, tab.collectionCounts.associate { it.collection to it.count })
+        }
+        mockMvc.get("/api/collections/search?q=Telkerk&collection=beeldbank").andExpect {
+            status { isOk() }
+            jsonPath("$.total") { value(1) }
+            jsonPath("$.collectionCounts[0].count") { value(2) }
+        }
+    }
+
+    @Test
     fun `equal search scores have stable ordering across pages`() {
         val idents = (1..25).map { "stable-%02d".format(it) }
         idents.reversed().forEach { ident ->
@@ -279,7 +314,7 @@ class CollectionSearchIntegrationTest(
 
     @Test
     fun `API rejects malformed ranges and collection mismatched filters`() {
-        for (params in listOf(mapOf("from" to "2000", "to" to "1900"), mapOf("from" to "abc"), mapOf("mode" to "sql"), mapOf("sort" to "drop"), mapOf("partial" to "maybe"), mapOf("filter" to "Materiaal:Hout", "collection" to "bidprent"))) {
+        for (params in listOf(mapOf("from" to "2000", "to" to "1900"), mapOf("from" to "abc"), mapOf("mode" to "sql"), mapOf("sort" to "drop"), mapOf("partial" to "maybe"), mapOf("filter" to "Onbekend:Hout", "collection" to "bidprent"))) {
             mockMvc.get("/api/collections/search") { params.forEach { (k, v) -> param(k, v) } }.andExpect { status { isBadRequest() } }
         }
         mockMvc.get("/api/collections/facets") { param("collection", "archief"); param("facet", "password") }.andExpect { status { isBadRequest() } }

@@ -97,18 +97,7 @@ ThemeData appDossierTheme(BuildContext context) {
   final base = appSurfaceTheme(context);
   return base.copyWith(
     scaffoldBackgroundColor: appBackground,
-    appBarTheme: AppBarTheme(
-      backgroundColor: appBackground,
-      foregroundColor: appGreen,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      titleTextStyle: base.textTheme.titleLarge?.copyWith(
-        color: appGreen,
-        fontWeight: FontWeight.w700,
-      ),
-      shape: const Border(bottom: BorderSide(color: appCardBorder)),
-    ),
+    appBarTheme: appHeaderTheme,
     tabBarTheme: const TabBarThemeData(
       labelColor: appGreen,
       unselectedLabelColor: appMutedText,
@@ -241,4 +230,83 @@ class AppCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The same heritage-green masthead on every page, including scrolled pages.
+const appHeaderTheme = AppBarTheme(
+  backgroundColor: appGreen,
+  foregroundColor: appBackground,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+  scrolledUnderElevation: 0,
+  toolbarHeight: 72,
+  titleTextStyle: TextStyle(
+    color: appBackground,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+  ),
+  shape: Border(bottom: BorderSide(color: Color(0xFFC5A66B), width: 3)),
+);
+
+class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const HkhAppBar({required this.title, this.actions, this.bottom, super.key});
+  final Widget title;
+  final List<Widget>? actions;
+  final PreferredSizeWidget? bottom;
+  @override
+  Size get preferredSize =>
+      Size.fromHeight(72 + (bottom?.preferredSize.height ?? 0));
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(appBarTheme: appHeaderTheme),
+    child: AppBar(
+      title: Row(
+        children: [
+          ExcludeSemantics(
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFC5A66B)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'HKH',
+                style: TextStyle(
+                  color: appBackground,
+                  fontFamily: 'Georgia',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DefaultTextStyle.merge(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              child: title,
+            ),
+          ),
+        ],
+      ),
+      actions: actions,
+      bottom: bottom,
+    ),
+  );
+}
+
+class InstantPageTransitionsBuilder extends PageTransitionsBuilder {
+  const InstantPageTransitionsBuilder();
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
 }

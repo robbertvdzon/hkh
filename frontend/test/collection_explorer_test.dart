@@ -54,6 +54,10 @@ class ExplorerSource implements CollectionSearchSource {
       page: 0,
       pageSize: 20,
       documentTextAvailable: true,
+      collectionCounts: const [
+        CollectionCount(collection: 'archief', count: 1),
+        CollectionCount(collection: 'bidprent', count: 1),
+      ],
     );
   }
 
@@ -119,27 +123,27 @@ Future<void> setup(
 
 void main() {
   testWidgets(
-    'six familiar entrances and empty-query browsing are immediately available',
+    'six collection entrances remain visible without initially loading results',
     (tester) async {
       final source = ExplorerSource();
       await setup(tester, source);
-      expect(source.searches, 1);
-      expect(source.lastQuery, '');
+      expect(source.searches, 0);
+      expect(source.lastQuery, isNull);
       for (final label in [
-        'Archief (2)',
+        'Archief',
         'Beeldbank',
         'Bibliotheek',
-        'Bidprentjes (2)',
+        'Bidprentjes',
         'Artikelen',
         'Objecten',
       ]) {
         expect(find.text(label), findsOneWidget);
       }
-      expect(find.text('1 resultaat'), findsOneWidget);
+      expect(find.text('1 resultaat'), findsNothing);
     },
   );
   testWidgets(
-    'facet alternatives are applied together and remembered per collection',
+    'facet alternatives remain active when filtering another collection',
     (tester) async {
       final source = ExplorerSource();
       await setup(tester, source, collection: 'archief');
@@ -152,10 +156,13 @@ void main() {
       expect(source.lastOptions!.filters, {
         'Type publicatie': ['Kaart', 'Krantenartikel'],
       });
-      await tester.tap(find.text('Bidprentjes (2)'));
+      await tester.tap(find.text('Bidprentjes (1)'));
       await tester.pumpAndSettle();
-      expect(source.lastOptions!.filters, isEmpty);
-      await tester.tap(find.text('Archief (2)'));
+      expect(source.lastOptions!.filters['Type publicatie'], [
+        'Kaart',
+        'Krantenartikel',
+      ]);
+      await tester.tap(find.text('Archief (1)'));
       await tester.pumpAndSettle();
       expect(source.lastOptions!.filters['Type publicatie'], [
         'Kaart',
@@ -184,6 +191,43 @@ void main() {
       expect(find.widgetWithText(CheckboxListTile, 'Kaart'), findsNothing);
     },
   );
+  testWidgets(
+    'counts cover every collection and a new query resets the selected tab',
+    (tester) async {
+      final source = ExplorerSource();
+      await setup(tester, source);
+      await tester.enterText(find.byKey(const Key('collection-query')), 'kerk');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(source.lastCollection, isNull);
+      expect(find.text('Alles (2)'), findsOneWidget);
+      expect(find.text('Archief (1)'), findsOneWidget);
+      expect(find.text('Beeldbank (0)'), findsOneWidget);
+      await tester.tap(find.text('Bidprentjes (1)'));
+      await tester.pumpAndSettle();
+      expect(source.lastCollection, 'bidprent');
+      expect(find.text('1 resultaat'), findsOneWidget);
+      expect(find.text('Archief (1)'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('collection-query')),
+        'plein',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(source.lastCollection, isNull);
+      final searches = source.searches;
+      await tester.enterText(find.byKey(const Key('collection-query')), '');
+      await tester.pumpAndSettle();
+      expect(source.searches, searches);
+      expect(find.text('Een kasteel'), findsNothing);
+      expect(find.text('Alles (2)'), findsNothing);
+      expect(
+        find.text('Voer een zoekterm in om de collectie te doorzoeken.'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('birth period validates bounds and sends an inclusive range', (
     tester,
   ) async {
@@ -250,6 +294,7 @@ void main() {
           home: CollectionSearchPage(
             source: source,
             initialCollection: 'bidprent',
+            initialQuery: 'kasteel',
           ),
         ),
       );
