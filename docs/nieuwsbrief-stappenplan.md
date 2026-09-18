@@ -14,7 +14,8 @@ Een afvinkbare versie van dit document staat als artifact op
 | Verzendplatform | Laposta, gratis account (tot 2.000 relaties, 12.000 mailings per maand). |
 | Mailchimp | Afgevallen: gratis tot 250 contacten, en het abonnement loopt door in maanden zonder verzending. |
 | Grondslag | Bestaande relatie (lidmaatschap), Telecommunicatiewet art. 11.7. |
-| Verzenddomein | Subdomein `nieuws.historischekringheemskerk.nl`, niet het hoofddomein. |
+| Verzendadres | `nieuwsbrief@historischekringheemskerk.nl`, op het hoofddomein. |
+| Validatiedienst | Bouncer (Polen, EU-servers), niet ZeroBounce (VS). |
 | Tempo | 100 per dag, met controle op bounces tussen de batches door. |
 | Mailcredits | Pas overwegen ná de eerste nieuwsbrief; het gratis account vervalt bij aankoop. |
 
@@ -77,7 +78,6 @@ goed; één is stuk.
 | SPF | Goed | Geldig record, 4 van maximaal 10 DNS-lookups gebruikt. Ruimte voor Laposta. |
 | DKIM | Goed | Selector `x`, RSA 2048-bit, ingericht door ZXCS. |
 | DMARC | Stuk | Er staan twee DMARC-records. |
-| Subdomein | Nog niet | `nieuws.historischekringheemskerk.nl` bestaat nog niet. |
 
 Hosting loopt via ZXCS (`web0141.zxcs.nl`), mail via `spamrelay.zxcs.nl`, DNS bij b-smarthosting.
 Alle wijzigingen hieronder gaan via het DNS-beheer daar.
@@ -113,8 +113,8 @@ dat alle legitieme post goed doorkomt, gaat het beleid naar `p=quarantine`. Ande
 onze eigen ledenadministratie.
 
 Aan SPF en DKIM hoeft nu niets te gebeuren. Er volgt later een tweede ronde DNS-werk: bij het
-inrichten van Laposta komen daar een DKIM-record van Laposta, een aanvulling op SPF en het
-subdomein `nieuws.historischekringheemskerk.nl` bij. Dat staat in stap 2.
+inrichten van Laposta komen er een DKIM-record van Laposta en een aanvulling op SPF bij. Dat
+staat in stap 2.
 
 ## 3. Stap 2 — Laposta inrichten
 
@@ -123,13 +123,48 @@ de bounceverwerking. Dat hoeft niet zelf gebouwd te worden.
 
 - [ ] Gratis account aanmaken op naam van de vereniging, niet op een privéadres van een vrijwilliger
 - [ ] Verwerkersovereenkomst accepteren en opslaan in het bestuursarchief
-- [ ] Afzender instellen op een bestaand, gelezen adres — geen `noreply@`
+- [ ] Afzender instellen op `nieuwsbrief@historischekringheemskerk.nl` — een bestaand, gelezen adres,
+      geen `noreply@`
 - [ ] Verzenddomein koppelen: het DKIM-record en de SPF-aanvulling van Laposta toevoegen
-- [ ] Subdomein `nieuws.historischekringheemskerk.nl` aanmaken en als verzenddomein gebruiken
+- [ ] Eén lijst aanmaken en die blijven gebruiken, ook voor volgende nieuwsbrieven
 - [ ] Een tweede bestuurslid toegang geven
 
-Het subdomein beschermt de gewone post: gaat er ooit iets mis met de verzendreputatie, dan raakt
-dat niet de mail op `@historischekringheemskerk.nl` zelf.
+### Waarom het hoofddomein en geen apart `nieuws.`-subdomein
+
+Grote providers houden verzendreputatie per domein bij. Wie dagelijks tienduizenden mails stuurt,
+zet bulkmail daarom op een apart subdomein: gaat het mis, dan raakt dat de gewone post niet.
+
+Voor 1.600 leden, twee keer per jaar, weegt dat anders. Een nieuw subdomein heeft geen enkele
+reputatie, terwijl het hoofddomein al jaren gewone post verstuurt en dus een opgebouwde staat van
+dienst heeft — en juist onbekende afzenders die ineens bulkmail gaan sturen zijn waar filters op
+letten. Daar komt bij dat elke extra DNS-stap een stap is waarop iets fout kan gaan, en dat
+`@historischekringheemskerk.nl` voor leden herkenbaarder is dan `@nieuws.historischekringheemskerk.nl`.
+Herkenning betekent minder mensen die op "spam" drukken.
+
+Vandaar het hoofddomein. Mocht de kring ooit veel vaker gaan mailen, dan is een subdomein alsnog
+te overwegen.
+
+### Hoe afmelden werkt
+
+De ledenadressen staan na de import bij Laposta op de server. De HKH is verwerkingsverantwoordelijke,
+Laposta is verwerker; daarom is die verwerkersovereenkomst geen formaliteit.
+
+Klikt iemand op de afmeldlink — of op de "Afmelden"-knop die Gmail bovenaan toont, die komt op
+dezelfde plek uit — dan zet Laposta die persoon in de lijst op **uitgeschreven**. Bij elke volgende
+mailing wordt hij automatisch overgeslagen. Dat gaat vanzelf; het bestuur hoeft niets te doen.
+
+Let op: de persoon wordt niet verwijderd maar gemarkeerd. Dat is bewust. Zou Laposta het adres
+wissen, dan staat het er bij de volgende import van de ledenlijst gewoon weer in en mailen we
+iemand die nee heeft gezegd. Die markering ís de vastlegging van dat nee.
+
+Daar hangt één werkafspraak aan die makkelijk misgaat: **maak nooit een nieuwe lijst aan voor een
+volgende nieuwsbrief.** Werk dezelfde lijst bij. Begin je opnieuw met een verse import in een nieuwe
+lijst, dan is de afmeldhistorie weg en gaan de afmelders alsnog post krijgen.
+
+Tot slot een onderscheid dat in de praktijk verwarring geeft: afmelden voor de nieuwsbrief is niet
+hetzelfde als het lidmaatschap opzeggen. Iemand kan lid blijven en de nieuwsbrief niet willen. De
+ledenadministratie heeft daar een apart veld voor nodig, anders denkt de penningmeester dat er is
+opgezegd.
 
 Op het gratis account staat onderaan elke nieuwsbrief de regel "Deze e-mail is verzonden met het
 nieuwsbriefprogramma Laposta". Wil het bestuur die weg, dan zijn mailcredits nodig — maar
@@ -145,12 +180,34 @@ de eerste zending is precies waar Spamhaus en Microsoft op reageren. Werk van gr
 - [ ] Ontdubbelen
 - [ ] Zichtbare typefouten eruit halen (`gmail.con`, `hotmai.com`, `@live.n`, spaties)
 - [ ] Rol-adressen eruit (`info@`, `secretariaat@`, `webmaster@`) — dat zijn geen leden
-- [ ] Lijst door een validatiedienst halen (Bouncer of ZeroBounce, circa €15 voor 1.600 adressen)
+- [ ] Verwerkersovereenkomst met de validatiedienst regelen en opslaan
+- [ ] Lijst door Bouncer halen (circa €15 voor 1.600 adressen)
 - [ ] `invalid` en `spamtrap` definitief weggooien
 - [ ] `catch-all`-adressen apart zetten voor de laatste batch
 
-Een validatiedienst doet een MX-check en een SMTP-handshake zonder een mail te versturen. Reken
-erop dat van de 1.600 adressen er 1.300 tot 1.450 bruikbaar overblijven; dat is normaal.
+Een validatiedienst doet twee dingen die handmatig niet kunnen. Hij belt de ontvangende mailserver
+op en vraagt of de mailbox bestaat, zonder een bericht te versturen — je weet dus dat een adres
+dood is vóór je er een bounce mee veroorzaakt. En hij herkent **spam traps**: adressen die ooit van
+een echt persoon waren, zijn opgeheven en door Microsoft of Yahoo opnieuw geactiveerd om verzenders
+op verouderde lijsten te betrappen. Dat is precies het profiel van een lijst die jaren stillag, en
+er is geen enkele manier om zo'n adres er zelf uit te pikken. Eén bounce kost wat reputatie; één
+trap-hit kan het domein direct op een blacklist zetten, inclusief de gewone post.
+
+Het verzenden in batches van 100 vervangt dit niet: dat werkt achteraf. Een bounce die je zo
+ontdekt heb je al veroorzaakt, en een trap-hit geeft helemaal geen signaal.
+
+De keuze voor Bouncer boven ZeroBounce is dezelfde als die voor Laposta: Bouncer zit in Polen en
+verwerkt op EU-servers in Frankfurt en Warschau, met een verwerkersovereenkomst op aanvraag en
+verwijdering van de resultaten na 60 dagen. ZeroBounce is Amerikaans, wat opnieuw verantwoording
+van doorgifte naar de VS vraagt. Er gaan 1.600 ledenadressen naartoe — dat is een verwerking, geen
+bestandsupload.
+
+Reken erop dat van de 1.600 adressen er 1.300 tot 1.450 bruikbaar overblijven; dat is normaal.
+
+Wordt deze lijst al actief gebruikt, bijvoorbeeld voor uitnodigingen waarvan de bounces worden
+verwerkt, dan is hij door gebruik al gevalideerd en voegt een dienst weinig toe. Lag hij jaren
+stil, dan is die €15 het afkopen van een risico waarvan de bovenkant is dat de vereniging wekenlang
+niet kan mailen.
 
 ## 5. Stap 4 — de nieuwsbrief bouwen
 
