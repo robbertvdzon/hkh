@@ -47,13 +47,43 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
             }
             link.removeAttr("data-hkh-source")
         }
+        // De AI kiest de plaats en het bijschrift, nooit de afbeeldings-URL.
+        // Alleen opgegeven, bestaande collectiebronnen kunnen een beeld opleveren.
+        val inlineImages = mutableSetOf<String>()
+        document.select("figure[data-hkh-source]").forEach { placeholder ->
+            val ref = placeholder.attr("data-hkh-source").trim()
+            val item = verified[ref]
+            if (item == null || ref in inlineImages) {
+                placeholder.remove()
+            } else {
+                val caption = placeholder.selectFirst("figcaption")?.text()?.trim()
+                    ?.takeIf(String::isNotBlank) ?: item.title.ifBlank { ref }
+                val imageUrl = CollectionLinks.safeMedia(item.imageUrl)?.takeIf(String::isNotBlank)
+                val figure = Element("figure")
+                val link = figure.appendElement("a")
+                    .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
+                    .attr("target", "_blank").attr("rel", "noopener")
+                if (imageUrl != null) {
+                    link.appendElement("img").attr("src", imageUrl).attr("alt", caption)
+                    inlineImages += ref
+                    figure.appendElement("figcaption").text(caption + " — ")
+                        .appendElement("a")
+                        .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
+                        .attr("target", "_blank").attr("rel", "noopener")
+                        .text("${item.collection} · ${item.ident}")
+                } else {
+                    link.text("Afbeelding niet beschikbaar: $caption")
+                }
+                placeholder.replaceWith(figure)
+            }
+        }
         val safeList = Safelist.relaxed()
             .addTags("article", "section", "figure", "figcaption")
             .addAttributes("a", "target", "rel")
         val narrative = Jsoup.clean(document.body().html(), "", safeList, org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
         val html = buildString {
             append(narrative)
-            if (records.isNotEmpty()) append(buildSourceSection(records))
+            if (records.isNotEmpty()) append(buildSourceSection(records, inlineImages))
         }
         val rawFollowUps = mutableListOf<String>()
         for (node in result.path("suggestedFollowUps")) rawFollowUps += node.asText().trim()
@@ -61,7 +91,7 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
         return RenderedAiAnswer(CollectionLinks.rewrite(title), CollectionLinks.rewrite(html), records.map { it.first }, followUps.map(CollectionLinks::rewrite))
     }
 
-    private fun buildSourceSection(records: List<Pair<AiSourceRef, CollectionItem>>): String {
+    private fun buildSourceSection(records: List<Pair<AiSourceRef, CollectionItem>>, inlineImages: Set<String>): String {
         val section = Element("section")
         section.appendElement("hr")
         section.appendElement("h2").text("Bronnen en afbeeldingen")
@@ -73,7 +103,7 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
                 .attr("target", "_blank")
                 .attr("rel", "noopener")
                 .text(item.title.ifBlank { "${ref.collection} ${ref.ident}" })
-            CollectionLinks.safeMedia(item.imageUrl)?.takeIf(String::isNotBlank)?.let { imageUrl ->
+            CollectionLinks.safeMedia(item.imageUrl)?.takeIf { it.isNotBlank() && "${ref.collection}/${ref.ident}" !in inlineImages }?.let { imageUrl ->
                 val figure = article.appendElement("figure")
                 figure.appendElement("a")
                     .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))

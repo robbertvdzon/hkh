@@ -94,6 +94,13 @@ De publieke API ondersteunt het overzicht en beheer via `GET /api/ai-search/sess
 `GET /api/ai-search/sessions/{id}` en `DELETE /api/ai-search/sessions/{id}`. De backend controleert
 bij iedere detail-, vervolg-, annuleer- en verwijderactie of de opdracht bij het account of, zonder login, bij de cookie hoort. Ongeldige sessietokens geven 401.
 
+AI-antwoorden kunnen collectiefoto’s tussen de tekst plaatsen met
+`<figure data-hkh-source="collection/ident"><figcaption>Bijschrift</figcaption></figure>`.
+De server haalt de afbeelding uitsluitend uit een geverifieerde bron in `sources`; losse `img`-tags
+of door de AI opgegeven afbeeldings-URL’s worden verwijderd. Elk ingevoegd beeld heeft een
+bijschrift en bronlink en wordt niet nogmaals onderaan afgebeeld. De bronnenlijst blijft compleet.
+Dit geldt voor nieuw gegenereerde antwoorden; opgeslagen antwoorden worden niet herschreven.
+
 Een geladen antwoord is als PDF mee te nemen via `GET /api/ai-search/{answerId}/export/pdf`. Die
 route gebruikt hetzelfde account of dezelfde bezoekerscookie, vraagt dus geen verplichte login, en levert bij succes status 200
 met `Content-Type: application/pdf` en `Content-Disposition: attachment`
