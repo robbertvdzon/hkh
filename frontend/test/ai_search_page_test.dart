@@ -261,8 +261,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
 
     final action = find.widgetWithText(OutlinedButton, 'Download PDF');
     expect(action, findsOneWidget);
@@ -331,8 +330,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
     final pushesBefore = routes.pushes;
 
     await tester.ensureVisible(
@@ -379,8 +377,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
 
     await tester.ensureVisible(
       find.widgetWithText(OutlinedButton, 'Download PDF'),

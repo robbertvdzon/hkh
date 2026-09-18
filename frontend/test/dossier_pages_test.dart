@@ -223,6 +223,8 @@ void main() {
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
       expect(scaffold.backgroundColor, appBackground);
 
+      await tester.ensureVisible(find.text('Feitenlijst'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Feitenlijst'));
       await tester.pumpAndSettle();
 
@@ -577,6 +579,8 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
+      await tester.ensureVisible(find.text('Feitenlijst'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Feitenlijst'));
       await tester.pumpAndSettle();
       expectNoHorizontalOverflow(tester, [
