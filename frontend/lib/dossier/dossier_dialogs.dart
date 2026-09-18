@@ -187,7 +187,7 @@ class _AdoptDialogState extends State<_AdoptDialog> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Text(
-          'Kies het dossier waarin deze zoekopdracht hoort. De vraag en het antwoord worden dan voor alle leden zichtbaar.',
+          'Kies een dossier. Een kopie van de huidige vragen en antwoorden wordt zichtbaar voor alle dossierleden. Het origineel blijft bij Mijn zoekopdrachten staan. Latere vervolgvragen worden niet automatisch overgenomen.',
           style: TextStyle(color: appMutedText),
         ),
         const SizedBox(height: appSectionGap),

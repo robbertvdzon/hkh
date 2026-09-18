@@ -183,48 +183,82 @@ class DossierApiIntegrationTest(
     }
 
     @Test
-    fun `a browser search can be adopted into a dossier and stays hidden from the cookie afterwards`() {
+    fun `adding a browser search preserves the original sharing and isolated dossier copy`() {
         val owner = login("adopter@example.com")
         val dossierId = postJson("/api/dossiers", owner, """{"title":"Dossier","goal":""}""", HttpStatus.CREATED).path("id").asText()
         val visitor = UUID.randomUUID()
         val sessionId = UUID.randomUUID()
+        val answerId = UUID.randomUUID()
         jdbc.update("INSERT INTO ai_search_session (id, visitor_id) VALUES (?, ?)", sessionId, visitor)
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, title, completed_at)
-            VALUES (?, ?, 1, 'Wie woonde er?', 'SUCCEEDED', 100, 'Onderzoek afgerond', 'Bewoners', CURRENT_TIMESTAMP)
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, title, answer_html, completed_at)
+            VALUES (?, ?, 1, 'Wie woonde er?', 'SUCCEEDED', 100, 'Onderzoek afgerond', 'Bewoners', '<p>Een antwoord</p>', CURRENT_TIMESTAMP)
             """.trimIndent(),
-            UUID.randomUUID(), sessionId,
+            answerId, sessionId,
         )
         val cookie = Cookie("hkh_ai_visitor", visitor.toString())
-
+        val token = objectMapper.readTree(mockMvc.post("/api/ai-search/answers/$answerId/share") {
+            cookie(cookie)
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString).path("token").asText()
+        val strangerCookie = Cookie("hkh_ai_visitor", UUID.randomUUID().toString())
         mockMvc.post("/api/dossiers/$dossierId/questions/adopt") {
-            auth(owner); cookie(cookie); contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.id") { value(sessionId.toString()) }
-            jsonPath("$.turns[0].title") { value("Bewoners") }
-        }
-        mockMvc.get("/api/ai-search/sessions") { cookie(cookie) }.andExpect {
-            status { isOk() }
-            content { json("[]") }
-        }
-        mockMvc.get("/api/dossiers/$dossierId/questions") { auth(owner) }.andExpect {
-            status { isOk() }
-            jsonPath("$[0].id") { value(sessionId.toString()) }
-        }
-        mockMvc.get("/api/dossiers/$dossierId/questions/$sessionId") { auth(owner) }.andExpect {
-            status { isOk() }
-            jsonPath("$.turns[0].question") { value("Wie woonde er?") }
-        }
-        mockMvc.post("/api/dossiers/$dossierId/questions/adopt") {
-            auth(owner); cookie(cookie); contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
+            auth(owner); cookie(strangerCookie); contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
         }.andExpect { status { isNotFound() } }
 
-        // Het geadopteerde antwoord is beschikbaar als AI-context voor het dossier.
-        val answers = aiSearch.dossierAnswers(dossierId)
-        kotlin.test.assertEquals(listOf("Wie woonde er?"), answers.map { it.question })
-        kotlin.test.assertEquals(1, aiSearch.dossierAnswers(dossierId, limit = 1).size)
+        fun adopt(): JsonNode = objectMapper.readTree(mockMvc.post("/api/dossiers/$dossierId/questions/adopt") {
+            auth(owner); cookie(cookie); contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
+        }.andExpect { status { isOk() } }.andReturn().response.contentAsString)
+        val copy = adopt()
+        val copyId = copy.path("id").asText()
+        kotlin.test.assertNotEquals(sessionId.toString(), copyId)
+        kotlin.test.assertNotEquals(answerId.toString(), copy.path("turns")[0].path("id").asText())
+        kotlin.test.assertEquals("Bewoners", copy.path("turns")[0].path("title").asText())
+        // Herhaald toevoegen is idempotent, en het origineel blijft zichtbaar en leesbaar.
+        kotlin.test.assertEquals(copyId, adopt().path("id").asText())
+        mockMvc.get("/api/ai-search/sessions") { cookie(cookie) }.andExpect {
+            status { isOk() }; jsonPath("$[0].id") { value(sessionId.toString()) }
+        }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isOk() } }
+        mockMvc.get("/api/shared-answers/$token").andExpect { status { isOk() } }
+        mockMvc.get("/api/dossiers/$dossierId/questions") { auth(owner) }.andExpect {
+            status { isOk() }; jsonPath("$", hasSize<Any>(1)); jsonPath("$[0].id") { value(copyId) }
+        }
+        mockMvc.get("/api/ai-search/sessions/$copyId") { cookie(cookie) }.andExpect { status { isNotFound() } }
+        kotlin.test.assertEquals(listOf("Wie woonde er?"), aiSearch.dossierAnswers(dossierId).map { it.question })
+        // Dossiervervolgvragen komen niet in het origineel terecht.
+        jdbc.update("INSERT INTO ai_search_turn (id, session_id, turn_number, question, status) VALUES (?, ?::uuid, 2, 'Dossiervervolg', 'SUCCEEDED')", UUID.randomUUID(), copyId)
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect {
+            status { isOk() }; jsonPath("$.turns", hasSize<Any>(1))
+        }
+        // Verwijderen uit het dossier verwijdert nooit het origineel of zijn deellink.
+        mockMvc.delete("/api/dossiers/$dossierId/questions/$copyId") { auth(owner) }.andExpect { status { isNoContent() } }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isOk() } }
+        mockMvc.get("/api/shared-answers/$token").andExpect { status { isOk() } }
+        // Omgekeerd blijft een nieuwe dossierkopie behouden als het origineel wordt verwijderd.
+        val replacementId = adopt().path("id").asText()
+        mockMvc.delete("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isNoContent() } }
+        mockMvc.get("/api/dossiers/$dossierId/questions/$replacementId") { auth(owner) }.andExpect {
+            status { isOk() }; jsonPath("$.turns[0].question") { value("Wie woonde er?") }
+        }
+    }
+
+    @Test
+    fun `running browser research cannot be copied into a dossier`() {
+        val owner = login("running-adopter@example.com")
+        val dossierId = postJson("/api/dossiers", owner, """{"title":"Dossier","goal":""}""", HttpStatus.CREATED).path("id").asText()
+        val visitor = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        jdbc.update("INSERT INTO ai_search_session (id, visitor_id) VALUES (?, ?)", sessionId, visitor)
+        jdbc.update("INSERT INTO ai_search_turn (id, session_id, turn_number, question, status) VALUES (?, ?, 1, 'Nog bezig', 'RUNNING')", UUID.randomUUID(), sessionId)
+        mockMvc.post("/api/dossiers/$dossierId/questions/adopt") {
+            auth(owner); cookie(Cookie("hkh_ai_visitor", visitor.toString()))
+            contentType = MediaType.APPLICATION_JSON; content = """{"sessionId":"$sessionId"}"""
+        }.andExpect { status { isConflict() } }
+        mockMvc.get("/api/dossiers/$dossierId/questions") { auth(owner) }.andExpect {
+            status { isOk() }; content { json("[]") }
+        }
+        jdbc.update("UPDATE ai_search_turn SET status = 'CANCELLED' WHERE session_id = ?", sessionId)
     }
 
     private fun seedCollectionItem(collection: String, ident: String, title: String) {

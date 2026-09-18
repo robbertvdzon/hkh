@@ -214,6 +214,10 @@ void main() {
       expect(find.text('Feitenlijst'), findsOneWidget);
       expect(find.text('Artikelen'), findsOneWidget);
       expect(find.text('Vragen in dit dossier'), findsOneWidget);
+      final firstTab = tester.getRect(find.text('Vragen'));
+      final lastTab = tester.getRect(find.text('Artikelen'));
+      expect(lastTab.right - firstTab.left, lessThan(500));
+      if (format == 'breed') expect(lastTab.right, lessThan(size.width));
       expect(find.text('Doel'), findsOneWidget);
       expect(find.text('Artikel voor het verenigingsblad'), findsOneWidget);
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
@@ -247,6 +251,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(source.calls, contains('refreshFactSheet'));
 
+      await tester.ensureVisible(find.text('Artikelen'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Artikelen'));
       await tester.pumpAndSettle();
 
@@ -285,6 +291,8 @@ void main() {
       expect(find.byType(TextField), findsNothing);
       expect(find.textContaining('Je bent lezer'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Artikelen'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Artikelen'));
       await tester.pumpAndSettle();
       expect(find.text('Nieuw artikel'), findsNothing);
@@ -329,7 +337,7 @@ void main() {
       final dialog = tester.widget<AlertDialog>(find.byType(AlertDialog));
       expect(radiusOf(dialog.shape), BorderRadius.circular(appCardRadius));
       final introRect = tester.getRect(
-        find.textContaining('Kies het dossier waarin deze zoekopdracht hoort'),
+        find.textContaining('Kies een dossier. Een kopie'),
       );
       final firstRect = tester.getRect(
         find.byKey(const Key('adopt-option-d1')),
@@ -339,6 +347,7 @@ void main() {
         greaterThanOrEqualTo(appSectionGap),
       );
 
+      await tester.ensureVisible(find.byKey(const Key('adopt-option-d3')));
       await tester.tap(find.byKey(const Key('adopt-option-d3')));
       await tester.pumpAndSettle();
       expect(source.calls, contains('adoptSearch:d3:sessie-1'));
@@ -574,6 +583,8 @@ void main() {
         find.byKey(const Key('fact-sheet-card')),
       ]);
 
+      await tester.ensureVisible(find.text('Artikelen'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Artikelen'));
       await tester.pumpAndSettle();
       expectNoHorizontalOverflow(tester, [

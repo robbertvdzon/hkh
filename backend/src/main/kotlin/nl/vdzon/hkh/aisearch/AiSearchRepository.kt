@@ -5,6 +5,7 @@ import java.util.UUID
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 
 @Repository
@@ -70,14 +71,43 @@ class AiSearchRepository(
         dossierId,
     )
 
-    /** Verplaatst een cookie-zoekopdracht naar een dossier; daarna is de cookie niet meer de sleutel. */
-    fun adoptSession(id: String, visitorId: String, owner: AiSearchOwner): Boolean = jdbc.update(
-        """
-        UPDATE ai_search_session SET visitor_id = NULL, dossier_id = ?::uuid, user_id = ?::uuid, created_by_email = ?
-        WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL
-        """.trimIndent(),
-        owner.dossierId, owner.userId, owner.userEmail, id, visitorId,
-    ) > 0
+    /** Bewaart een dossierkopie; het origineel en zijn deellinks blijven behouden. */
+    @Transactional
+    fun adoptSession(id: String, visitorId: String, owner: AiSearchOwner): String? {
+        val copyId = UUID.randomUUID().toString()
+        val inserted = jdbc.update(
+            """
+            INSERT INTO ai_search_session (id, dossier_id, user_id, created_by_email, source_session_id)
+            SELECT ?::uuid, ?::uuid, ?::uuid, ?, id FROM ai_search_session
+            WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL
+            ON CONFLICT (dossier_id, source_session_id) DO NOTHING
+            """.trimIndent(),
+            copyId, owner.dossierId, owner.userId, owner.userEmail, id, visitorId,
+        )
+        if (inserted == 0) {
+            if (!sessionExists(id, visitorId)) return null
+            return jdbc.queryForList(
+                "SELECT id::text FROM ai_search_session WHERE dossier_id = ?::uuid AND source_session_id = ?::uuid",
+                String::class.java, owner.dossierId, id,
+            ).singleOrNull()
+        }
+        jdbc.update(
+            """
+            INSERT INTO ai_search_turn (
+                id, session_id, turn_number, question, status, progress_percent, progress_message,
+                title, answer_html, sources, suggested_follow_ups, error_message,
+                created_at, updated_at, completed_at
+            )
+            SELECT gen_random_uuid(), ?::uuid, turn_number, question, status, progress_percent,
+                progress_message, title, answer_html, sources, suggested_follow_ups, error_message,
+                created_at, updated_at, completed_at
+            FROM ai_search_turn WHERE session_id = ?::uuid
+              AND status NOT IN ('SUBMITTING', 'QUEUED', 'RUNNING')
+            """.trimIndent(),
+            copyId, id,
+        )
+        return copyId
+    }
 
     fun deleteSession(id: String, visitorId: String): Boolean = jdbc.update(
         "DELETE FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL",

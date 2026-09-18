@@ -303,21 +303,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
-  /// Het antwoord dat op dit moment op het scherm staat: het laatste geslaagde
-  /// antwoord van de open zoekopdracht. Null zolang er niets te exporteren valt.
-  AiSearchTurn? get _exportableAnswer {
-    if (widget.pdfSource == null) return null;
-    final turns = _session?.turns;
-    if (turns == null) return null;
-    for (final turn in turns.reversed) {
-      if (turn.status == 'SUCCEEDED' &&
-          (turn.answerHtml?.isNotEmpty ?? false)) {
-        return turn;
-      }
-    }
-    return null;
-  }
-
   Future<void> _exportPdf(String answerId) async {
     final source = widget.pdfSource;
     if (source == null || _exporting) return;
@@ -460,6 +445,12 @@ class _AiSearchPageState extends State<AiSearchPage> {
                                   turn,
                                 )
                               : null,
+                          showPdf:
+                              widget.pdfSource != null &&
+                              turn.status == 'SUCCEEDED' &&
+                              (turn.answerHtml?.isNotEmpty ?? false),
+                          onPdf: _exporting ? null : () => _exportPdf(turn.id),
+                          exporting: _exporting,
                           onCancel: turn.isActive && widget.canAsk
                               ? _cancel
                               : null,
@@ -520,24 +511,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
         onBack: session != null ? _showOverview : null,
         backLabel: 'Terug naar Vraag het archief',
         actions: [
-          if (session != null)
-            IconButton(
-              onPressed: _showOverview,
-              icon: const Icon(Icons.history),
-              tooltip: widget.overviewTitle,
-            ),
-          if (_exportableAnswer case final answer?)
-            IconButton(
-              onPressed: _exporting ? null : () => _exportPdf(answer.id),
-              icon: _exporting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  : const Icon(Icons.picture_as_pdf),
-              tooltip: 'Exporteer als PDF',
-            ),
           if (session == null)
             IconButton(
               onPressed: () => _loadSearches(showLoading: true),
@@ -755,6 +728,9 @@ class _TurnCard extends StatelessWidget {
     required this.onCancel,
     required this.onSuggestedQuestion,
     this.onShare,
+    this.showPdf = false,
+    this.onPdf,
+    this.exporting = false,
   });
 
   final AiSearchTurn turn;
@@ -762,6 +738,9 @@ class _TurnCard extends StatelessWidget {
   final VoidCallback? onCancel;
   final ValueChanged<String>? onSuggestedQuestion;
   final VoidCallback? onShare;
+  final bool showPdf;
+  final VoidCallback? onPdf;
+  final bool exporting;
 
   @override
   Widget build(BuildContext context) {
@@ -869,15 +848,34 @@ class _TurnCard extends StatelessWidget {
                   Text(elapsed ?? ''),
                 ],
               ),
-              if (onShare != null) ...[
+              if (onShare != null || showPdf) ...[
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: onShare,
-                    icon: const Icon(Icons.share_outlined),
-                    label: const Text('Antwoord delen'),
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (onShare != null)
+                      OutlinedButton.icon(
+                        onPressed: onShare,
+                        icon: const Icon(Icons.share_outlined),
+                        label: const Text('Antwoord delen'),
+                      ),
+                    if (showPdf)
+                      OutlinedButton.icon(
+                        key: ValueKey('answer-pdf-${turn.id}'),
+                        onPressed: onPdf,
+                        icon: exporting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.picture_as_pdf_outlined),
+                        label: Text(exporting ? 'PDF maken…' : 'Download PDF'),
+                      ),
+                  ],
                 ),
               ],
               const SizedBox(height: 14),

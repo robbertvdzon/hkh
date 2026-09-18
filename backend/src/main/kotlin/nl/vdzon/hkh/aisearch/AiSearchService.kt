@@ -106,13 +106,16 @@ class AiSearchService(
         repository.deleteSessionInDossier(sessionId, dossierId)
     }
 
-    /** Zet een cookie-zoekopdracht van deze browser over naar een dossier. */
+    /** Bewaart de huidige zoekopdracht in een dossier zonder het origineel te verplaatsen. */
     fun adoptIntoDossier(visitorId: String, sessionId: String, owner: AiSearchOwner): AiSearchSessionView {
         require(owner.dossierId != null) { "A dossier owner is required" }
-        if (!repository.adoptSession(sessionId, visitorId, owner)) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
+        requireSession(visitorId, sessionId)
+        if (repository.hasActiveTurn(sessionId)) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Wacht tot de zoekopdracht is afgerond voordat je deze toevoegt.")
         }
-        return sessionView(sessionId)
+        val copyId = repository.adoptSession(sessionId, visitorId, owner)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
+        return sessionView(copyId)
     }
 
     fun activeTurnCountForUser(userId: String): Int = repository.activeTurnCountForUser(userId)

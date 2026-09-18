@@ -134,6 +134,38 @@ class _RouteRecorder extends NavigatorObserver {
 }
 
 void main() {
+  testWidgets('each answer downloads its own PDF', (tester) async {
+    final source = _AnsweredSource()
+      ..session = AiSearchSession(
+        id: 'session-1',
+        turns: [
+          _answeredTurn(),
+          _answeredTurn(id: 'turn-2'),
+        ],
+      );
+    final pdf = _PdfSource();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(
+          source: source,
+          initialSessionId: 'session-1',
+          pdfSource: pdf,
+          pdfSaver: _RecordingSaver().save,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final second = find.byKey(const ValueKey('answer-pdf-turn-2'));
+    await tester.scrollUntilVisible(
+      second,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(second);
+    await tester.pumpAndSettle();
+    expect(pdf.requestedIds, ['turn-2']);
+  });
+
   testWidgets(
     'a delayed poll cannot reopen an answer after returning to overview',
     (tester) async {
@@ -232,23 +264,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final action = find.byTooltip('Exporteer als PDF');
+    final action = find.widgetWithText(OutlinedButton, 'Download PDF');
     expect(action, findsOneWidget);
-    expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
+    expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(action).onPressed, isNotNull);
+    expect(find.byTooltip('Mijn zoekopdrachten'), findsNothing);
     expect(
-      tester
-          .widget<IconButton>(
-            find.ancestor(of: action, matching: find.byType(IconButton)),
-          )
-          .onPressed,
-      isNotNull,
+      find.descendant(of: find.byType(AppBar), matching: action),
+      findsNothing,
     );
-    // De actie staat rechts van het bestaande geschiedenis-icoon.
-    expect(
-      tester.getCenter(action).dx,
-      greaterThan(tester.getCenter(find.byIcon(Icons.history)).dx),
-    );
-
+    await tester.ensureVisible(action);
     await tester.tap(action);
     await tester.pumpAndSettle();
 
@@ -272,7 +297,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byTooltip('Exporteer als PDF'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Download PDF'), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'Wat is er bekend?');
     await tester.pumpAndSettle();
@@ -283,7 +308,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     // Het onderzoek loopt nog, dus er valt nog niets te exporteren.
-    expect(find.byTooltip('Exporteer als PDF'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Download PDF'), findsNothing);
     expect(pdfSource.calls, 0);
   });
 
@@ -310,7 +335,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     final pushesBefore = routes.pushes;
 
-    await tester.tap(find.byTooltip('Exporteer als PDF'));
+    await tester.ensureVisible(
+      find.widgetWithText(OutlinedButton, 'Download PDF'),
+    );
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Download PDF'));
     await tester.pumpAndSettle();
 
     expect(
@@ -354,27 +382,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.byTooltip('Exporteer als PDF'));
+    await tester.ensureVisible(
+      find.widgetWithText(OutlinedButton, 'Download PDF'),
+    );
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Download PDF'));
     await tester.pump();
 
+    final busyButton = find.widgetWithText(OutlinedButton, 'PDF maken…');
     expect(
       find.descendant(
-        of: find.byType(AppBar),
+        of: busyButton,
         matching: find.byType(CircularProgressIndicator),
       ),
       findsOneWidget,
     );
-    expect(
-      tester
-          .widget<IconButton>(
-            find.ancestor(
-              of: find.byTooltip('Exporteer als PDF'),
-              matching: find.byType(IconButton),
-            ),
-          )
-          .onPressed,
-      isNull,
-    );
+    expect(tester.widget<OutlinedButton>(busyButton).onPressed, isNull);
 
     pdfSource.pending!.complete(Uint8List.fromList('%PDF-1.4'.codeUnits));
     pdfSource.pending = null;
@@ -382,6 +404,6 @@ void main() {
 
     expect(pdfSource.calls, 1);
     expect(saver.savedNames, ['antwoord-turn-1.pdf']);
-    expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
+    expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
   });
 }
