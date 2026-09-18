@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_style.dart';
@@ -11,6 +12,8 @@ import '../navigation.dart';
 import 'article_history_page.dart';
 import 'article_proposal_card.dart';
 import 'dossier.dart';
+import 'dossier_page.dart';
+import 'dossier_tabs.dart';
 import 'dossier_format.dart';
 
 enum _ArticleMenuItem { history, exportPdf, delete }
@@ -35,7 +38,13 @@ class ArticlePage extends StatefulWidget {
   State<ArticlePage> createState() => _ArticlePageState();
 }
 
-class _ArticlePageState extends State<ArticlePage> {
+class _ArticlePageState extends State<ArticlePage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _dossierTabs = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: 2,
+  );
   static const _pollInterval = Duration(seconds: 3);
 
   ArticleDetail? _article;
@@ -56,6 +65,7 @@ class _ArticlePageState extends State<ArticlePage> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _dossierTabs.dispose();
     _titleController?.dispose();
     _contentController?.dispose();
     super.dispose();
@@ -187,6 +197,43 @@ class _ArticlePageState extends State<ArticlePage> {
     }
   }
 
+  Future<void> _openDossierTab(int index) async {
+    _dossierTabs.index = 2;
+    final article = _article;
+    if (article == null || _saving) return;
+    if (_editing &&
+        (_titleController!.text != article.title ||
+            _contentController!.text != article.current.contentMarkdown)) {
+      final leave = await confirm(
+        context,
+        title: 'Wijzigingen niet opgeslagen',
+        message:
+            'Je hebt wijzigingen in dit artikel. Wil je terug naar het dossier zonder ze op te slaan?',
+        confirmLabel: 'Zonder opslaan verder',
+      );
+      if (!mounted || !leave) return;
+    }
+    if (!mounted) return;
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.go(
+        '/dossiers/${Uri.encodeComponent(article.dossierId)}?tab=$index',
+      );
+    } else {
+      await Navigator.of(context).pushReplacement<void, void>(
+        PageRouteBuilder(
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          pageBuilder: (_, __, ___) => DossierPage(
+            source: widget.source,
+            dossierId: article.dossierId,
+            initialTab: index,
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _openHistory() async {
     final restored = await openAppPage<bool>(
       context,
@@ -221,6 +268,11 @@ class _ArticlePageState extends State<ArticlePage> {
       appBar: HkhAppBar(
         context: context,
         title: Text(article?.title ?? 'Artikel'),
+        onBack: article == null ? null : () => _openDossierTab(2),
+        backLabel: 'Terug naar artikelen',
+        bottom: article == null
+            ? null
+            : DossierTabs(controller: _dossierTabs, onTap: _openDossierTab),
         actions: [
           if (article != null && !_editing)
             PopupMenuButton<_ArticleMenuItem>(
@@ -293,6 +345,7 @@ class _ArticlePageState extends State<ArticlePage> {
     final current = article.current;
     final hasProposal = article.proposal != null;
     return ListView(
+      key: const ValueKey('article-viewer'),
       padding: const EdgeInsets.all(16),
       children: [
         if (hasProposal) ...[
@@ -403,11 +456,12 @@ class _ArticlePageState extends State<ArticlePage> {
   Widget _buildEditor(BuildContext context) {
     final theme = Theme.of(context);
     return ListView(
+      key: const ValueKey('article-editor'),
       padding: const EdgeInsets.all(16),
       children: [
         Text(
           'Schrijf in Markdown. Een archiefbron schrijf je als [naam](hkh:collection/ident), '
-          'bijvoorbeeld [Kerklaan 12](hkh:beeldbank/12345). Onbekende bronnen worden als gewone tekst getoond.',
+          'bijvoorbeeld [Kerklaan 12](hkh:beeldbank/12345). Een afbeelding voeg je op een eigen regel toe als ![Bijschrift](hkh:beeldbank/12345). Gebruik een bron met een beschikbare afbeelding. Onbekende bronnen worden als gewone tekst getoond.',
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 12),

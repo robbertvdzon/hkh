@@ -8,6 +8,7 @@ import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import org.jsoup.safety.Safelist
 import org.springframework.stereotype.Component
 
@@ -24,7 +25,8 @@ data class RenderedMarkdown(val html: String, val sources: List<RenderedSource>,
 /**
  * Zet artikel- en feitenlijst-Markdown om naar veilige HTML. Bronlinks in de vorm
  * `[naam](hkh:collection/ident)` worden alleen een echte link als de bron in de collectie bestaat;
- * andere links, afbeeldingen en ruwe HTML worden niet gerenderd.
+ * `![bijschrift](hkh:collection/ident)` toont het bijbehorende collectiebeeld.
+ * Andere links, externe afbeeldingen en ruwe HTML worden niet gerenderd.
  */
 @Component
 class MarkdownRenderer(private val collectionSearch: CollectionSearchService,
@@ -36,7 +38,7 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService,
 
     fun render(markdown: String): RenderedMarkdown {
         val document = Jsoup.parseBodyFragment(renderer.render(parser.parse(markdown)))
-        document.select("img, script, style, iframe, form, input, button, svg, object, embed, video, audio").remove()
+        document.select("script, style, iframe, form, input, button, svg, object, embed, video, audio").remove()
         val sources = linkedMapOf<String, RenderedSource>()
         val unknown = linkedSetOf<String>()
         document.select("a").forEach { link ->
@@ -52,7 +54,40 @@ class MarkdownRenderer(private val collectionSearch: CollectionSearchService,
                 sources.putIfAbsent("${ref.first}/${ref.second}", item.toRendered(ref.first, ref.second))
             }
         }
+        document.select("img").forEach { image ->
+            val ref = parseSourceRef(image.attr("src"))
+            val item = ref?.let { (collection, ident) -> lookup(collection, ident) }
+            if (ref == null) {
+                image.remove()
+            } else if (item == null) {
+                unknown += "${ref.first}/${ref.second}"
+                image.replaceWith(Element("span").text("Afbeelding niet gevonden: ${image.attr("alt").ifBlank { "${ref.first}/${ref.second}" }}"))
+            } else {
+                sources.putIfAbsent("${ref.first}/${ref.second}", item.toRendered(ref.first, ref.second))
+                val caption = image.attr("alt").ifBlank { item.title }.ifBlank { "${ref.first}/${ref.second}" }
+                val figure = Element("figure")
+                val link = figure.appendElement("a")
+                    .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
+                    .attr("target", "_blank").attr("rel", "noopener")
+                val imageUrl = CollectionLinks.safeMedia(item.imageUrl)?.takeIf(String::isNotBlank)
+                if (imageUrl != null) {
+                    link.appendElement("img").attr("src", imageUrl).attr("alt", caption)
+                    figure.appendElement("figcaption").text("$caption — ${ref.first} ${ref.second}")
+                } else {
+                    link.text("Afbeelding niet beschikbaar: $caption")
+                }
+                // Geen geneste links bij [![bijschrift](hkh:...)](hkh:...).
+                if (image.parent()?.normalName() == "a") image.parent()!!.unwrap()
+                val parent = image.parent()
+                if (parent?.normalName() == "p" && parent.childrenSize() == 1 && parent.ownText().isBlank()) {
+                    parent.replaceWith(figure)
+                } else {
+                    image.replaceWith(figure)
+                }
+            }
+        }
         val safeList = Safelist.relaxed()
+            .addTags("figure", "figcaption")
             .addAttributes("a", "target", "rel", "data-hkh-collection", "data-hkh-ident", "data-hkh-unknown")
             .addProtocols("a", "href", "https")
         val html = Jsoup.clean(document.body().html(), "", safeList, Document.OutputSettings().prettyPrint(false))

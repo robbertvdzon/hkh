@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../ai_search/answer_html.dart';
 
 import '../theme/app_style.dart';
 
@@ -64,14 +63,7 @@ class RenderedHtml extends StatelessWidget {
   final String html;
 
   @override
-  Widget build(BuildContext context) => SelectionArea(
-    child: HtmlWidget(
-      html,
-      onTapUrl: (url) =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-      textStyle: Theme.of(context).textTheme.bodyLarge,
-    ),
-  );
+  Widget build(BuildContext context) => SelectionArea(child: AnswerHtml(html));
 }
 
 /// Kleine kaart met een melding, bijvoorbeeld voor lege staten of beperkte rechten.

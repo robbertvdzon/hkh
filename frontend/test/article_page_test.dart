@@ -3,13 +3,83 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hkh_app/dossier/article_history_page.dart';
 import 'package:hkh_app/dossier/article_page.dart';
+import 'package:hkh_app/dossier/dossier_page.dart';
 import 'package:hkh_app/dossier/dossier.dart';
 
 import 'dossier_test_support.dart';
 
 void main() {
+  for (final tab in ['Vragen', 'Feitenlijst', 'Artikelen']) {
+    testWidgets('article menu opens dossier tab $tab', (tester) async {
+      final source = FakeDossierSource();
+      final router = GoRouter(
+        initialLocation: '/artikelen/a1',
+        routes: [
+          GoRoute(
+            path: '/artikelen/:id',
+            builder: (_, state) => ArticlePage(
+              source: source,
+              articleId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/dossiers/:id',
+            builder: (_, state) => DossierPage(
+              source: source,
+              dossierId: state.pathParameters['id']!,
+              initialTab: int.parse(state.uri.queryParameters['tab']!),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.controller!.index, 2);
+      await tester.ensureVisible(find.text(tab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expect(find.byType(DossierPage), findsOneWidget);
+      expect(
+        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
+        ['Vragen', 'Feitenlijst', 'Artikelen'].indexOf(tab),
+      );
+      expect(source.calls, contains('loadDossier:d1'));
+    });
+  }
+  testWidgets('cancelling article tab navigation preserves unsaved edits', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ArticlePage(source: FakeDossierSource(), articleId: 'a1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bewerken'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Mijn nog niet opgeslagen tekst',
+    );
+    await tester.tap(find.text('Vragen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Wijzigingen niet opgeslagen'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Annuleren'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ArticlePage), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+      'Mijn nog niet opgeslagen tekst',
+    );
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+  });
+
   testWidgets('shows the article, opens the editor and saves with the base', (
     tester,
   ) async {
@@ -40,7 +110,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Opslaan'),
       200,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.tap(find.text('Opslaan'));
     await tester.pumpAndSettle();
@@ -184,7 +259,10 @@ void main() {
 
       expect(menuText('Exporteren als PDF'), findsOneWidget);
       final export = tester.getTopLeft(menuText('Exporteren als PDF')).dy;
-      expect(export, greaterThan(tester.getTopLeft(menuText('Geschiedenis')).dy));
+      expect(
+        export,
+        greaterThan(tester.getTopLeft(menuText('Geschiedenis')).dy),
+      );
       expect(
         export,
         lessThan(tester.getTopLeft(menuText('Artikel verwijderen')).dy),
@@ -213,47 +291,48 @@ void main() {
     },
   );
 
-  testWidgets('a failed export shows the retry snackbar and keeps the article', (
-    tester,
-  ) async {
-    final source = FakeDossierSource()..failArticlePdf = true;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ArticlePage(
-          source: source,
-          articleId: 'a1',
-          pdfSaver: (fileName, bytes) async {},
+  testWidgets(
+    'a failed export shows the retry snackbar and keeps the article',
+    (tester) async {
+      final source = FakeDossierSource()..failArticlePdf = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ArticlePage(
+            source: source,
+            articleId: 'a1',
+            pdfSaver: (fileName, bytes) async {},
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Artikelmenu'));
-    await tester.pumpAndSettle();
-    await tester.tap(menuText('Exporteren als PDF'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Artikelmenu'));
+      await tester.pumpAndSettle();
+      await tester.tap(menuText('Exporteren als PDF'));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text('PDF-export mislukt. Probeer het opnieuw.'),
-      findsOneWidget,
-    );
-    expect(find.text('Opnieuw'), findsOneWidget);
-    // Het artikel blijft volledig zichtbaar en er is niet genavigeerd.
-    expect(find.byType(ArticlePage), findsOneWidget);
-    expect(find.text('De bewoners van de Kerklaan'), findsOneWidget);
-    expect(find.text('Bronnen'), findsOneWidget);
-    expect(find.text('Kerklaan 12 in 1932'), findsOneWidget);
+      expect(
+        find.text('PDF-export mislukt. Probeer het opnieuw.'),
+        findsOneWidget,
+      );
+      expect(find.text('Opnieuw'), findsOneWidget);
+      // Het artikel blijft volledig zichtbaar en er is niet genavigeerd.
+      expect(find.byType(ArticlePage), findsOneWidget);
+      expect(find.text('De bewoners van de Kerklaan'), findsOneWidget);
+      expect(find.text('Bronnen'), findsOneWidget);
+      expect(find.text('Kerklaan 12 in 1932'), findsOneWidget);
 
-    // "Opnieuw" doet exact dezelfde exportpoging nog een keer.
-    await tester.tap(find.text('Opnieuw'));
-    await tester.pumpAndSettle();
+      // "Opnieuw" doet exact dezelfde exportpoging nog een keer.
+      await tester.tap(find.text('Opnieuw'));
+      await tester.pumpAndSettle();
 
-    expect(
-      source.calls.where((call) => call == 'exportArticlePdf:d1:a1').length,
-      2,
-    );
-    expect(find.byType(ArticlePage), findsOneWidget);
-  });
+      expect(
+        source.calls.where((call) => call == 'exportArticlePdf:d1:a1').length,
+        2,
+      );
+      expect(find.byType(ArticlePage), findsOneWidget);
+    },
+  );
 
   testWidgets('the pdf export is absent until a version is loaded', (
     tester,

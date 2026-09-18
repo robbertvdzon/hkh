@@ -7,6 +7,7 @@ import '../ai_search/ai_search_page.dart';
 import '../auth/user_session.dart';
 import '../theme/app_style.dart';
 import 'dossier.dart';
+import 'dossier_tabs.dart';
 import 'dossier_articles_tab.dart';
 import 'dossier_dialogs.dart';
 import 'dossier_fact_sheet_tab.dart';
@@ -250,93 +251,7 @@ class _DossierPageState extends State<DossierPage>
                 ],
               ),
           ],
-          bottom: detail == null
-              ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(64),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 880),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isNarrowLayout(context) ? 16 : 24,
-                          0,
-                          isNarrowLayout(context) ? 16 : 24,
-                          12,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: TabBar(
-                            controller: _tabs,
-                            isScrollable: true,
-                            tabAlignment: TabAlignment.start,
-                            dividerColor: Colors.transparent,
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            indicator: BoxDecoration(
-                              color: appGreen,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            labelColor: Colors.white,
-                            unselectedLabelColor: appGreen,
-                            labelPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                            ),
-                            tabs: [
-                              Tab(
-                                height: 48,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!isNarrowLayout(context)) ...[
-                                      const Icon(
-                                        Icons.question_answer_outlined,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    const Text('Vragen'),
-                                  ],
-                                ),
-                              ),
-                              Tab(
-                                height: 48,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!isNarrowLayout(context)) ...[
-                                      const Icon(
-                                        Icons.fact_check_outlined,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    const Text('Feitenlijst'),
-                                  ],
-                                ),
-                              ),
-                              Tab(
-                                height: 48,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!isNarrowLayout(context)) ...[
-                                      const Icon(
-                                        Icons.article_outlined,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    const Text('Artikelen'),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          bottom: detail == null ? null : DossierTabs(controller: _tabs),
         ),
         body: detail == null
             ? Center(
