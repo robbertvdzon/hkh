@@ -83,6 +83,17 @@ class _AnsweredSource extends _AiSource {
   }
 }
 
+class _DelayedPollSource extends _AiSource {
+  final pendingPoll = Completer<AiSearchSession>();
+  int loads = 0;
+
+  @override
+  Future<AiSearchSession> loadAiSearch(String sessionId) {
+    loads++;
+    return loads == 1 ? Future.value(session!) : pendingPoll.future;
+  }
+}
+
 class _PdfSource implements AiAnswerPdfSource {
   _PdfSource({this.failing = false});
 
@@ -122,8 +133,29 @@ class _RouteRecorder extends NavigatorObserver {
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => pops++;
 }
 
-
 void main() {
+  testWidgets(
+    'a delayed poll cannot reopen an answer after returning to overview',
+    (tester) async {
+      final source = _DelayedPollSource();
+      await source.startAiSearch('Wat is er bekend over de Kerklaan?');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(source.loads, 2);
+      await tester.tap(find.byTooltip('Terug naar Vraag het archief'));
+      await tester.pumpAndSettle();
+      source.pendingPoll.complete(source.session!);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ai-question-card')), findsOneWidget);
+      expect(find.text('De beeldbank wordt onderzocht'), findsNothing);
+    },
+  );
+
   testWidgets('starts a free archive question and shows progress', (
     tester,
   ) async {
@@ -134,7 +166,10 @@ void main() {
       find.byType(TextField),
       'Wat is er bekend over de Kerklaan?',
     );
-    await tester.tap(find.byTooltip('Vraag stellen'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ai-question-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -230,7 +265,9 @@ void main() {
     final pdfSource = _PdfSource();
 
     await tester.pumpWidget(
-      MaterialApp(home: AiSearchPage(source: source, pdfSource: pdfSource)),
+      MaterialApp(
+        home: AiSearchPage(source: source, pdfSource: pdfSource),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -238,7 +275,10 @@ void main() {
     expect(find.byTooltip('Exporteer als PDF'), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'Wat is er bekend?');
-    await tester.tap(find.byTooltip('Vraag stellen'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ai-question-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -273,7 +313,10 @@ void main() {
     await tester.tap(find.byTooltip('Exporteer als PDF'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PDF-export mislukt. Probeer het opnieuw.'), findsOneWidget);
+    expect(
+      find.text('PDF-export mislukt. Probeer het opnieuw.'),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(SnackBarAction, 'Opnieuw'), findsOneWidget);
     expect(saver.savedNames, isEmpty);
     expect(find.text('Jan Klaasz. Beemster'), findsOneWidget);
@@ -284,7 +327,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pdfSource.calls, 2);
-    expect(find.text('PDF-export mislukt. Probeer het opnieuw.'), findsOneWidget);
+    expect(
+      find.text('PDF-export mislukt. Probeer het opnieuw.'),
+      findsOneWidget,
+    );
     expect(saver.savedNames, isEmpty);
   });
 

@@ -335,7 +335,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(aiSource.startedQuestions, isEmpty);
-    expect(find.text('AI-zoekopdrachten'), findsOneWidget);
+    expect(find.text('Vraag het archief'), findsNWidgets(2));
     expect(aiSource.listCalls, 1);
 
     await tester.pageBack();
@@ -343,7 +343,7 @@ void main() {
     await tester.tap(find.text('Eerdere vragen'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('AI-zoekopdrachten'), findsOneWidget);
+    expect(find.text('Vraag het archief'), findsNWidgets(2));
     expect(aiSource.listCalls, 2);
   });
 
@@ -582,7 +582,7 @@ void main() {
       expect(button.style!.foregroundColor!.resolve({}), appHeaderForeground);
       await tester.tap(find.byKey(const Key('questions-action')));
       await tester.pumpAndSettle();
-      expect(find.text('AI-zoekopdrachten'), findsOneWidget);
+      expect(find.text('Vraag het archief'), findsNWidgets(2));
       expect(find.byTooltip('Mijn account'), findsOneWidget);
       await tester.tap(find.byKey(const Key('dossiers-action')));
       await tester.pumpAndSettle();
@@ -644,6 +644,41 @@ void main() {
       );
     }
   });
+
+  testWidgets(
+    'back from a saved answer opens the question form above the history',
+    (tester) async {
+      final source = _AiSource();
+      await source.startAiSearch('Een eerder gestelde vraag');
+      await _pumpHome(tester, size: const Size(1000, 1100), aiSource: source);
+      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+      router.go('/vragen?id=session-1');
+      await tester.pumpAndSettle();
+      expect(find.text('Een eerder gestelde vraag'), findsOneWidget);
+      await tester.tap(find.byTooltip('Terug naar Vraag het archief'));
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/vragen');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['id'],
+        isNull,
+      );
+      expect(
+        find.byKey(const Key('ai-question-field')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('ai-question-card'))).dy,
+        lessThan(tester.getTopLeft(find.text('Mijn zoekopdrachten')).dy),
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('ai-question-field')))
+            .minLines,
+        5,
+      );
+      expect(source.startedQuestions, ['Een eerder gestelde vraag']);
+    },
+  );
 
   testWidgets('no login action is shown when login is not configured', (
     tester,

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../collection/collection_search.dart';
 import '../ai_search/ai_search.dart';
+import '../ai_search/answer_sharing.dart';
 import '../dossier/dossier.dart';
 import 'http_client_factory.dart';
 
@@ -13,6 +14,7 @@ class BackendClient
         CollectionSearchSource,
         AiSearchSource,
         AiAnswerPdfSource,
+        AiAnswerShareSource,
         DossierSource {
   BackendClient(
     this.apiBaseUrl, {
@@ -226,6 +228,56 @@ class BackendClient
       throw StateError('De PDF-export kon niet worden opgehaald.');
     }
     return response.bodyBytes;
+  }
+
+  @override
+  Future<String?> answerShareToken(String answerId) async {
+    final response = await _client
+        .get(
+          Uri.parse('$apiBaseUrl/api/ai-search/answers/$answerId/share'),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return (_decodeAiResponse(response) as Map<String, dynamic>)['token']
+        as String?;
+  }
+
+  @override
+  Future<String> shareAnswer(String answerId) async {
+    final response = await _client
+        .post(
+          Uri.parse('$apiBaseUrl/api/ai-search/answers/$answerId/share'),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return (_decodeAiResponse(response) as Map<String, dynamic>)['token']
+        as String;
+  }
+
+  @override
+  Future<void> revokeAnswerShare(String answerId) async {
+    final response = await _client
+        .delete(
+          Uri.parse('$apiBaseUrl/api/ai-search/answers/$answerId/share'),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 204) _decodeAiResponse(response);
+  }
+
+  @override
+  Future<SharedAiAnswer?> loadSharedAnswer(String token) async {
+    final response = await _client
+        .get(
+          Uri.parse(
+            '$apiBaseUrl/api/shared-answers/${Uri.encodeComponent(token)}',
+          ),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 404 || response.statusCode == 400) return null;
+    return SharedAiAnswer.fromJson(
+      _decodeAiResponse(response) as Map<String, dynamic>,
+    );
   }
 
   Future<AiSearchSession> _postAi(String path, String question) async {

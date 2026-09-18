@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'theme/app_style.dart';
 import 'ai_search/ai_search.dart';
 import 'ai_search/ai_search_page.dart';
+import 'ai_search/answer_sharing.dart';
+import 'ai_search/shared_answer_page.dart';
 import 'auth/user_session.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
@@ -155,6 +157,14 @@ GoRouter createAppRouter({
             redirect: (_, state) =>
                 state.uri.replace(path: '/zoeken').toString(),
           ),
+          if (aiSearchSource != null && shareSourceFor(aiSearchSource) != null)
+            instantRoute(
+              path: 'gedeeld/:token',
+              builder: (_, state) => SharedAnswerPage(
+                source: shareSourceFor(aiSearchSource)!,
+                token: state.pathParameters['token']!,
+              ),
+            ),
           if (aiSearchSource != null)
             instantRoute(
               path: 'vragen',

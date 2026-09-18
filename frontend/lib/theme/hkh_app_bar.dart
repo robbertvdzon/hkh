@@ -43,6 +43,8 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
     required BuildContext context,
     required this.title,
     this.actions,
+    this.onBack,
+    this.backLabel = 'Terug',
     this.bottom,
     this.accountAction,
     this.showPageTitle = true,
@@ -50,6 +52,8 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
   }) : _layout = _HeaderLayout(context);
 
   final Widget title;
+  final VoidCallback? onBack;
+  final String backLabel;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
   final Widget? accountAction;
@@ -197,8 +201,17 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                               padding: _layout.horizontal,
                               child: Row(
                                 children: [
-                                  if (Navigator.of(context).canPop()) ...[
-                                    const BackButton(color: appGreen),
+                                  if (onBack != null ||
+                                      Navigator.of(context).canPop()) ...[
+                                    if (onBack != null)
+                                      IconButton(
+                                        tooltip: backLabel,
+                                        onPressed: onBack,
+                                        icon: const BackButtonIcon(),
+                                        color: appGreen,
+                                      )
+                                    else
+                                      const BackButton(color: appGreen),
                                     const SizedBox(width: 8),
                                   ],
                                   Expanded(

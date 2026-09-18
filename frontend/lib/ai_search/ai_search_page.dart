@@ -3,11 +3,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../collection/img_embed/img_embed.dart';
+import 'answer_html.dart';
+import 'answer_share_dialog.dart';
+import 'answer_sharing.dart';
 import 'ai_search.dart';
+import 'ai_question_card.dart';
 import 'answer_pdf_saver.dart';
 
 /// Zet een afgeronde anonieme zoekopdracht in een dossier. Geeft de titel van het gekozen
@@ -38,7 +39,7 @@ class AiSearchPage extends StatefulWidget {
   final String? initialQuestion;
   final String? initialSessionId;
 
-  /// Titel in de AppBar; standaard afhankelijk van overzicht of open zoekopdracht.
+  /// Titel in de AppBar; standaard 'Vraag het archief'.
   final String? title;
 
   /// Kop boven de lijst met zoekopdrachten.
@@ -175,7 +176,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
     if (sessionId == null) return;
     try {
       final session = await widget.source.loadAiSearch(sessionId);
-      if (!mounted) return;
+      if (!mounted || _session?.id != sessionId) return;
       setState(() => _session = session);
       final isActive = session.turns.lastOrNull?.isActive ?? false;
       if (!isActive) {
@@ -228,7 +229,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
       _session = null;
       _error = null;
     });
+    _questionController.clear();
     _syncLocation(null);
+    _scrollToTop();
     await _loadSearches(showLoading: _searches == null);
     if (mounted && _session == null) _startOverviewPolling();
   }
@@ -241,6 +244,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
       if (!mounted) return;
       setState(() => _session = session);
       _syncLocation(session.id);
+      _scrollToTop();
       if (session.turns.lastOrNull?.isActive ?? false) _startPolling();
     } catch (error) {
       if (!mounted) return;
@@ -339,6 +343,12 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  void _scrollToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) _scrollController.jumpTo(0);
+    });
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -377,7 +387,14 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   children: [
                     if (session == null) ...[
-                      widget.introduction ?? const _Introduction(),
+                      if (widget.embedded)
+                        widget.introduction ?? const _Introduction()
+                      else if (widget.canAsk)
+                        AiQuestionCard(
+                          controller: _questionController,
+                          enabled: !_submitting,
+                          onSubmit: _submit,
+                        ),
                       const SizedBox(height: 24),
                       Row(
                         children: [
@@ -434,6 +451,15 @@ class _AiSearchPageState extends State<AiSearchPage> {
                         _TurnCard(
                           turn: turn,
                           elapsed: _turnDurationLabel(turn),
+                          onShare:
+                              turn.status == 'SUCCEEDED' &&
+                                  shareSourceFor(widget.source) != null
+                              ? () => showAnswerShareDialog(
+                                  context,
+                                  shareSourceFor(widget.source)!,
+                                  turn,
+                                )
+                              : null,
                           onCancel: turn.isActive && widget.canAsk
                               ? _cancel
                               : null,
@@ -454,7 +480,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   ],
                 ),
               ),
-              if (widget.canAsk)
+              if (widget.canAsk && (session != null || widget.embedded))
                 _QuestionComposer(
                   controller: _questionController,
                   enabled:
@@ -465,7 +491,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
                       : 'Stel een vervolgvraag',
                   onSubmit: _submit,
                 )
-              else
+              else if (!widget.canAsk)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Row(
@@ -490,10 +516,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
     return Scaffold(
       appBar: HkhAppBar(
         context: context,
-        title: Text(
-          widget.title ??
-              (session == null ? 'AI-zoekopdrachten' : 'Vraag het archief'),
-        ),
+        title: Text(widget.title ?? 'Vraag het archief'),
+        onBack: session != null ? _showOverview : null,
+        backLabel: 'Terug naar Vraag het archief',
         actions: [
           if (session != null)
             IconButton(
@@ -729,12 +754,14 @@ class _TurnCard extends StatelessWidget {
     required this.elapsed,
     required this.onCancel,
     required this.onSuggestedQuestion,
+    this.onShare,
   });
 
   final AiSearchTurn turn;
   final String? elapsed;
   final VoidCallback? onCancel;
   final ValueChanged<String>? onSuggestedQuestion;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -842,46 +869,19 @@ class _TurnCard extends StatelessWidget {
                   Text(elapsed ?? ''),
                 ],
               ),
-              const SizedBox(height: 14),
-              HtmlWidget(
-                turn.answerHtml ?? '',
-                customWidgetBuilder: (element) {
-                  if (element.localName != 'img') return null;
-                  final imageUrl = element.attributes['src'];
-                  if (imageUrl == null || imageUrl.isEmpty) return null;
-                  final linkUrl = element.parent?.localName == 'a'
-                      ? element.parent?.attributes['href']
-                      : null;
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth.isFinite
-                          ? constraints.maxWidth
-                          : 640.0;
-                      final height = (width * 0.72).clamp(220.0, 520.0);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: height,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: buildNetworkImage(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              linkUrl: linkUrl,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-                onTapUrl: (url) => launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
+              if (onShare != null) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onShare,
+                    icon: const Icon(Icons.share_outlined),
+                    label: const Text('Antwoord delen'),
+                  ),
                 ),
-                textStyle: Theme.of(context).textTheme.bodyLarge,
-              ),
+              ],
+              const SizedBox(height: 14),
+              AnswerHtml(turn.answerHtml ?? ''),
               if (turn.suggestedFollowUps.isNotEmpty &&
                   onSuggestedQuestion != null) ...[
                 const SizedBox(height: 18),

@@ -11,6 +11,7 @@ import 'auth/google_signin_button_stub.dart'
 import 'auth/user_session.dart';
 import 'backend/backend_client.dart';
 import 'ai_search/ai_search.dart';
+import 'ai_search/ai_question_card.dart';
 import 'ai_search/ai_search_page.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
@@ -24,7 +25,6 @@ import 'theme/app_style.dart';
 // De homepage en de dossierschermen delen dezelfde vormgeving; de waarden
 // staan in theme/app_style.dart.
 const _homeBackground = appBackground;
-const _aiCardBackground = appAccentBackground;
 const _homeGreen = appGreen;
 const _collectionBorder = appCardBorder;
 const _cardRadius = appCardRadius;
@@ -349,69 +349,10 @@ class _AiHomeCardState extends State<_AiHomeCard> {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-    key: const Key('ai-question-card'),
-    margin: EdgeInsets.zero,
-    elevation: 0,
-    color: _aiCardBackground,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(_cardRadius),
-    ),
-    child: Padding(
-      padding: EdgeInsets.all(widget.isNarrow ? 20 : 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Wat wilt u weten?',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: _homeGreen,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De digitale onderzoeker zoekt de bronnen erbij; dit kan enkele minuten duren.',
-            style: TextStyle(color: _homeGreen),
-          ),
-          const SizedBox(height: 18),
-          _questionField(),
-          const SizedBox(height: 12),
-          FilledButton(
-            key: const Key('ai-question-button'),
-            onPressed: _open,
-            child: const Text('Vraag stellen'),
-          ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => _openHistory(),
-              child: const Text(
-                'Eerdere vragen',
-                style: TextStyle(decoration: TextDecoration.underline),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _questionField() => TextField(
-    key: const Key('ai-question-field'),
+  Widget build(BuildContext context) => AiQuestionCard(
     controller: _controller,
-    keyboardType: TextInputType.multiline,
-    textInputAction: TextInputAction.newline,
-    minLines: 5,
-    maxLines: 10,
-    decoration: const InputDecoration(
-      labelText: 'Uw vraag',
-      floatingLabelBehavior: FloatingLabelBehavior.always,
-      alignLabelWithHint: true,
-      hintText:
-          'Bijvoorbeeld: Onderzoek de geschiedenis van de familie Jansen in Heemskerk. Welke relaties vind je met andere families, de Kerklaan en lokale verenigingen? Beschrijf hoe die verbanden door de tijd veranderden en vermeld bij je bevindingen de bronnen.',
-    ),
+    onSubmit: _open,
+    onHistory: () => _openHistory(),
   );
 }
 
