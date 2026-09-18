@@ -132,8 +132,8 @@ overschreden timeout), dan verschijnt de snackbar **PDF-export mislukt. Probeer
 het opnieuw.** met de actie **Opnieuw**, die dezelfde export opnieuw probeert.
 Het getoonde antwoord blijft ongewijzigd zichtbaar, er vindt geen navigatie
 plaats en er wordt geen leeg of onvolledig bestand aangeboden. De export vraagt
-geen account: hij loopt via dezelfde anonieme bezoekerscookie als de rest van
-het AI-zoeken. De export hoort bij het publieke AI-antwoordscherm; het tabblad
+geen verplichte login: hij gebruikt hetzelfde account of dezelfde anonieme
+bezoekerscookie als de rest van het AI-zoeken. De export hoort bij het publieke AI-antwoordscherm; het tabblad
 *Vragen* in een dossier toont deze actie niet en blijft ongewijzigd.
 
 ## PDF-export van een dossierartikel

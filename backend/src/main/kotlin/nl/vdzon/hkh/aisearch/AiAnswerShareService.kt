@@ -27,14 +27,14 @@ class AiAnswerShareService(
     private val jdbc: JdbcTemplate,
     private val mapper: ObjectMapper,
 ) {
-    fun state(visitorId: String, answerId: UUID): AiAnswerShareState {
-        requireOwner(visitorId, answerId)
+    fun state(identity: AiSearchIdentity, answerId: UUID): AiAnswerShareState {
+        requireOwner(identity, answerId)
         return AiAnswerShareState(token(answerId))
     }
 
     @Transactional
-    fun create(visitorId: String, answerId: UUID): AiAnswerShareState {
-        val answer = requireOwner(visitorId, answerId)
+    fun create(identity: AiSearchIdentity, answerId: UUID): AiAnswerShareState {
+        val answer = requireOwner(identity, answerId)
         if (answer.status != AiTurnStatus.SUCCEEDED || answer.answerHtml.isNullOrBlank()) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Alleen een afgerond antwoord kan worden gedeeld.")
         }
@@ -44,18 +44,18 @@ class AiAnswerShareService(
             INSERT INTO ai_answer_share (answer_id, token, question, title, answer_html, sources, answered_at)
             SELECT turn_item.id, ?::uuid, ?, ?, ?, ?::jsonb, turn_item.completed_at
             FROM ai_search_turn turn_item JOIN ai_search_session session ON session.id = turn_item.session_id
-            WHERE turn_item.id = ?::uuid AND session.visitor_id = ?::uuid AND session.dossier_id IS NULL
+            WHERE turn_item.id = ?::uuid AND ${identity.predicate("session")}
             ON CONFLICT (answer_id) DO NOTHING
             """.trimIndent(),
             UUID.randomUUID(), CollectionLinks.rewrite(answer.question),
             answer.title?.let(CollectionLinks::rewrite), CollectionLinks.rewrite(answer.answerHtml),
-            mapper.writeValueAsString(answer.sources), answerId, visitorId,
+            mapper.writeValueAsString(answer.sources), answerId, identity.id,
         )
         return AiAnswerShareState(token(answerId) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND))
     }
 
-    fun revoke(visitorId: String, answerId: UUID) {
-        requireOwner(visitorId, answerId)
+    fun revoke(identity: AiSearchIdentity, answerId: UUID) {
+        requireOwner(identity, answerId)
         jdbc.update("DELETE FROM ai_answer_share WHERE answer_id = ?", answerId)
     }
 
@@ -87,9 +87,9 @@ class AiAnswerShareService(
         "SELECT token::text FROM ai_answer_share WHERE answer_id = ?", String::class.java, answerId,
     ).singleOrNull()
 
-    private fun requireOwner(visitorId: String, answerId: UUID): AiSearchTurn {
+    private fun requireOwner(identity: AiSearchIdentity, answerId: UUID): AiSearchTurn {
         val answer = repository.findTurn(answerId.toString())
-        if (answer == null || !repository.sessionExists(answer.sessionId, visitorId)) {
+        if (answer == null || !repository.sessionExists(answer.sessionId, identity)) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
         return answer

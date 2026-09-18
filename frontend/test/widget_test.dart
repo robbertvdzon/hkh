@@ -17,6 +17,14 @@ class _SignedInSession extends UserSessionController {
     token: 'sess-1',
   );
   int signOutCalls = 0;
+  void loginAs(String email) {
+    _identity = UserIdentity(
+      email: email,
+      isAdmin: false,
+      token: 'session-$email',
+    );
+    notifyListeners();
+  }
 
   @override
   bool get configured => true;
@@ -185,6 +193,31 @@ void _setViewport(
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 }
 
+class _AccountAiSource extends _AiSource implements AiSearchAccountSource {
+  _AccountAiSource(this.session);
+  final UserSessionController session;
+  final syncedAccounts = <String?>[];
+  final loadedAccounts = <String?>[];
+
+  @override
+  Future<void> syncAiSearchAccount() async =>
+      syncedAccounts.add(session.identity?.email);
+
+  @override
+  Future<List<AiSearchSummary>> listAiSearches() async {
+    loadedAccounts.add(session.identity?.email);
+    return super.listAiSearches();
+  }
+
+  @override
+  Future<AiSearchSession> loadAiSearch(String sessionId) async {
+    if (session.identity?.email != 'jan@example.com') {
+      throw StateError('Zoekopdracht niet gevonden');
+    }
+    return super.loadAiSearch(sessionId);
+  }
+}
+
 Future<void> _pumpHome(
   WidgetTester tester, {
   required Size size,
@@ -207,6 +240,67 @@ Future<void> _pumpHome(
 }
 
 void main() {
+  testWidgets(
+    'login links browser history from home and reloads history on account changes',
+    (tester) async {
+      final session = _SignedInSession();
+      await session.signOut();
+      final source = _AccountAiSource(session);
+      await _pumpHome(
+        tester,
+        size: const Size(1000, 1100),
+        aiSource: source,
+        session: session,
+      );
+      expect(source.syncedAccounts, isEmpty);
+      session.loginAs('jan@example.com');
+      await tester.pumpAndSettle();
+      expect(source.syncedAccounts, ['jan@example.com']);
+      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+      router.go('/vragen');
+      await tester.pumpAndSettle();
+      expect(source.loadedAccounts.last, 'jan@example.com');
+      expect(
+        find.textContaining('Je vragen worden bewaard in je account.'),
+        findsOneWidget,
+      );
+      session.loginAs('ander@example.com');
+      await tester.pumpAndSettle();
+      expect(source.loadedAccounts.last, 'ander@example.com');
+      expect(source.syncedAccounts, ['jan@example.com', 'ander@example.com']);
+      await session.signOut();
+      await tester.pumpAndSettle();
+      expect(source.loadedAccounts.last, isNull);
+      expect(
+        find.textContaining('Je vragen worden voor deze browser bewaard.'),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('logout removes an already open private answer', (tester) async {
+    final session = _SignedInSession();
+    final source = _AccountAiSource(session);
+    await source.startAiSearch('Privévraag van Jan');
+    await _pumpHome(
+      tester,
+      size: const Size(1000, 1100),
+      aiSource: source,
+      session: session,
+    );
+    expect(source.syncedAccounts, ['jan@example.com']);
+    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+    router.go('/vragen?id=session-1');
+    await tester.pumpAndSettle();
+    expect(find.text('Privévraag van Jan'), findsOneWidget);
+    await session.signOut();
+    await tester.pumpAndSettle();
+    expect(find.text('Privévraag van Jan'), findsNothing);
+    expect(find.textContaining('Gevonden antwoord.'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('wide homepage has the new hierarchy, styling and spacing', (
     tester,
   ) async {

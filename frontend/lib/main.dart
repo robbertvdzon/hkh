@@ -38,7 +38,7 @@ void main() {
   final backend = BackendClient(
     AppConfig.apiBaseUrl,
     tokenProvider: () => session.token,
-    // Een 401 op een dossierroute betekent een verlopen of ingetrokken sessie.
+    // Een 401 op een privéroute betekent een verlopen of ingetrokken sessie.
     onUnauthorized: () => unawaited(session.signOut()),
   );
   // Niet blokkerend: de app start anoniem en toont de sessie zodra die hersteld is.
@@ -93,8 +93,38 @@ class _HkhAppState extends State<HkhApp> {
         widget.googleButtonBuilder ?? google_button.renderGoogleButton,
   );
 
+  String? _syncedToken;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session?.addListener(_onAccountChanged);
+    _onAccountChanged();
+  }
+
+  void _onAccountChanged() {
+    final token = widget.session?.token;
+    if (token == _syncedToken) return;
+    _syncedToken = token;
+    final source = widget.aiSearchSource;
+    if (token != null && source is AiSearchAccountSource) {
+      // Ook vanaf de homepage meteen koppelen. Elke ingelogde AI-aanvraag
+      // herhaalt dit idempotent als de verbinding hier tijdelijk wegvalt.
+      unawaited(
+        (source as AiSearchAccountSource).syncAiSearchAccount().catchError((
+          Object error,
+        ) {
+          debugPrint(
+            'Vragen koppelen wordt bij de volgende aanvraag herhaald.',
+          );
+        }),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    widget.session?.removeListener(_onAccountChanged);
     _router.dispose();
     super.dispose();
   }

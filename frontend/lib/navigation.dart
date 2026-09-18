@@ -104,6 +104,30 @@ GoRouter createAppRouter({
     );
   }
 
+  Widget questionsPage(GoRouterState state) {
+    Widget page() => AiSearchPage(
+      // Wis geladen privé-antwoorden en de polling zodra de gebruiker wisselt.
+      key: ValueKey('questions:${session?.identity?.email ?? "anonymous"}'),
+      source: aiSearchSource!,
+      pdfSource: pdfSource,
+      initialQuestion: state.extra is String ? state.extra as String : null,
+      initialSessionId: state.uri.queryParameters['id'],
+      emptyMessage: session?.signedIn ?? false
+          ? 'Je hebt nog geen AI-zoekopdrachten in je account.'
+          : 'Je hebt in deze browser nog geen AI-zoekopdrachten.',
+      historyDescription: session?.signedIn ?? false
+          ? 'Je vragen worden bewaard in je account. Log op een andere pc in met hetzelfde Google-account om ze daar te bekijken.'
+          : 'Je vragen worden voor deze browser bewaard. Log in met Google om ze aan je account te koppelen en op andere pc’s te bekijken.',
+      onAdopt: dossierSource != null && (session?.signedIn ?? false)
+          ? (context, id) =>
+                showAdoptToDossierDialog(context, dossierSource, id)
+          : null,
+    );
+    return session == null
+        ? page()
+        : ListenableBuilder(listenable: session, builder: (_, __) => page());
+  }
+
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
@@ -168,18 +192,7 @@ GoRouter createAppRouter({
           if (aiSearchSource != null)
             instantRoute(
               path: 'vragen',
-              builder: (_, state) => AiSearchPage(
-                source: aiSearchSource,
-                pdfSource: pdfSource,
-                initialQuestion: state.extra is String
-                    ? state.extra as String
-                    : null,
-                initialSessionId: state.uri.queryParameters['id'],
-                onAdopt: dossierSource != null && (session?.signedIn ?? false)
-                    ? (context, id) =>
-                          showAdoptToDossierDialog(context, dossierSource, id)
-                    : null,
-              ),
+              builder: (_, state) => questionsPage(state),
             ),
           if (dossierSource != null) ...[
             instantRoute(

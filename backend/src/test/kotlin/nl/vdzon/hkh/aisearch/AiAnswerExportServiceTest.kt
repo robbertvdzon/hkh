@@ -23,7 +23,7 @@ import org.mockito.Mockito.`when`
  */
 class AiAnswerExportServiceTest {
     private val repository = mock(AiSearchRepository::class.java)
-    private val visitor = UUID.randomUUID().toString()
+    private val visitor = AiSearchIdentity(visitorId = UUID.randomUUID().toString())
     private val sessionId = UUID.randomUUID().toString()
     private val answerId = UUID.randomUUID().toString()
 

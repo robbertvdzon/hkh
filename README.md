@@ -82,14 +82,20 @@ slaat de vraag, voortgang, antwoorden, bronnen, vervolgvragen en looptijden op i
 HttpOnly-cookie met een anonieme bezoeker-ID koppelt een browser maximaal één jaar aan zijn eigen
 zoekopdrachten; de cookie bevat geen antwoorden of persoonsgegevens. Daardoor zijn lopende en
 afgeronde opdrachten ook in een andere tab terug te vinden. Wie browsercookies wist, verliest de
-koppeling met de opgeslagen opdrachten.
+koppeling met de opgeslagen anonieme opdrachten.
+
+Na inloggen horen persoonlijke vragen bij het HKH-account achter de Google-login. De app koppelt
+bestaande browservragen automatisch via `POST /api/ai-search/sessions/claim`; ingelogde AI-aanvragen
+herhalen dit idempotent. Dezelfde gebruiker ziet op elke pc dezelfde vragen. Gekoppelde sessies
+verliezen hun bezoekers-ID en zijn na uitloggen niet meer via die cookie toegankelijk. Dossiervragen
+blijven onder de dossierautorisatie vallen; openbare deellinks blijven geldig.
 
 De publieke API ondersteunt het overzicht en beheer via `GET /api/ai-search/sessions`,
 `GET /api/ai-search/sessions/{id}` en `DELETE /api/ai-search/sessions/{id}`. De backend controleert
-bij iedere detail-, vervolg-, annuleer- en verwijderactie of de opdracht bij de cookie hoort.
+bij iedere detail-, vervolg-, annuleer- en verwijderactie of de opdracht bij het account of, zonder login, bij de cookie hoort. Ongeldige sessietokens geven 401.
 
 Een geladen antwoord is als PDF mee te nemen via `GET /api/ai-search/{answerId}/export/pdf`. Die
-route gebruikt dezelfde bezoekerscookie, vraagt dus geen account, en levert bij succes status 200
+route gebruikt hetzelfde account of dezelfde bezoekerscookie, vraagt dus geen verplichte login, en levert bij succes status 200
 met `Content-Type: application/pdf` en `Content-Disposition: attachment`
 (`antwoord-<id>.pdf`). De PDF bevat de titel, de al gesaniteerde antwoord-HTML van het scherm en de
 bronnenlijst als tekst; er worden geen externe bronnen opgehaald. Onbekende antwoorden of antwoorden

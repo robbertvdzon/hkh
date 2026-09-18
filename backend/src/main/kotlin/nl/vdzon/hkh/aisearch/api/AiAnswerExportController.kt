@@ -17,13 +17,10 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-/**
- * Downloadt één AI-antwoord als PDF. Zonder account bereikbaar via dezelfde anonieme
- * bezoekerscookie als de overige AI-zoekroutes; er komt geen autorisatielaag bij.
- */
+/** Downloadt één antwoord met dezelfde account- of browsertoegang als de persoonlijke vragen. */
 @RestController
 @RequestMapping("/api/ai-search")
-class AiAnswerExportController(private val exportService: AiAnswerExportService) {
+class AiAnswerExportController(private val exportService: AiAnswerExportService, private val identities: AiSearchIdentityResolver) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @GetMapping("/{answerId}/export/pdf")
@@ -33,7 +30,7 @@ class AiAnswerExportController(private val exportService: AiAnswerExportService)
         response: HttpServletResponse,
         @PathVariable answerId: String,
     ): ResponseEntity<ByteArray> {
-        val visitorId = anonymousVisitorId(visitorCookie, request, response)
+        val visitorId = identities.resolve(visitorCookie, request, response)
         val pdf = try {
             exportService.exportAnswer(visitorId, answerId)
         } catch (error: AiAnswerExportFailedException) {

@@ -1,5 +1,6 @@
 package nl.vdzon.hkh.dossier
 
+import nl.vdzon.hkh.aisearch.AiSearchIdentity
 import nl.vdzon.hkh.aisearch.AiSearchOwner
 import nl.vdzon.hkh.aisearch.AiSearchService
 import nl.vdzon.hkh.aisearch.AiSearchSessionView
@@ -181,8 +182,9 @@ class DossierService(
 
     fun adoptQuestion(dossierId: String, user: AuthenticatedUser, visitorId: String?, sessionId: String): AiSearchSessionView {
         val (dossier, _) = requireRole(dossierId, user, DossierRole::canResearch, "Alleen onderzoekers en bewerkers mogen vragen toevoegen")
-        if (visitorId == null) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
-        val view = aiSearch.adoptIntoDossier(visitorId, sessionId, owner(dossier, user))
+        val identity = AiSearchIdentity(userId = user.id, userEmail = user.email)
+        aiSearch.claimAnonymousSessions(visitorId, identity)
+        val view = aiSearch.adoptIntoDossier(identity, sessionId, owner(dossier, user))
         repository.touch(dossierId)
         jobs.scheduleFactSheetRefresh(dossierId, newTurnId = null)
         return view

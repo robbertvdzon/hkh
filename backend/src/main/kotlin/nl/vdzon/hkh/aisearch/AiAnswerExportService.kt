@@ -36,8 +36,8 @@ class AiAnswerExportService(
     fun close() = executor.shutdownNow()
 
     /** Geeft null als het antwoord niet bestaat of niet bij deze bezoeker hoort. */
-    fun exportAnswer(visitorId: String, answerId: String): AiAnswerPdf? {
-        val turn = findOwnedAnswer(visitorId, answerId) ?: return null
+    fun exportAnswer(identity: AiSearchIdentity, answerId: String): AiAnswerPdf? {
+        val turn = findOwnedAnswer(identity, answerId) ?: return null
         val title = CollectionLinks.rewrite(turn.title?.takeIf(String::isNotBlank) ?: turn.question)
         val bodyHtml = CollectionLinks.rewrite(turn.answerHtml.orEmpty())
         val sources = turn.sources.map { ref ->
@@ -56,11 +56,11 @@ class AiAnswerExportService(
         }
     }
 
-    private fun findOwnedAnswer(visitorId: String, answerId: String): AiSearchTurn? {
+    private fun findOwnedAnswer(identity: AiSearchIdentity, answerId: String): AiSearchTurn? {
         if (runCatching { UUID.fromString(answerId) }.isFailure) return null
         val turn = repository.findTurn(answerId) ?: return null
         if (turn.status != AiTurnStatus.SUCCEEDED || turn.answerHtml.isNullOrBlank()) return null
-        if (!repository.sessionExists(turn.sessionId, visitorId)) return null
+        if (!repository.sessionExists(turn.sessionId, identity)) return null
         return turn
     }
 

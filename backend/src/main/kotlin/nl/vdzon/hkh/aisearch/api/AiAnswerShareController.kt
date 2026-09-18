@@ -18,14 +18,14 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class AiAnswerShareController(private val service: AiAnswerShareService) {
+class AiAnswerShareController(private val service: AiAnswerShareService, private val identities: AiSearchIdentityResolver) {
     @GetMapping("/api/ai-search/answers/{answerId}/share")
     fun state(
         @CookieValue(name = VISITOR_COOKIE, required = false) cookie: String?,
         request: HttpServletRequest, response: HttpServletResponse,
         @PathVariable answerId: UUID,
     ): ResponseEntity<AiAnswerShareState> = privateResponse(
-        service.state(anonymousVisitorId(cookie, request, response), answerId),
+        service.state(identities.resolve(cookie, request, response), answerId),
     )
 
     @PostMapping("/api/ai-search/answers/{answerId}/share")
@@ -34,7 +34,7 @@ class AiAnswerShareController(private val service: AiAnswerShareService) {
         request: HttpServletRequest, response: HttpServletResponse,
         @PathVariable answerId: UUID,
     ): ResponseEntity<AiAnswerShareState> = privateResponse(
-        service.create(anonymousVisitorId(cookie, request, response), answerId),
+        service.create(identities.resolve(cookie, request, response), answerId),
     )
 
     @DeleteMapping("/api/ai-search/answers/{answerId}/share")
@@ -43,7 +43,7 @@ class AiAnswerShareController(private val service: AiAnswerShareService) {
         @CookieValue(name = VISITOR_COOKIE, required = false) cookie: String?,
         request: HttpServletRequest, response: HttpServletResponse,
         @PathVariable answerId: UUID,
-    ) = service.revoke(anonymousVisitorId(cookie, request, response), answerId)
+    ) = service.revoke(identities.resolve(cookie, request, response), answerId)
 
     // De ontvanger heeft geen cookie, account of toegang tot de oorspronkelijke sessie nodig.
     @GetMapping("/api/shared-answers/{token}")

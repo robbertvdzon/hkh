@@ -6,6 +6,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import nl.vdzon.hkh.aisearch.AiAnswerExportFailedException
 import nl.vdzon.hkh.aisearch.AiAnswerExportService
+import nl.vdzon.hkh.aisearch.AiSearchIdentity
+import nl.vdzon.hkh.aisearch.AiSearchRepository
+import nl.vdzon.hkh.auth.SessionService
 import nl.vdzon.hkh.aisearch.AiAnswerPdf
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -18,7 +21,7 @@ import org.springframework.mock.web.MockHttpServletResponse
 
 class AiAnswerExportControllerTest {
     private val service = mock(AiAnswerExportService::class.java)
-    private val controller = AiAnswerExportController(service)
+    private val controller = AiAnswerExportController(service, AiSearchIdentityResolver(mock(SessionService::class.java), mock(AiSearchRepository::class.java)))
     private val request = MockHttpServletRequest().apply { serverName = "hkh.vdzonsoftware.nl" }
     private val response = MockHttpServletResponse()
     private val visitor = UUID.randomUUID().toString()
@@ -27,7 +30,7 @@ class AiAnswerExportControllerTest {
     @Test
     fun `a rendered answer is returned as a pdf attachment`() {
         val bytes = "%PDF-1.4 inhoud".toByteArray()
-        `when`(service.exportAnswer(visitor, answerId)).thenReturn(AiAnswerPdf("antwoord-$answerId.pdf", bytes))
+        `when`(service.exportAnswer(AiSearchIdentity(visitorId = visitor), answerId)).thenReturn(AiAnswerPdf("antwoord-$answerId.pdf", bytes))
 
         val result = controller.exportPdf(visitor, request, response, answerId)
 
@@ -45,7 +48,7 @@ class AiAnswerExportControllerTest {
 
     @Test
     fun `an unknown answer gives a not found without a body`() {
-        `when`(service.exportAnswer(visitor, answerId)).thenReturn(null)
+        `when`(service.exportAnswer(AiSearchIdentity(visitorId = visitor), answerId)).thenReturn(null)
 
         val result = controller.exportPdf(visitor, request, response, answerId)
 
@@ -55,7 +58,7 @@ class AiAnswerExportControllerTest {
 
     @Test
     fun `a render failure gives an error status without a body`() {
-        `when`(service.exportAnswer(visitor, answerId)).thenThrow(AiAnswerExportFailedException("mislukt"))
+        `when`(service.exportAnswer(AiSearchIdentity(visitorId = visitor), answerId)).thenThrow(AiAnswerExportFailedException("mislukt"))
 
         val result = controller.exportPdf(visitor, request, response, answerId)
 

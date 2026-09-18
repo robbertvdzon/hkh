@@ -63,7 +63,10 @@ POST /api/auth/logout-all  Bearer token -> 204
 - Google Cloud: de origin van de publieke app (productie en `http://localhost:*`) toevoegen als
   toegestane JavaScript-origin op de bestaande OAuth-client.
 - De AI-bezoekerscookie blijft de sleutel voor anonieme zoekopdrachten. Een ingelogde gebruiker
-  ziet zijn cookie-zoekopdrachten nog steeds en kan er één "in een dossier zetten".
+  krijgt bestaande browservragen automatisch aan zijn account gekoppeld. Nieuwe persoonlijke
+  vragen horen direct bij het account en zijn vanaf andere pc’s beschikbaar. Na koppelen wordt
+  `visitor_id` gewist; de oude cookie geeft geen toegang tot accountvragen. Een dossierkoppeling
+  bewaart een kopie en laat het persoonlijke origineel bestaan.
 
 ## 2. Dossiers
 
@@ -138,7 +141,7 @@ POST   /api/dossiers/{id}/questions/adopt  { sessionId }  koppelt een cookie-zoe
 ```
 
 De bestaande `/api/ai-search/sessions/{id}`-routes blijven de detail-, vervolg-, annuleer- en
-verwijderroutes; de autorisatie wordt: bezoekerscookie voor losse sessies, dossierrol voor
+verwijderroutes; de autorisatie wordt: account of bezoekerscookie voor losse sessies, dossierrol voor
 sessies met `dossier_id`.
 
 ## 3. Artikelen en versies

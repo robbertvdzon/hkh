@@ -13,6 +13,7 @@ class BackendClient
     implements
         CollectionSearchSource,
         AiSearchSource,
+        AiSearchAccountSource,
         AiAnswerPdfSource,
         AiAnswerShareSource,
         DossierSource {
@@ -30,7 +31,7 @@ class BackendClient
   /// gaat het als `Authorization: Bearer` mee met elk verzoek (ook AI-zoeken en collectie).
   final String? Function()? tokenProvider;
 
-  /// Wordt aangeroepen als een dossierroute 401 geeft: de sessie is verlopen of ingetrokken.
+  /// Wordt aangeroepen als een privéroute 401 geeft: de sessie is verlopen of ingetrokken.
   final void Function()? onUnauthorized;
 
   static const _dossierTimeout = Duration(seconds: 20);
@@ -152,6 +153,17 @@ class BackendClient
   }
 
   @override
+  Future<void> syncAiSearchAccount() async {
+    final response = await _client
+        .post(
+          Uri.parse('$apiBaseUrl/api/ai-search/sessions/claim'),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 204) _decodeAiResponse(response);
+  }
+
+  @override
   Future<List<AiSearchSummary>> listAiSearches() async {
     final response = await _client
         .get(
@@ -221,6 +233,7 @@ class BackendClient
           headers: _headers(),
         )
         .timeout(_pdfExportTimeout);
+    if (response.statusCode == 401) _decodeAiResponse(response);
     final contentType = response.headers['content-type'] ?? '';
     if (response.statusCode != 200 ||
         !contentType.startsWith('application/pdf') ||
@@ -300,6 +313,16 @@ class BackendClient
   }
 
   Object? _decodeAiResponse(http.Response response) {
+    if (response.statusCode == 401) {
+      final sentToken =
+          response.request?.headers['Authorization'] ??
+          response.request?.headers['authorization'];
+      // Een vertraagd antwoord van een oude sessie mag een nieuwe login niet afmelden.
+      if (sentToken == null || sentToken == 'Bearer ${tokenProvider?.call()}') {
+        onUnauthorized?.call();
+      }
+      throw StateError('Je sessie is verlopen. Log opnieuw in.');
+    }
     Object? decoded;
     if (response.body.isNotEmpty) {
       try {
@@ -649,6 +672,7 @@ class BackendClient
         )
         .timeout(_pdfExportTimeout);
     if (response.statusCode == 401) onUnauthorized?.call();
+    if (response.statusCode == 401) _decodeAiResponse(response);
     final contentType = response.headers['content-type'] ?? '';
     if (response.statusCode != 200 ||
         !contentType.startsWith('application/pdf') ||
@@ -703,11 +727,6 @@ class BackendClient
         .toList(growable: false);
   }
 
-  Object? _decodeDossierResponse(http.Response response) {
-    if (response.statusCode == 401) {
-      onUnauthorized?.call();
-      throw StateError('Je sessie is verlopen. Log opnieuw in.');
-    }
-    return _decodeAiResponse(response);
-  }
+  Object? _decodeDossierResponse(http.Response response) =>
+      _decodeAiResponse(response);
 }

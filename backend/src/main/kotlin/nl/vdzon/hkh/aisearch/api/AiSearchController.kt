@@ -23,13 +23,26 @@ data class AskAiRequest(@field:NotBlank @field:Size(min = 3, max = 1000) val que
 
 @RestController
 @RequestMapping("/api/ai-search/sessions")
-class AiSearchController(private val service: AiSearchService) {
+class AiSearchController(private val service: AiSearchService, private val identities: AiSearchIdentityResolver) {
+    @PostMapping("/claim")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun claim(
+        @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+    ) {
+        if (request.getHeader("Authorization") == null) {
+            throw org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED)
+        }
+        identities.resolve(visitorCookie, request, response)
+    }
+
     @GetMapping
     fun list(
         @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
-    ): List<AiSearchSummaryView> = service.list(anonymousVisitorId(visitorCookie, request, response))
+    ): List<AiSearchSummaryView> = service.list(identities.resolve(visitorCookie, request, response))
 
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -38,7 +51,7 @@ class AiSearchController(private val service: AiSearchService) {
         servletRequest: HttpServletRequest,
         response: HttpServletResponse,
         @Valid @RequestBody request: AskAiRequest,
-    ): AiSearchSessionView = service.start(anonymousVisitorId(visitorCookie, servletRequest, response), request.question)
+    ): AiSearchSessionView = service.start(identities.resolve(visitorCookie, servletRequest, response), request.question)
 
     @GetMapping("/{sessionId}")
     fun get(
@@ -46,7 +59,7 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ): AiSearchSessionView = service.get(anonymousVisitorId(visitorCookie, request, response), sessionId)
+    ): AiSearchSessionView = service.get(identities.resolve(visitorCookie, request, response), sessionId)
 
     @PostMapping("/{sessionId}/questions")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -57,7 +70,7 @@ class AiSearchController(private val service: AiSearchService) {
         @PathVariable sessionId: String,
         @Valid @RequestBody request: AskAiRequest,
     ): AiSearchSessionView = service.followUp(
-        anonymousVisitorId(visitorCookie, servletRequest, response),
+        identities.resolve(visitorCookie, servletRequest, response),
         sessionId,
         request.question,
     )
@@ -68,7 +81,7 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ): AiSearchSessionView = service.cancel(anonymousVisitorId(visitorCookie, request, response), sessionId)
+    ): AiSearchSessionView = service.cancel(identities.resolve(visitorCookie, request, response), sessionId)
 
     @DeleteMapping("/{sessionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -77,5 +90,5 @@ class AiSearchController(private val service: AiSearchService) {
         request: HttpServletRequest,
         response: HttpServletResponse,
         @PathVariable sessionId: String,
-    ) = service.delete(anonymousVisitorId(visitorCookie, request, response), sessionId)
+    ) = service.delete(identities.resolve(visitorCookie, request, response), sessionId)
 }

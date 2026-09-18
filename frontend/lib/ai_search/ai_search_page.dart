@@ -25,6 +25,7 @@ class AiSearchPage extends StatefulWidget {
     this.overviewTitle = 'Mijn zoekopdrachten',
     this.emptyMessage = 'Je hebt in deze browser nog geen AI-zoekopdrachten.',
     this.introduction,
+    this.historyDescription,
     this.embedded = false,
     this.canAsk = true,
     this.readOnlyMessage =
@@ -47,6 +48,7 @@ class AiSearchPage extends StatefulWidget {
 
   /// Tekst als er nog geen zoekopdrachten zijn.
   final String emptyMessage;
+  final String? historyDescription;
 
   /// Vervangt de standaardintroductie boven het overzicht.
   final Widget? introduction;
@@ -406,6 +408,13 @@ class _AiSearchPageState extends State<AiSearchPage> {
                         ],
                       ),
                       const SizedBox(height: 10),
+                      if (widget.historyDescription != null) ...[
+                        Text(
+                          widget.historyDescription!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (!_loadingSearches && (_searches?.isEmpty ?? true))
                         Card(
                           child: Padding(

@@ -156,4 +156,10 @@ abstract interface class AiAnswerPdfSource {
 
 /// Biedt de geëxporteerde PDF aan de gebruiker aan: downloaden op web,
 /// delen/opslaan op Android. Zie `answer_pdf_saver.dart`.
-typedef AnswerPdfSaver = Future<void> Function(String fileName, Uint8List bytes);
+typedef AnswerPdfSaver =
+    Future<void> Function(String fileName, Uint8List bytes);
+
+/// Koppelt de anonieme vragen uit deze browser aan de ingelogde gebruiker.
+abstract interface class AiSearchAccountSource {
+  Future<void> syncAiSearchAccount();
+}

@@ -25,11 +25,23 @@ class AiSearchRepository(
         return id
     }
 
-    fun sessionExists(id: String, visitorId: String): Boolean = jdbc.queryForObject(
-        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL)",
+    /** Atomair en idempotent: een al gekoppelde vraag kan nooit naar een ander account verhuizen. */
+    fun claimAnonymousSessions(visitorId: String, identity: AiSearchIdentity): Int {
+        require(identity.userId != null)
+        return jdbc.update(
+            """
+            UPDATE ai_search_session SET user_id = ?::uuid, created_by_email = ?, visitor_id = NULL
+            WHERE visitor_id = ?::uuid AND user_id IS NULL AND dossier_id IS NULL
+            """.trimIndent(),
+            identity.userId, identity.userEmail, visitorId,
+        )
+    }
+
+    fun sessionExists(id: String, identity: AiSearchIdentity): Boolean = jdbc.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM ai_search_session WHERE id = ?::uuid AND ${identity.predicate()})",
         Boolean::class.java,
         id,
-        visitorId,
+        identity.id,
     ) == true
 
     fun sessionInDossier(id: String, dossierId: String): Boolean = jdbc.queryForObject(
@@ -45,17 +57,17 @@ class AiSearchRepository(
         id,
     ).singleOrNull()
 
-    fun sessionIds(visitorId: String): List<String> = jdbc.queryForList(
+    fun sessionIds(identity: AiSearchIdentity): List<String> = jdbc.queryForList(
         """
         SELECT session.id::text
         FROM ai_search_session session
         LEFT JOIN ai_search_turn turn_item ON turn_item.session_id = session.id
-        WHERE session.visitor_id = ?::uuid AND session.dossier_id IS NULL
+        WHERE ${identity.predicate("session")}
         GROUP BY session.id, session.created_at
         ORDER BY COALESCE(MAX(turn_item.updated_at), session.created_at) DESC
         """.trimIndent(),
         String::class.java,
-        visitorId,
+        identity.id,
     )
 
     fun sessionIdsForDossier(dossierId: String): List<String> = jdbc.queryForList(
@@ -73,19 +85,19 @@ class AiSearchRepository(
 
     /** Bewaart een dossierkopie; het origineel en zijn deellinks blijven behouden. */
     @Transactional
-    fun adoptSession(id: String, visitorId: String, owner: AiSearchOwner): String? {
+    fun adoptSession(id: String, identity: AiSearchIdentity, owner: AiSearchOwner): String? {
         val copyId = UUID.randomUUID().toString()
         val inserted = jdbc.update(
             """
             INSERT INTO ai_search_session (id, dossier_id, user_id, created_by_email, source_session_id)
             SELECT ?::uuid, ?::uuid, ?::uuid, ?, id FROM ai_search_session
-            WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL
+            WHERE id = ?::uuid AND ${identity.predicate()}
             ON CONFLICT (dossier_id, source_session_id) DO NOTHING
             """.trimIndent(),
-            copyId, owner.dossierId, owner.userId, owner.userEmail, id, visitorId,
+            copyId, owner.dossierId, owner.userId, owner.userEmail, id, identity.id,
         )
         if (inserted == 0) {
-            if (!sessionExists(id, visitorId)) return null
+            if (!sessionExists(id, identity)) return null
             return jdbc.queryForList(
                 "SELECT id::text FROM ai_search_session WHERE dossier_id = ?::uuid AND source_session_id = ?::uuid",
                 String::class.java, owner.dossierId, id,
@@ -109,10 +121,10 @@ class AiSearchRepository(
         return copyId
     }
 
-    fun deleteSession(id: String, visitorId: String): Boolean = jdbc.update(
-        "DELETE FROM ai_search_session WHERE id = ?::uuid AND visitor_id = ?::uuid AND dossier_id IS NULL",
+    fun deleteSession(id: String, identity: AiSearchIdentity): Boolean = jdbc.update(
+        "DELETE FROM ai_search_session WHERE id = ?::uuid AND ${identity.predicate()}",
         id,
-        visitorId,
+        identity.id,
     ) > 0
 
     fun deleteSessionInDossier(id: String, dossierId: String): Boolean = jdbc.update(

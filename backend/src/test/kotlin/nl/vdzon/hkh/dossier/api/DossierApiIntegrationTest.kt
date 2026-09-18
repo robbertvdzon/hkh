@@ -216,28 +216,28 @@ class DossierApiIntegrationTest(
         kotlin.test.assertEquals("Bewoners", copy.path("turns")[0].path("title").asText())
         // Herhaald toevoegen is idempotent, en het origineel blijft zichtbaar en leesbaar.
         kotlin.test.assertEquals(copyId, adopt().path("id").asText())
-        mockMvc.get("/api/ai-search/sessions") { cookie(cookie) }.andExpect {
+        mockMvc.get("/api/ai-search/sessions") { cookie(cookie); auth(owner) }.andExpect {
             status { isOk() }; jsonPath("$[0].id") { value(sessionId.toString()) }
         }
-        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isOk() } }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie); auth(owner) }.andExpect { status { isOk() } }
         mockMvc.get("/api/shared-answers/$token").andExpect { status { isOk() } }
         mockMvc.get("/api/dossiers/$dossierId/questions") { auth(owner) }.andExpect {
             status { isOk() }; jsonPath("$", hasSize<Any>(1)); jsonPath("$[0].id") { value(copyId) }
         }
-        mockMvc.get("/api/ai-search/sessions/$copyId") { cookie(cookie) }.andExpect { status { isNotFound() } }
+        mockMvc.get("/api/ai-search/sessions/$copyId") { cookie(cookie); auth(owner) }.andExpect { status { isNotFound() } }
         kotlin.test.assertEquals(listOf("Wie woonde er?"), aiSearch.dossierAnswers(dossierId).map { it.question })
         // Dossiervervolgvragen komen niet in het origineel terecht.
         jdbc.update("INSERT INTO ai_search_turn (id, session_id, turn_number, question, status) VALUES (?, ?::uuid, 2, 'Dossiervervolg', 'SUCCEEDED')", UUID.randomUUID(), copyId)
-        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect {
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie); auth(owner) }.andExpect {
             status { isOk() }; jsonPath("$.turns", hasSize<Any>(1))
         }
         // Verwijderen uit het dossier verwijdert nooit het origineel of zijn deellink.
         mockMvc.delete("/api/dossiers/$dossierId/questions/$copyId") { auth(owner) }.andExpect { status { isNoContent() } }
-        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isOk() } }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie); auth(owner) }.andExpect { status { isOk() } }
         mockMvc.get("/api/shared-answers/$token").andExpect { status { isOk() } }
         // Omgekeerd blijft een nieuwe dossierkopie behouden als het origineel wordt verwijderd.
         val replacementId = adopt().path("id").asText()
-        mockMvc.delete("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect { status { isNoContent() } }
+        mockMvc.delete("/api/ai-search/sessions/$sessionId") { cookie(cookie); auth(owner) }.andExpect { status { isNoContent() } }
         mockMvc.get("/api/dossiers/$dossierId/questions/$replacementId") { auth(owner) }.andExpect {
             status { isOk() }; jsonPath("$.turns[0].question") { value("Wie woonde er?") }
         }

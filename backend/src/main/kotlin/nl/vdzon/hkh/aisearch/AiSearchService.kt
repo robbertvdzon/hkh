@@ -33,40 +33,40 @@ class AiSearchService(
 
     fun isAvailable(): Boolean = runtime.isConfigured()
 
-    // ---- Anonieme zoekopdrachten (bezoekerscookie) ----
+    // ---- Persoonlijke zoekopdrachten (account of bezoekerscookie) ----
 
-    fun start(visitorId: String, question: String): AiSearchSessionView {
+    fun start(identity: AiSearchIdentity, question: String): AiSearchSessionView {
         ensureAvailable()
         ensureCapacity()
         val cleaned = validateQuestion(question)
-        val sessionId = repository.createSession(AiSearchOwner(visitorId = visitorId))
+        val sessionId = repository.createSession(AiSearchOwner(visitorId = identity.visitorId, userId = identity.userId, userEmail = identity.userEmail))
         schedule(repository.createTurn(sessionId, cleaned))
-        return get(visitorId, sessionId)
+        return get(identity, sessionId)
     }
 
-    fun list(visitorId: String): List<AiSearchSummaryView> = summaries(repository.sessionIds(visitorId))
+    fun list(identity: AiSearchIdentity): List<AiSearchSummaryView> = summaries(repository.sessionIds(identity))
 
-    fun followUp(visitorId: String, sessionId: String, question: String): AiSearchSessionView {
-        requireSession(visitorId, sessionId)
+    fun followUp(identity: AiSearchIdentity, sessionId: String, question: String): AiSearchSessionView {
+        requireSession(identity, sessionId)
         addFollowUp(sessionId, question, null)
-        return get(visitorId, sessionId)
+        return get(identity, sessionId)
     }
 
-    fun get(visitorId: String, sessionId: String): AiSearchSessionView {
-        requireSession(visitorId, sessionId)
+    fun get(identity: AiSearchIdentity, sessionId: String): AiSearchSessionView {
+        requireSession(identity, sessionId)
         return sessionView(sessionId)
     }
 
-    fun cancel(visitorId: String, sessionId: String): AiSearchSessionView {
-        requireSession(visitorId, sessionId)
+    fun cancel(identity: AiSearchIdentity, sessionId: String): AiSearchSessionView {
+        requireSession(identity, sessionId)
         cancelActiveTurn(sessionId)
         return sessionView(sessionId)
     }
 
-    fun delete(visitorId: String, sessionId: String) {
-        requireSession(visitorId, sessionId)
+    fun delete(identity: AiSearchIdentity, sessionId: String) {
+        requireSession(identity, sessionId)
         cancelActiveTurn(sessionId)
-        repository.deleteSession(sessionId, visitorId)
+        repository.deleteSession(sessionId, identity)
     }
 
     // ---- Dossiervragen (autorisatie gebeurt in de dossiermodule) ----
@@ -106,14 +106,18 @@ class AiSearchService(
         repository.deleteSessionInDossier(sessionId, dossierId)
     }
 
+    fun claimAnonymousSessions(visitorId: String?, identity: AiSearchIdentity) {
+        if (visitorId != null) repository.claimAnonymousSessions(visitorId, identity)
+    }
+
     /** Bewaart de huidige zoekopdracht in een dossier zonder het origineel te verplaatsen. */
-    fun adoptIntoDossier(visitorId: String, sessionId: String, owner: AiSearchOwner): AiSearchSessionView {
+    fun adoptIntoDossier(identity: AiSearchIdentity, sessionId: String, owner: AiSearchOwner): AiSearchSessionView {
         require(owner.dossierId != null) { "A dossier owner is required" }
-        requireSession(visitorId, sessionId)
+        requireSession(identity, sessionId)
         if (repository.hasActiveTurn(sessionId)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Wacht tot de zoekopdracht is afgerond voordat je deze toevoegt.")
         }
-        val copyId = repository.adoptSession(sessionId, visitorId, owner)
+        val copyId = repository.adoptSession(sessionId, identity, owner)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
         return sessionView(copyId)
     }
@@ -301,8 +305,8 @@ class AiSearchService(
         }
     }
 
-    private fun requireSession(visitorId: String, sessionId: String) {
-        if (!repository.sessionExists(sessionId, visitorId)) {
+    private fun requireSession(identity: AiSearchIdentity, sessionId: String) {
+        if (!repository.sessionExists(sessionId, identity)) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Zoekopdracht niet gevonden")
         }
     }

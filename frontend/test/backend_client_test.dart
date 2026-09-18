@@ -7,6 +7,26 @@ import 'package:http/testing.dart';
 
 void main() {
   test(
+    'account sync sends the signed in token and does not silently fall back on 401',
+    () async {
+      var unauthorized = false;
+      final client = BackendClient(
+        'https://example.test',
+        tokenProvider: () => 'session-test',
+        onUnauthorized: () => unauthorized = true,
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/api/ai-search/sessions/claim');
+          expect(request.headers['Authorization'], 'Bearer session-test');
+          return http.Response('', 401);
+        }),
+      );
+      await expectLater(client.syncAiSearchAccount(), throwsStateError);
+      expect(unauthorized, isTrue);
+    },
+  );
+
+  test(
     'passes a quoted phrase and per-field queries to the search API',
     () async {
       final client = BackendClient(
@@ -257,7 +277,6 @@ void main() {
     expect(unauthorized, 1);
   });
 
-
   test('fetches the answer pdf from the export endpoint', () async {
     final client = BackendClient(
       'https://example.test',
@@ -282,10 +301,7 @@ void main() {
       'https://example.test',
       client: MockClient((request) async {
         expect(request.method, 'GET');
-        expect(
-          request.url.path,
-          '/api/dossiers/d1/articles/a1/export/pdf',
-        );
+        expect(request.url.path, '/api/dossiers/d1/articles/a1/export/pdf');
         return http.Response.bytes(
           utf8.encode('%PDF-1.4 artikel'),
           200,
