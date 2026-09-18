@@ -55,10 +55,22 @@ webshopkoppelingen, advertentiebeheer. Het is geen slecht product, maar een verk
 deze omvang en dit verzendritme is het duurder, ingewikkelder en juridisch omslachtiger zonder dat
 er iets tegenover staat.
 
-## 2. Nulmeting van het domein
+## 2. Stap 1 — DNS op orde brengen
 
-Gemeten op het DNS van `historischekringheemskerk.nl`. Twee van de drie e-mailcontroles staan
-goed; één is stuk en blokkeert de rest van het plan.
+Drie DNS-records bepalen of Gmail en Outlook post van dit domein vertrouwen. Ontbreekt er één,
+dan belandt bulkmail van een tot dan toe onbekende afzender vrijwel zeker in de spammap. Doe dit
+daarom eerst, vóór er ook maar iets in Laposta wordt ingericht.
+
+| Record | Wat het doet |
+| --- | --- |
+| SPF | Vertelt de ontvanger welke servers namens het domein mogen verzenden. |
+| DKIM | Zet een digitale handtekening onder elke mail, zodat knoeien onderweg opvalt. |
+| DMARC | Zegt wat de ontvanger moet doen als SPF of DKIM niet klopt, en waar het rapport heen gaat. |
+
+### Hoe het er nu voor staat
+
+Gemeten op het DNS van `historischekringheemskerk.nl` op 12 september 2026. Twee van de drie staan
+goed; één is stuk.
 
 | Controle | Status | Bevinding |
 | --- | --- | --- |
@@ -68,6 +80,7 @@ goed; één is stuk en blokkeert de rest van het plan.
 | Subdomein | Nog niet | `nieuws.historischekringheemskerk.nl` bestaat nog niet. |
 
 Hosting loopt via ZXCS (`web0141.zxcs.nl`), mail via `spamrelay.zxcs.nl`, DNS bij b-smarthosting.
+Alle wijzigingen hieronder gaan via het DNS-beheer daar.
 
 ### Waarom het dubbele DMARC-record een echt probleem is
 
@@ -79,12 +92,12 @@ Op `_dmarc.historischekringheemskerk.nl` staan nu twee TXT-records:
 ```
 
 RFC 7489 schrijft voor dat een ontvanger die méér dan één DMARC-record vindt, het domein
-behandelt alsof er helemaal geen DMARC is. De kring denkt dus beschermd te zijn, maar Gmail en
+behandelt alsof er helemaal geen DMARC is. Op papier is het domein dus beschermd, maar Gmail en
 Outlook zien niets — en dat is precies de controle die grote providers bij bulkmail uitvoeren.
 
-## 3. Stap 1 — repareer het DMARC-record
+### Wat er moet veranderen
 
-Doe dit eerst, in het DNS-beheer bij ZXCS/b-smarthosting. Er moet één record overblijven:
+Er moet één DMARC-record overblijven, met deze inhoud:
 
 ```
 v=DMARC1; p=none; sp=none; fo=1; rua=mailto:hkhadmin@historischekringheemskerk.nl
@@ -96,10 +109,14 @@ v=DMARC1; p=none; sp=none; fo=1; rua=mailto:hkhadmin@historischekringheemskerk.n
 - [ ] Controleren dat iemand de rapportmails op `hkhadmin@` daadwerkelijk leest
 
 `p=none` blijft voorlopig staan: eerst meten, nog niet blokkeren. Pas als de rapporten laten zien
-dat alle legitieme post goed doorkomt, gaat het beleid naar `p=quarantine`. Andersom blokkeert de
-kring haar eigen ledenadministratie.
+dat alle legitieme post goed doorkomt, gaat het beleid naar `p=quarantine`. Andersom blokkeren we
+onze eigen ledenadministratie.
 
-## 4. Stap 2 — Laposta inrichten
+Aan SPF en DKIM hoeft nu niets te gebeuren. Er volgt later een tweede ronde DNS-werk: bij het
+inrichten van Laposta komen daar een DKIM-record van Laposta, een aanvulling op SPF en het
+subdomein `nieuws.historischekringheemskerk.nl` bij. Dat staat in stap 2.
+
+## 3. Stap 2 — Laposta inrichten
 
 Laposta regelt de afmeldlink, de `List-Unsubscribe`-header die Gmail bovenaan de mail toont, en
 de bounceverwerking. Dat hoeft niet zelf gebouwd te worden.
@@ -116,9 +133,9 @@ dat niet de mail op `@historischekringheemskerk.nl` zelf.
 
 Op het gratis account staat onderaan elke nieuwsbrief de regel "Deze e-mail is verzonden met het
 nieuwsbriefprogramma Laposta". Wil het bestuur die weg, dan zijn mailcredits nodig — maar
-daarmee vervalt het gratis account. Zie paragraaf 9.
+daarmee vervalt het gratis account. Zie paragraaf 8.
 
-## 5. Stap 3 — de ledenlijst opschonen
+## 4. Stap 3 — de ledenlijst opschonen
 
 Dit is de belangrijkste maatregel tegen een blacklist. Een bouncepercentage boven ongeveer 3% bij
 de eerste zending is precies waar Spamhaus en Microsoft op reageren. Werk van gratis naar betaald.
@@ -135,7 +152,7 @@ de eerste zending is precies waar Spamhaus en Microsoft op reageren. Werk van gr
 Een validatiedienst doet een MX-check en een SMTP-handshake zonder een mail te versturen. Reken
 erop dat van de 1.600 adressen er 1.300 tot 1.450 bruikbaar overblijven; dat is normaal.
 
-## 6. Stap 4 — de nieuwsbrief bouwen
+## 5. Stap 4 — de nieuwsbrief bouwen
 
 - [ ] Afmeldlink die met één klik werkt, zonder inloggen (Laposta zet deze standaard in)
 - [ ] Volledige verenigingsnaam én fysiek postadres in de voettekst
@@ -149,7 +166,7 @@ Klik- en openingsregistratie is verwerking van persoonsgegevens en moet in de pr
 benoemd staan. Wie zich niet kan afmelden drukt op "spam", en dat beschadigt de reputatie het
 snelst.
 
-## 7. Stap 5 — testen
+## 6. Stap 5 — testen
 
 - [ ] Testmail naar mail-tester.com; streven naar een 9 of hoger
 - [ ] Testmail naar een Gmail-, een Outlook- én een Ziggo- of KPN-adres
@@ -161,7 +178,7 @@ snelst.
 
 Staat die afmeldknop niet bovenin Gmail, dan is de domeinkoppeling uit stap 2 niet af.
 
-## 8. Stap 6 en 7 — verzenden en nazorg
+## 7. Stap 6 en 7 — verzenden en nazorg
 
 Een domein dat nog nooit nieuwsbrieven verstuurde en ineens 1.600 berichten uitspuugt, is per
 definitie verdacht. Met 100 per dag wordt rustig reputatie opgebouwd en is er elke dag een moment
@@ -189,7 +206,7 @@ Gmail hanteert een grens van 0,3% spamklachten. Bij 1.600 adressen zijn dat onge
 Openingspercentages zijn onbruikbaar geworden door Apple Mail Privacy Protection: Apple opent elke
 mail preventief, dus de statistiek toont fantoom-opens. Kliks zijn wel een echt signaal.
 
-## 9. Juridische grondslag en kosten
+## 8. Juridische grondslag en kosten
 
 De Telecommunicatiewet (art. 11.7) staat e-mail toe bij toestemming óf bij een bestaande relatie.
 Leden vallen onder dat tweede: er is een lidmaatschapsrelatie, en een nieuwsbrief over de
