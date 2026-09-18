@@ -263,7 +263,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final action = find.widgetWithText(OutlinedButton, 'Download PDF');
+    final action = find.byKey(const ValueKey('answer-pdf-turn-1'));
     expect(action, findsOneWidget);
     expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
     expect(tester.widget<OutlinedButton>(action).onPressed, isNotNull);
@@ -296,7 +296,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.widgetWithText(OutlinedButton, 'Download PDF'), findsNothing);
+    expect(find.byKey(const ValueKey('answer-pdf-turn-1')), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'Wat is er bekend?');
     await tester.pumpAndSettle();
@@ -307,7 +307,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     // Het onderzoek loopt nog, dus er valt nog niets te exporteren.
-    expect(find.widgetWithText(OutlinedButton, 'Download PDF'), findsNothing);
+    expect(find.byKey(const ValueKey('answer-pdf-turn-1')), findsNothing);
     expect(pdfSource.calls, 0);
   });
 
@@ -333,10 +333,8 @@ void main() {
     await tester.pumpAndSettle();
     final pushesBefore = routes.pushes;
 
-    await tester.ensureVisible(
-      find.widgetWithText(OutlinedButton, 'Download PDF'),
-    );
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Download PDF'));
+    await tester.ensureVisible(find.byKey(const ValueKey('answer-pdf-turn-1')));
+    await tester.tap(find.byKey(const ValueKey('answer-pdf-turn-1')));
     await tester.pumpAndSettle();
 
     expect(
@@ -379,13 +377,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(
-      find.widgetWithText(OutlinedButton, 'Download PDF'),
-    );
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Download PDF'));
+    await tester.ensureVisible(find.byKey(const ValueKey('answer-pdf-turn-1')));
+    await tester.tap(find.byKey(const ValueKey('answer-pdf-turn-1')));
     await tester.pump();
 
-    final busyButton = find.widgetWithText(OutlinedButton, 'PDF maken…');
+    final busyButton = find.byKey(const ValueKey('answer-pdf-turn-1'));
     expect(
       find.descendant(
         of: busyButton,
