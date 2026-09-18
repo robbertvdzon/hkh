@@ -714,7 +714,9 @@ class _QuestionCard extends StatelessWidget {
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Text(question, style: Theme.of(context).textTheme.bodyLarge),
+        child: SelectionArea(
+          child: Text(question, style: Theme.of(context).textTheme.bodyLarge),
+        ),
       ),
     ),
   );

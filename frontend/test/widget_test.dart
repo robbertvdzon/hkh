@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hkh_app/theme/app_style.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
 import 'package:hkh_app/auth/user_session.dart';
 import 'package:hkh_app/collection/collection_search.dart';
@@ -221,7 +223,7 @@ void main() {
     expect(find.text('Wat wilt u weten?'), findsOneWidget);
     expect(
       find.text(
-        'Bijv. wat is er bekend over de Kerklaan? De digitale onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.',
+        'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De digitale onderzoeker zoekt de bronnen erbij; dit kan enkele minuten duren.',
       ),
       findsOneWidget,
     );
@@ -256,7 +258,7 @@ void main() {
     final collectionButton = tester.getRect(
       find.byKey(const Key('collection-search-button')),
     );
-    expect(aiField.top, aiButton.top);
+    expect(aiButton.top, greaterThan(aiField.bottom));
     expect(collectionButton.width, greaterThan(300));
     expect(find.byType(FilledButton), findsOneWidget);
   });
@@ -290,6 +292,12 @@ void main() {
       );
       expect(find.byKey(const Key('collection-search-field')), findsNothing);
       expect(find.text('Uitgebreid zoeken'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('collection-search-button')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       expect(source.searchCalls, 0);
@@ -348,6 +356,12 @@ void main() {
         size: const Size(800, 1200),
         searchSource: source,
       );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('collection-search-button')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -383,6 +397,12 @@ void main() {
         size: const Size(800, 1200),
         searchSource: source,
       );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('collection-search-button')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -401,6 +421,12 @@ void main() {
 
   testWidgets('empty collection results show the empty state', (tester) async {
     await _pumpHome(tester, size: const Size(800, 1000));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('collection-search-button')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('collection-search-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -417,6 +443,12 @@ void main() {
   ) async {
     final source = _SearchSource(results: const [_result], total: 27);
     await _pumpHome(tester, size: const Size(800, 1000), searchSource: source);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('collection-search-button')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('collection-search-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -446,14 +478,16 @@ void main() {
   ) async {
     await _pumpHome(tester, size: const Size(320, 700), textScaleFactor: 2);
     expect(tester.takeException(), isNull);
-    final list = find.byType(ListView).first;
-    for (var i = 0; i < 4; i++) {
-      await tester.drag(list, const Offset(0, -500));
-      await tester.pump();
+    for (final key in ['ai-question-button', 'collection-search-button']) {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      expect(find.byKey(Key(key)).hitTestable(), findsOneWidget);
     }
-    expect(find.text('Vraag stellen'), findsOneWidget);
-    expect(find.text('Zoeken in de collectie'), findsOneWidget);
   });
 
   testWidgets('signed-in wide app bar has a separate dossiers action', (
@@ -505,6 +539,103 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mijn dossiers'), findsNothing);
     expect(find.text('Uitloggen'), findsOneWidget);
+  });
+
+  testWidgets(
+    'multiline homepage question keeps newlines and submits only via the button',
+    (tester) async {
+      final source = _AiSource();
+      await _pumpHome(tester, size: const Size(900, 1100), aiSource: source);
+      final field = find.byKey(const Key('ai-question-field'));
+      final input = tester.widget<TextField>(field);
+      expect(input.minLines, greaterThanOrEqualTo(5));
+      expect(input.decoration!.hintText, contains('Welke relaties'));
+      await tester.enterText(
+        field,
+        'Onderzoek familie Jansen.\nWelke relaties zijn er met de Kerklaan?',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.newline);
+      await tester.pumpAndSettle();
+      expect(source.startedQuestions, isEmpty);
+      await tester.tap(find.byKey(const Key('ai-question-button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(source.startedQuestions, [
+        'Onderzoek familie Jansen.\nWelke relaties zijn er met de Kerklaan?',
+      ]);
+    },
+  );
+
+  testWidgets(
+    'dossiers remain reachable from AI and collection pages with readable header actions',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        size: const Size(1100, 1100),
+        session: _SignedInSession(),
+        dossierSource: FakeDossierSource(),
+      );
+      final button = tester.widget<TextButton>(
+        find.byKey(const Key('dossiers-action')),
+      );
+      expect(button.style!.foregroundColor!.resolve({}), appBackground);
+      await tester.tap(find.text('Eerdere vragen'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI-zoekopdrachten'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('dossiers-action')));
+      await tester.pumpAndSettle();
+      expect(find.text('De Kerklaan'), findsOneWidget);
+      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+      router.go('/zoeken');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('dossiers-action')));
+      await tester.pumpAndSettle();
+      expect(find.text('De Kerklaan'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'signed-out visitors can find dossiers and their sign-in explanation',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        size: const Size(1100, 1100),
+        session: DisabledUserSession(),
+        dossierSource: FakeDossierSource(),
+      );
+      await tester.tap(find.byKey(const Key('dossiers-action')));
+      await tester.pumpAndSettle();
+      expect(find.text('Dossiers zijn persoonlijk'), findsOneWidget);
+    },
+  );
+
+  testWidgets('all page backgrounds use the homepage colour', (tester) async {
+    await _pumpHome(
+      tester,
+      size: const Size(1100, 1100),
+      session: _SignedInSession(),
+      dossierSource: FakeDossierSource(),
+    );
+    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+    for (final route in [
+      '/',
+      '/vragen',
+      '/zoeken',
+      '/dossiers',
+      '/dossiers/d1',
+      '/artikelen/a1',
+    ]) {
+      router.go(route);
+      await tester.pumpAndSettle();
+      final scaffoldFinder = find.byType(Scaffold).first;
+      final scaffold = tester.widget<Scaffold>(scaffoldFinder);
+      final theme = Theme.of(tester.element(scaffoldFinder));
+      expect(
+        scaffold.backgroundColor ?? theme.scaffoldBackgroundColor,
+        appBackground,
+        reason: route,
+      );
+    }
   });
 
   testWidgets('no login action is shown when login is not configured', (

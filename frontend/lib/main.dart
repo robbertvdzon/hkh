@@ -105,8 +105,11 @@ class _HkhAppState extends State<HkhApp> {
     title: 'Historisch Heemskerk',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF315B52)),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: appGreen,
+      ).copyWith(surface: appBackground),
       useMaterial3: true,
+      scaffoldBackgroundColor: appBackground,
       appBarTheme: appHeaderTheme,
       pageTransitionsTheme: PageTransitionsTheme(
         builders: {
@@ -114,6 +117,12 @@ class _HkhAppState extends State<HkhApp> {
             platform: const InstantPageTransitionsBuilder(),
         },
       ),
+    ),
+    builder: (context, child) => AppNavigationScope(
+      onOpenDossiers: widget.dossierSource == null
+          ? null
+          : () => _router.push('/dossiers'),
+      child: child!,
     ),
     routerConfig: _router,
   );
@@ -201,6 +210,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: _homeBackground,
       appBar: HkhAppBar(
+        onOpenDossiers: widget.dossierSource == null ? null : _openDossiers,
         title: const Text(
           'Historisch Heemskerk',
           maxLines: 1,
@@ -210,7 +220,6 @@ class _HomePageState extends State<HomePage> {
           _SessionActions(
             session: _session,
             onSignIn: _signIn,
-            onOpenDossiers: widget.dossierSource == null ? null : _openDossiers,
             onSignOut: _session.signOut,
             isNarrow: isNarrow,
           ),
@@ -379,31 +388,17 @@ class _AiHomeCardState extends State<_AiHomeCard> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Bijv. wat is er bekend over de Kerklaan? De digitale onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.',
+            'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De digitale onderzoeker zoekt de bronnen erbij; dit kan enkele minuten duren.',
             style: TextStyle(color: _homeGreen),
           ),
           const SizedBox(height: 18),
-          if (widget.isNarrow) ...[
-            _questionField(),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('ai-question-button'),
-              onPressed: _open,
-              child: const Text('Vraag stellen'),
-            ),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _questionField()),
-                const SizedBox(width: 12),
-                FilledButton(
-                  key: const Key('ai-question-button'),
-                  onPressed: _open,
-                  child: const Text('Vraag stellen'),
-                ),
-              ],
-            ),
+          _questionField(),
+          const SizedBox(height: 12),
+          FilledButton(
+            key: const Key('ai-question-button'),
+            onPressed: _open,
+            child: const Text('Vraag stellen'),
+          ),
           const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
@@ -423,11 +418,16 @@ class _AiHomeCardState extends State<_AiHomeCard> {
   Widget _questionField() => TextField(
     key: const Key('ai-question-field'),
     controller: _controller,
-    textInputAction: TextInputAction.search,
-    onSubmitted: (_) => _open(),
+    keyboardType: TextInputType.multiline,
+    textInputAction: TextInputAction.newline,
+    minLines: 5,
+    maxLines: 10,
     decoration: const InputDecoration(
       labelText: 'Uw vraag',
-      hintText: 'Bijv. wat is er bekend over de Kerklaan?',
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      alignLabelWithHint: true,
+      hintText:
+          'Bijvoorbeeld: Onderzoek de geschiedenis van de familie Jansen in Heemskerk. Welke relaties vind je met andere families, de Kerklaan en lokale verenigingen? Beschrijf hoe die verbanden door de tijd veranderden en vermeld bij je bevindingen de bronnen.',
     ),
   );
 }
@@ -478,20 +478,17 @@ class _HomeSearchSection extends StatelessWidget {
 
 enum _AccountMenuItem { signOut }
 
-/// Acties rechtsboven: voor een ingelogde gebruiker staat "Mijn dossiers"
-/// rechtstreeks naast het accountmenu. Zonder geconfigureerde login blijft de balk leeg.
+/// Accountacties; de gedeelde header biedt altijd toegang tot dossiers.
 class _SessionActions extends StatelessWidget {
   const _SessionActions({
     required this.session,
     required this.onSignIn,
-    required this.onOpenDossiers,
     required this.onSignOut,
     required this.isNarrow,
   });
 
   final UserSessionController session;
   final VoidCallback onSignIn;
-  final VoidCallback? onOpenDossiers;
   final VoidCallback onSignOut;
   final bool isNarrow;
 
@@ -505,32 +502,6 @@ class _SessionActions extends StatelessWidget {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (onOpenDossiers != null) ...[
-                if (isNarrow)
-                  IconButton(
-                    key: const Key('dossiers-action'),
-                    onPressed: onOpenDossiers,
-                    icon: const Icon(Icons.folder_outlined),
-                    tooltip: 'Mijn dossiers',
-                  )
-                else
-                  TextButton.icon(
-                    key: const Key('dossiers-action'),
-                    onPressed: onOpenDossiers,
-                    icon: const Icon(Icons.folder_outlined),
-                    label: const Text('Mijn dossiers'),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                      foregroundColor: _homeGreen,
-                    ),
-                  ),
-                Container(
-                  width: 1,
-                  height: 28,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  color: _collectionBorder,
-                ),
-              ],
               PopupMenuButton<_AccountMenuItem>(
                 key: const Key('account-menu'),
                 tooltip: 'Account',
