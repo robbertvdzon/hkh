@@ -57,18 +57,20 @@ Future<bool> confirm(
   return result == true;
 }
 
-/// Server-side gerenderde HTML (feitenlijst, artikel) met klikbare bronlinks.
+/// Selecteerbare HTML (feitenlijst, artikel) met klikbare bronlinks.
 class RenderedHtml extends StatelessWidget {
   const RenderedHtml(this.html, {super.key});
 
   final String html;
 
   @override
-  Widget build(BuildContext context) => HtmlWidget(
-    html,
-    onTapUrl: (url) =>
-        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-    textStyle: Theme.of(context).textTheme.bodyLarge,
+  Widget build(BuildContext context) => SelectionArea(
+    child: HtmlWidget(
+      html,
+      onTapUrl: (url) =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      textStyle: Theme.of(context).textTheme.bodyLarge,
+    ),
   );
 }
 
