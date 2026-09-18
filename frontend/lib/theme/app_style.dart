@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+export 'hkh_app_bar.dart';
+
 /// Gedeelde vormgeving van de publieke app: de homepage en de dossierschermen
 /// en -dialogen gebruiken dezelfde kleuren, afrondingen en verticale ritmiek.
 const appBackground = Color(0xFFFBF6EE);
@@ -232,131 +234,18 @@ class AppCard extends StatelessWidget {
   }
 }
 
-/// The same heritage-green masthead on every page, including scrolled pages.
+/// Donkerblauwe huisstijl voor de vaste header en de iets lichtere navigatie.
+const appHeaderBackground = Color(0xFF122C37);
+const appMenuBackground = Color(0xFF203C47);
+const appHeaderForeground = Color(0xFFFFFAF1);
+const appHeaderAccent = Color(0xFFD7B775);
 const appHeaderTheme = AppBarTheme(
-  backgroundColor: appGreen,
-  foregroundColor: appBackground,
+  backgroundColor: appHeaderBackground,
+  foregroundColor: appHeaderForeground,
   surfaceTintColor: Colors.transparent,
   elevation: 0,
   scrolledUnderElevation: 0,
-  toolbarHeight: 72,
-  titleTextStyle: TextStyle(
-    color: appBackground,
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-  ),
-  shape: Border(bottom: BorderSide(color: Color(0xFFC5A66B), width: 3)),
 );
-
-/// Makes the dossier entry available on every page, even before signing in.
-class AppNavigationScope extends InheritedWidget {
-  const AppNavigationScope({
-    required this.onOpenDossiers,
-    required super.child,
-    super.key,
-  });
-  final VoidCallback? onOpenDossiers;
-  static AppNavigationScope? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<AppNavigationScope>();
-  @override
-  bool updateShouldNotify(AppNavigationScope oldWidget) =>
-      onOpenDossiers != oldWidget.onOpenDossiers;
-}
-
-class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const HkhAppBar({
-    required this.title,
-    this.actions,
-    this.bottom,
-    this.onOpenDossiers,
-    this.showDossiersAction = true,
-    super.key,
-  });
-  final Widget title;
-  final VoidCallback? onOpenDossiers;
-  final bool showDossiersAction;
-  final List<Widget>? actions;
-  final PreferredSizeWidget? bottom;
-  @override
-  Size get preferredSize =>
-      Size.fromHeight(72 + (bottom?.preferredSize.height ?? 0));
-  @override
-  Widget build(BuildContext context) {
-    final openDossiers =
-        onOpenDossiers ?? AppNavigationScope.of(context)?.onOpenDossiers;
-    return Theme(
-      data: Theme.of(context).copyWith(
-        appBarTheme: appHeaderTheme,
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(foregroundColor: appBackground),
-        ),
-      ),
-      child: AppBar(
-        title: Row(
-          children: [
-            ExcludeSemantics(
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFC5A66B)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'HKH',
-                  style: TextStyle(
-                    color: appBackground,
-                    fontFamily: 'Georgia',
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DefaultTextStyle.merge(
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                child: title,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (showDossiersAction && openDossiers != null)
-            if (isNarrowLayout(context))
-              IconButton(
-                key: const Key('dossiers-action'),
-                onPressed: openDossiers,
-                icon: const Icon(Icons.folder_outlined),
-                tooltip: 'Mijn dossiers',
-              )
-            else
-              TextButton.icon(
-                key: const Key('dossiers-action'),
-                onPressed: openDossiers,
-                style: TextButton.styleFrom(
-                  foregroundColor: appBackground,
-                  minimumSize: const Size(48, 48),
-                ),
-                icon: const Icon(Icons.folder_outlined),
-                label: const Text('Mijn dossiers'),
-              ),
-          ...?actions?.map(
-            (action) => DefaultTextStyle.merge(
-              style: const TextStyle(color: appBackground),
-              child: action,
-            ),
-          ),
-        ],
-        bottom: bottom,
-      ),
-    );
-  }
-}
 
 class InstantPageTransitionsBuilder extends PageTransitionsBuilder {
   const InstantPageTransitionsBuilder();

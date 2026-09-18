@@ -71,6 +71,11 @@ void main() {
     await tester.tap(find.text('Uitgebreid zoeken'));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Titel'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Titel'), findsOneWidget);
     expect(find.text('Beschrijving'), findsOneWidget);
     expect(find.text('Jaar'), findsOneWidget);
@@ -92,7 +97,12 @@ void main() {
     await tester.tap(find.text('Uitgebreid zoeken'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(3), '1954');
+    await tester.scrollUntilVisible(
+      find.text('Jaar'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(find.widgetWithText(TextField, 'Jaar'), '1954');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
 
@@ -131,6 +141,11 @@ void main() {
 
       expect(source.lastFieldQueries, {'title': 'Kerk'});
       expect(source.lastYear, 1900);
+      await tester.scrollUntilVisible(
+        find.text('Titel'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Titel'), findsOneWidget);
     },
   );

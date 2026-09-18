@@ -149,6 +149,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
     child: Builder(
       builder: (context) => Scaffold(
         appBar: HkhAppBar(
+          context: context,
           title: Text(collectionConfig(widget.collection).label),
         ),
         body: SafeArea(

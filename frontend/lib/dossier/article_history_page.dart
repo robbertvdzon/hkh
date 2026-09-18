@@ -81,7 +81,7 @@ class _ArticleHistoryPageState extends State<ArticleHistoryPage> {
     final current = widget.article.current.versionNumber;
     final canEdit = widget.article.role.canEdit;
     return Scaffold(
-      appBar: HkhAppBar(title: const Text('Geschiedenis')),
+      appBar: HkhAppBar(context: context, title: const Text('Geschiedenis')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

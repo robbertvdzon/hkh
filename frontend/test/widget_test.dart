@@ -210,7 +210,7 @@ void main() {
   testWidgets('wide homepage has the new hierarchy, styling and spacing', (
     tester,
   ) async {
-    await _pumpHome(tester, size: const Size(1000, 1000));
+    await _pumpHome(tester, size: const Size(1000, 1300));
 
     expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
     expect(
@@ -322,7 +322,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(aiSource.startedQuestions, ['Wat gebeurde er aan de Kerklaan?']);
-    expect(find.text('Vraag het archief'), findsOneWidget);
+    expect(find.text('Vraag het archief'), findsNWidgets(2));
     expect(find.text('Wat gebeurde er aan de Kerklaan?'), findsWidgets);
   });
 
@@ -501,7 +501,7 @@ void main() {
       dossierSource: FakeDossierSource(),
     );
     expect(find.text('Mijn dossiers'), findsOneWidget);
-    expect(find.text('Jan Jansen'), findsOneWidget);
+    expect(find.byTooltip('Mijn account'), findsOneWidget);
     await tester.tap(find.byKey(const Key('dossiers-action')));
     await tester.pumpAndSettle();
     expect(find.text('De Kerklaan'), findsOneWidget);
@@ -512,34 +512,35 @@ void main() {
     await tester.tap(find.byKey(const Key('account-menu')));
     await tester.pumpAndSettle();
     expect(find.text('Mijn dossiers'), findsOneWidget);
+    expect(find.text('Jan Jansen'), findsOneWidget);
     expect(find.text('Uitloggen'), findsOneWidget);
     await tester.tap(find.text('Uitloggen'));
     await tester.pumpAndSettle();
     expect(session.signOutCalls, 1);
   });
 
-  testWidgets('signed-in narrow app bar uses an accessible dossiers icon', (
-    tester,
-  ) async {
-    await _pumpHome(
-      tester,
-      size: const Size(600, 1100),
-      session: _SignedInSession(),
-      dossierSource: FakeDossierSource(),
-    );
-    expect(find.byTooltip('Mijn dossiers'), findsOneWidget);
-    expect(find.text('Mijn dossiers'), findsNothing);
-    await tester.tap(find.byTooltip('Mijn dossiers'));
-    await tester.pumpAndSettle();
-    expect(find.text('De Kerklaan'), findsOneWidget);
+  testWidgets(
+    'signed-in narrow header keeps the labelled dossiers link visible',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        size: const Size(600, 1100),
+        session: _SignedInSession(),
+        dossierSource: FakeDossierSource(),
+      );
+      expect(find.text('Mijn dossiers').hitTestable(), findsOneWidget);
+      await tester.tap(find.byKey(const Key('dossiers-action')));
+      await tester.pumpAndSettle();
+      expect(find.text('De Kerklaan'), findsOneWidget);
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('account-menu')));
-    await tester.pumpAndSettle();
-    expect(find.text('Mijn dossiers'), findsNothing);
-    expect(find.text('Uitloggen'), findsOneWidget);
-  });
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('account-menu')));
+      await tester.pumpAndSettle();
+      expect(find.text('Mijn dossiers'), findsOneWidget);
+      expect(find.text('Uitloggen'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'multiline homepage question keeps newlines and submits only via the button',
@@ -578,19 +579,25 @@ void main() {
       final button = tester.widget<TextButton>(
         find.byKey(const Key('dossiers-action')),
       );
-      expect(button.style!.foregroundColor!.resolve({}), appBackground);
-      await tester.tap(find.text('Eerdere vragen'));
+      expect(button.style!.foregroundColor!.resolve({}), appHeaderForeground);
+      await tester.tap(find.byKey(const Key('questions-action')));
       await tester.pumpAndSettle();
       expect(find.text('AI-zoekopdrachten'), findsOneWidget);
+      expect(find.byTooltip('Mijn account'), findsOneWidget);
       await tester.tap(find.byKey(const Key('dossiers-action')));
       await tester.pumpAndSettle();
       expect(find.text('De Kerklaan'), findsOneWidget);
       final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-      router.go('/zoeken');
+      await tester.tap(find.byKey(const Key('search-action')));
       await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/zoeken');
       await tester.tap(find.byKey(const Key('dossiers-action')));
       await tester.pumpAndSettle();
       expect(find.text('De Kerklaan'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('hkh-home')));
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/');
+      expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
     },
   );
 

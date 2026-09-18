@@ -204,6 +204,7 @@ class _DossierPageState extends State<DossierPage>
       child: Scaffold(
         backgroundColor: appBackground,
         appBar: HkhAppBar(
+          context: context,
           title: Text(
             detail?.title ?? 'Dossier',
             maxLines: 1,

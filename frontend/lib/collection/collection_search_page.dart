@@ -252,6 +252,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
     child: Builder(
       builder: (context) => Scaffold(
         appBar: HkhAppBar(
+          context: context,
           title: const Text('Collecties'),
           actions: [
             IconButton(

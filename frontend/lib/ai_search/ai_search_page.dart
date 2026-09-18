@@ -489,6 +489,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
     if (widget.embedded) return body;
     return Scaffold(
       appBar: HkhAppBar(
+        context: context,
         title: Text(
           widget.title ??
               (session == null ? 'AI-zoekopdrachten' : 'Vraag het archief'),

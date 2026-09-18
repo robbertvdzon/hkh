@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'auth/google_login_dialog.dart';
+import 'auth/account_action.dart';
 import 'auth/google_signin_button_stub.dart'
     if (dart.library.html) 'auth/google_signin_button_web.dart'
     as google_button;
@@ -18,7 +18,6 @@ import 'navigation.dart';
 import 'config/app_config.dart';
 import 'dossier/dossier.dart';
 import 'dossier/dossier_dialogs.dart';
-import 'dossier/dossier_list_page.dart';
 import 'self_update_prompt.dart';
 import 'theme/app_style.dart';
 
@@ -118,11 +117,24 @@ class _HkhAppState extends State<HkhApp> {
         },
       ),
     ),
-    builder: (context, child) => AppNavigationScope(
-      onOpenDossiers: widget.dossierSource == null
-          ? null
-          : () => _router.push('/dossiers'),
-      child: child!,
+    builder: (context, child) => ListenableBuilder(
+      listenable: _router.routeInformationProvider,
+      builder: (context, _) => AppNavigationScope(
+        onOpenHome: () => _router.go('/'),
+        onOpenSearch: () => _router.go('/zoeken'),
+        onOpenQuestions: widget.aiSearchSource == null
+            ? null
+            : () => _router.go('/vragen'),
+        onOpenDossiers: widget.dossierSource == null
+            ? null
+            : () => _router.go('/dossiers'),
+        location: _router.routeInformationProvider.value.uri.path,
+        accountBuilder: (context) => AccountAction(
+          session: widget.session ?? DisabledUserSession(),
+          googleButtonBuilder: widget.googleButtonBuilder,
+        ),
+        child: child!,
+      ),
     ),
     routerConfig: _router,
   );
@@ -182,48 +194,19 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
   }
 
-  Future<void> _signIn() => startSignIn(
-    context,
-    _session,
-    googleButtonBuilder:
-        widget.googleButtonBuilder ?? google_button.renderGoogleButton,
-  );
-
-  void _openDossiers() {
-    final dossierSource = widget.dossierSource;
-    if (dossierSource == null) return;
-    openAppPage(
-      context,
-      '/dossiers',
-      () => DossierListPage(
-        source: dossierSource,
-        session: _session,
-        googleButtonBuilder:
-            widget.googleButtonBuilder ?? google_button.renderGoogleButton,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isNarrow = MediaQuery.sizeOf(context).width <= 600;
     return Scaffold(
       backgroundColor: _homeBackground,
       appBar: HkhAppBar(
-        onOpenDossiers: widget.dossierSource == null ? null : _openDossiers,
-        title: const Text(
-          'Historisch Heemskerk',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        context: context,
+        title: const Text('Historisch Heemskerk'),
+        showPageTitle: false,
+        accountAction: AccountAction(
+          session: _session,
+          googleButtonBuilder: widget.googleButtonBuilder,
         ),
-        actions: [
-          _SessionActions(
-            session: _session,
-            onSignIn: _signIn,
-            onSignOut: _session.signOut,
-            isNarrow: isNarrow,
-          ),
-        ],
       ),
       body: SafeArea(
         child: Center(
@@ -474,99 +457,4 @@ class _HomeSearchSection extends StatelessWidget {
       ],
     ),
   );
-}
-
-enum _AccountMenuItem { signOut }
-
-/// Accountacties; de gedeelde header biedt altijd toegang tot dossiers.
-class _SessionActions extends StatelessWidget {
-  const _SessionActions({
-    required this.session,
-    required this.onSignIn,
-    required this.onSignOut,
-    required this.isNarrow,
-  });
-
-  final UserSessionController session;
-  final VoidCallback onSignIn;
-  final VoidCallback onSignOut;
-  final bool isNarrow;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: session,
-      builder: (context, _) {
-        final identity = session.identity;
-        if (identity != null) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PopupMenuButton<_AccountMenuItem>(
-                key: const Key('account-menu'),
-                tooltip: 'Account',
-                onSelected: (_) => onSignOut(),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: _AccountMenuItem.signOut,
-                    child: ListTile(
-                      leading: Icon(Icons.logout),
-                      title: Text('Uitloggen'),
-                    ),
-                  ),
-                ],
-                child: SizedBox(
-                  height: 48,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: isNarrow
-                        ? const SizedBox(
-                            width: 32,
-                            child: Icon(Icons.account_circle_outlined),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.account_circle_outlined),
-                              const SizedBox(width: 6),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 120,
-                                ),
-                                child: Text(
-                                  identity.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(Icons.arrow_drop_down),
-                            ],
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-        if (!session.configured && !session.signedIn) {
-          return const SizedBox.shrink();
-        }
-        if (session.busy) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        }
-        return TextButton.icon(
-          onPressed: onSignIn,
-          icon: const Icon(Icons.login),
-          label: const Text('Inloggen'),
-        );
-      },
-    );
-  }
 }

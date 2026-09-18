@@ -226,7 +226,10 @@ GoRouter createAppRouter({
       ),
     ],
     errorBuilder: (context, _) => Scaffold(
-      appBar: HkhAppBar(title: const Text('Pagina niet gevonden')),
+      appBar: HkhAppBar(
+        context: context,
+        title: const Text('Pagina niet gevonden'),
+      ),
       body: Center(
         child: TextButton(
           onPressed: () => context.go('/'),
@@ -258,7 +261,10 @@ class _ArticleHistoryRouteState extends State<_ArticleHistoryRoute> {
         );
       }
       return Scaffold(
-        appBar: HkhAppBar(title: const Text('Artikelgeschiedenis')),
+        appBar: HkhAppBar(
+          context: context,
+          title: const Text('Artikelgeschiedenis'),
+        ),
         body: Center(
           child: snapshot.hasError
               ? const Text('Het artikel kon niet worden geladen.')

@@ -219,6 +219,7 @@ class _ArticlePageState extends State<ArticlePage> {
     final canEdit = article?.role.canEdit ?? false;
     return Scaffold(
       appBar: HkhAppBar(
+        context: context,
         title: Text(article?.title ?? 'Artikel'),
         actions: [
           if (article != null && !_editing)
