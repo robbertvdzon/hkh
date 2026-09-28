@@ -34,7 +34,7 @@ spec:
             - name: HKH_AI_SEARCH_VENDOR_ID
               value: anthropic
             - name: HKH_AI_SEARCH_MODEL
-              value: claude-opus-5
+              value: claude-sonnet-5
             - name: HKH_AI_SEARCH_MODE
               value: SUBSCRIPTION
           readinessProbe:

@@ -8,7 +8,7 @@ data class AiSearchProperties(
     val runtimeBaseUrl: String = "https://agent-runtime.vdzonsoftware.nl",
     val runtimeToken: String = "",
     val vendorId: String = "anthropic",
-    val model: String = "claude-opus-5",
+    val model: String = "claude-sonnet-5",
     val mode: String = "SUBSCRIPTION",
     val executionTimeoutSeconds: Int = 900,
     val pollIntervalMs: Long = 2_000,
