@@ -116,6 +116,7 @@ class _SearchSource implements CollectionSearchSource {
 
 class _AiSource implements AiSearchSource {
   final List<String> startedQuestions = [];
+  final List<(String, bool?, String?)> steerings = [];
   int listCalls = 0;
   AiSearchSession? current;
 
@@ -169,6 +170,17 @@ class _AiSource implements AiSearchSource {
 
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async => current!;
+
+  @override
+  Future<AiSearchSession> steerAiSearch(
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) async {
+    steerings.add((turnId, stop, hint));
+    return current!;
+  }
 
   @override
   Future<void> deleteAiSearch(String sessionId) async {}

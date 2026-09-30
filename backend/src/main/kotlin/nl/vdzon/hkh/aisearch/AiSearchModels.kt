@@ -28,7 +28,33 @@ data class AiSearchTurn(
     val depth: AiResearchDepth = AiResearchDepth.DEFAULT,
     /** Bronnenlijst met beschrijvingen en beelden, los van de antwoordtekst; null bij oudere antwoorden. */
     val sourcesHtml: String? = null,
+    /** Stand per zoekronde, zoals de agent die tijdens het onderzoek meldt. */
+    val researchLog: List<AiResearchRound> = emptyList(),
+    /** Geheim in de meld-URL van deze vraag; alleen de agent kent het. */
+    val controlToken: String? = null,
+    val steering: AiSteering = AiSteering(),
 )
+
+/** Verslag van één zoekronde, door de agent gemeld na afloop van die ronde. */
+data class AiResearchRound(
+    val round: Int,
+    val sources: Int,
+    val found: String,
+    val next: List<String>,
+    val reportedAt: Instant,
+)
+
+/**
+ * Bijsturing door de gebruiker: stoppen met zoeken en het antwoord schrijven, of een aanwijzing
+ * voor de volgende ronde. [deliveredAt] is het moment waarop de agent het heeft opgehaald.
+ */
+data class AiSteering(
+    val stop: Boolean = false,
+    val hint: String? = null,
+    val deliveredAt: Instant? = null,
+) {
+    val pending: Boolean get() = (stop || !hint.isNullOrBlank()) && deliveredAt == null
+}
 
 /** Eigenaar van een zoekopdracht: een anonieme browser of een dossier. */
 data class AiSearchOwner(

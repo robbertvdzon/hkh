@@ -36,4 +36,18 @@ class DossierQuestionSource implements AiSearchSource {
   @override
   Future<void> deleteAiSearch(String sessionId) =>
       source.deleteQuestion(dossierId, sessionId);
+
+  @override
+  Future<AiSearchSession> steerAiSearch(
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) => source.steerQuestion(
+    dossierId,
+    sessionId,
+    turnId,
+    stop: stop,
+    hint: hint,
+  );
 }

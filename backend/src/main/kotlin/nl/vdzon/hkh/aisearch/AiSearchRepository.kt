@@ -1,6 +1,9 @@
 package nl.vdzon.hkh.aisearch
 
+import java.security.SecureRandom
 import java.sql.ResultSet
+import java.util.Base64
+import java.time.Instant
 import java.util.UUID
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
@@ -142,10 +145,10 @@ class AiSearchRepository(
         ) ?: 1
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth)
-            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?)
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token)
+            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?)
             """.trimIndent(),
-            id, sessionId, number, question, dossierContext, depth.name,
+            id, sessionId, number, question, dossierContext, depth.name, newControlToken(),
         )
         return requireNotNull(findTurn(id))
     }
@@ -195,6 +198,52 @@ class AiSearchRepository(
         Int::class.java,
         userId,
     ) ?: 0
+
+    /** De beurt waarvoor de agent meldt: alleen met het juiste geheim en zolang het onderzoek loopt. */
+    fun findTurnByControlToken(turnId: String, token: String): AiSearchTurn? {
+        if (runCatching { UUID.fromString(turnId) }.isFailure || token.isBlank()) return null
+        return jdbc.query(
+            "SELECT * FROM ai_search_turn WHERE id = ?::uuid AND control_token = ?",
+            rowMapper, turnId, token,
+        ).singleOrNull()
+    }
+
+    /** Vervangt het verslag van dezelfde ronde, of voegt het toe; de agent kan een ronde twee keer melden. */
+    fun recordRound(turnId: String, round: AiResearchRound) {
+        val existing = findTurn(turnId)?.researchLog.orEmpty()
+        val log = (existing.filter { it.round != round.round } + round).sortedBy { it.round }
+        jdbc.update(
+            "UPDATE ai_search_turn SET research_log = ?::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid",
+            objectMapper.writeValueAsString(log.map { it.toJson() }), turnId,
+        )
+    }
+
+    /** Bewaart bijsturing; een nieuwe aanwijzing of stop wordt opnieuw aangeboden aan de agent. */
+    fun steer(turnId: String, stop: Boolean?, hint: String?): Boolean = jdbc.update(
+        """
+        UPDATE ai_search_turn SET
+            steer_stop = COALESCE(?, steer_stop),
+            steer_hint = CASE WHEN ? THEN ? ELSE steer_hint END,
+            steer_delivered_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?::uuid AND status IN ('SUBMITTING', 'QUEUED', 'RUNNING')
+        """.trimIndent(),
+        stop, hint != null, hint?.take(500), turnId,
+    ) > 0
+
+    fun markSteeringDelivered(turnId: String) {
+        jdbc.update("UPDATE ai_search_turn SET steer_delivered_at = CURRENT_TIMESTAMP WHERE id = ?::uuid AND steer_delivered_at IS NULL", turnId)
+    }
+
+    private fun newControlToken(): String {
+        val bytes = ByteArray(24)
+        SecureRandom().nextBytes(bytes)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+
+    private fun AiResearchRound.toJson() = mapOf(
+        "round" to round, "sources" to sources, "found" to found, "next" to next, "reportedAt" to reportedAt.toString(),
+    )
 
     fun hasActiveTurn(sessionId: String): Boolean = jdbc.queryForObject(
         "SELECT EXISTS(SELECT 1 FROM ai_search_turn WHERE session_id = ?::uuid AND status IN ('SUBMITTING', 'QUEUED', 'RUNNING'))",
@@ -267,7 +316,29 @@ class AiSearchRepository(
             dossierContext = rs.getString("dossier_context"),
             depth = AiResearchDepth.parse(rs.getString("research_depth")),
             sourcesHtml = rs.getString("sources_html"),
+            researchLog = parseRounds(rs.getString("research_log")),
+            controlToken = rs.getString("control_token"),
+            steering = AiSteering(
+                stop = rs.getBoolean("steer_stop"),
+                hint = rs.getString("steer_hint"),
+                deliveredAt = rs.getTimestamp("steer_delivered_at")?.toInstant(),
+            ),
         )
+    }
+
+    private fun parseRounds(json: String?): List<AiResearchRound> {
+        if (json.isNullOrBlank()) return emptyList()
+        val result = mutableListOf<AiResearchRound>()
+        for (node in objectMapper.readTree(json)) {
+            result += AiResearchRound(
+                round = node.path("round").asInt(),
+                sources = node.path("sources").asInt(),
+                found = node.path("found").asText(""),
+                next = node.path("next").let { array -> buildList { for (item in array) add(item.asText()) } },
+                reportedAt = runCatching { Instant.parse(node.path("reportedAt").asText()) }.getOrDefault(Instant.EPOCH),
+            )
+        }
+        return result
     }
 
     private fun parseSources(json: String?): List<AiSourceRef> {

@@ -12,6 +12,7 @@ class _AiSource implements AiSearchSource {
   final List<AiSearchSummary> searches = [];
   final List<AiResearchDepth> startedDepths = [];
   final List<AiResearchDepth> followUpDepths = [];
+  final List<(String, bool?, String?)> steerings = [];
 
   @override
   Future<List<AiSearchSummary>> listAiSearches() async => searches;
@@ -62,6 +63,17 @@ class _AiSource implements AiSearchSource {
 
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async => session!;
+
+  @override
+  Future<AiSearchSession> steerAiSearch(
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) async {
+    steerings.add((turnId, stop, hint));
+    return session!;
+  }
 
   @override
   Future<void> deleteAiSearch(String sessionId) async {
@@ -507,5 +519,129 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('answer-sources-button')), findsNothing);
+  });
+
+  AiSearchTurn runningTurn({
+    List<AiResearchRound> log = const [],
+    AiSteering steering = const AiSteering(),
+    bool steerable = true,
+  }) => AiSearchTurn(
+    id: 'turn-1',
+    turnNumber: 1,
+    question: 'Alles over de wijk Commandeurs',
+    status: 'RUNNING',
+    progressPercent: 40,
+    progressMessage:
+        'Ronde 1 afgerond, 12 bronnen; volgende spoor: Oosterstreng',
+    title: null,
+    answerHtml: null,
+    sources: const [],
+    suggestedFollowUps: const [],
+    errorMessage: null,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+    completedAt: null,
+    durationSeconds: 90,
+    depth: AiResearchDepth.extended,
+    researchLog: log,
+    steering: steering,
+    steerable: steerable,
+  );
+
+  testWidgets('a running deep search shows its log and can be steered', (
+    tester,
+  ) async {
+    final source = _AiSource()
+      ..session = AiSearchSession(
+        id: 'session-1',
+        turns: [
+          runningTurn(
+            log: const [
+              AiResearchRound(
+                round: 1,
+                sources: 12,
+                found: 'De wijk is vanaf 1987 gebouwd op tuinbouwgrond.',
+                next: ['Oosterstreng', 'Commandeurslaan'],
+              ),
+            ],
+          ),
+        ],
+      );
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('research-log')), findsOneWidget);
+    expect(find.text('Ronde 1 · 12 bronnen'), findsOneWidget);
+    expect(
+      find.text('Volgende: Oosterstreng, Commandeurslaan'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('steering-hint')),
+      'Sla de nertsenfarm over',
+    );
+    await tester.tap(find.byKey(const Key('steering-send')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(source.steerings, [('turn-1', null, 'Sla de nertsenfarm over')]);
+
+    await tester.tap(find.byKey(const Key('steering-stop')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(source.steerings.last, ('turn-1', true, null));
+  });
+
+  testWidgets('pending steering is shown and a fast search has no controls', (
+    tester,
+  ) async {
+    final source = _AiSource()
+      ..session = AiSearchSession(
+        id: 'session-1',
+        turns: [runningTurn(steering: const AiSteering(stop: true))],
+      );
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.text(
+        'Wordt na deze ronde opgepakt: stoppen en het antwoord schrijven.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('steering-stop')))
+          .enabled,
+      isFalse,
+    );
+
+    source.session = AiSearchSession(
+      id: 'session-1',
+      turns: [runningTurn(steerable: false)],
+    );
+    // Een verse pagina, anders blijft de eerder geladen sessie staan.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const Key('steering-stop')), findsNothing);
   });
 }

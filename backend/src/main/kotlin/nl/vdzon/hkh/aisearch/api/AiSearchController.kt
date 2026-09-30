@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
+/** Bijsturing: stoppen en schrijven, en/of een aanwijzing voor de volgende ronde. */
+data class SteerAiRequest(val stop: Boolean? = null, @field:Size(max = 500) val hint: String? = null)
+
 data class AskAiRequest(
     @field:NotBlank @field:Size(min = 3, max = 1000) val question: String,
     /** FAST, EXTENDED of THOROUGH; ontbrekend of onbekend betekent FAST. */
@@ -79,6 +82,18 @@ class AiSearchController(private val service: AiSearchService, private val ident
         sessionId,
         request.question,
         AiResearchDepth.parse(request.depth),
+    )
+
+    @PostMapping("/{sessionId}/turns/{turnId}/steer")
+    fun steer(
+        @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,
+        servletRequest: HttpServletRequest,
+        response: HttpServletResponse,
+        @PathVariable sessionId: String,
+        @PathVariable turnId: String,
+        @Valid @RequestBody request: SteerAiRequest,
+    ): AiSearchSessionView = service.steer(
+        identities.resolve(visitorCookie, servletRequest, response), sessionId, turnId, request.stop, request.hint,
     )
 
     @PostMapping("/{sessionId}/cancel")

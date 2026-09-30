@@ -200,6 +200,24 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  Future<void> _steer(String turnId, {bool? stop, String? hint}) async {
+    final sessionId = _session?.id;
+    if (sessionId == null) return;
+    try {
+      final session = await widget.source.steerAiSearch(
+        sessionId,
+        turnId,
+        stop: stop,
+        hint: hint,
+      );
+      if (!mounted || _session?.id != sessionId) return;
+      setState(() => _session = session);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+    }
+  }
+
   Future<void> _cancel() async {
     final sessionId = _session?.id;
     if (sessionId == null) return;
@@ -477,6 +495,10 @@ class _AiSearchPageState extends State<AiSearchPage> {
                           onCancel: turn.isActive && widget.canAsk
                               ? _cancel
                               : null,
+                          onSteer: turn.steerable && widget.canAsk
+                              ? ({bool? stop, String? hint}) =>
+                                    _steer(turn.id, stop: stop, hint: hint)
+                              : null,
                           onSuggestedQuestion: widget.canAsk ? _submit : null,
                         ),
                         const SizedBox(height: 20),
@@ -752,6 +774,7 @@ class _TurnCard extends StatelessWidget {
     required this.elapsed,
     required this.onCancel,
     required this.onSuggestedQuestion,
+    this.onSteer,
     this.onShare,
     this.showPdf = false,
     this.onPdf,
@@ -761,6 +784,7 @@ class _TurnCard extends StatelessWidget {
   final AiSearchTurn turn;
   final String? elapsed;
   final VoidCallback? onCancel;
+  final SteerHandler? onSteer;
   final ValueChanged<String>? onSuggestedQuestion;
   final VoidCallback? onShare;
   final bool showPdf;
@@ -813,6 +837,14 @@ class _TurnCard extends StatelessWidget {
                     ),
                 ],
               ),
+              if (turn.researchLog.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _ResearchLog(rounds: turn.researchLog),
+              ],
+              if (onSteer != null) ...[
+                const SizedBox(height: 12),
+                _SteeringPanel(steering: turn.steering, onSteer: onSteer!),
+              ],
               const SizedBox(height: 8),
               const Text(
                 'Dit kan enkele minuten duren. Je kunt deze pagina sluiten; de zoekopdracht blijft doorlopen en verschijnt bij Mijn zoekopdrachten.',
@@ -941,6 +973,175 @@ class _TurnCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+typedef SteerHandler = Future<void> Function({bool? stop, String? hint});
+
+/// Stand per zoekronde zoals de onderzoeker die meldt: bronnen, bevindingen, volgende sporen.
+class _ResearchLog extends StatelessWidget {
+  const _ResearchLog({required this.rounds});
+
+  final List<AiResearchRound> rounds;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const Key('research-log'),
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    decoration: BoxDecoration(
+      color: appAccentBackground,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Onderzoekslogboek',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: appGreen),
+        ),
+        for (final round in rounds) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Ronde ${round.round} · ${round.sources} ${round.sources == 1 ? 'bron' : 'bronnen'}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: appGreen,
+            ),
+          ),
+          if (round.found.isNotEmpty) Text(round.found),
+          if (round.next.isNotEmpty)
+            Text(
+              'Volgende: ${round.next.join(', ')}',
+              style: const TextStyle(color: appMutedText),
+            ),
+        ],
+      ],
+    ),
+  );
+}
+
+/// Bijsturen: genoeg gevonden (schrijf nu) of een aanwijzing voor de volgende ronde.
+class _SteeringPanel extends StatefulWidget {
+  const _SteeringPanel({required this.steering, required this.onSteer});
+
+  final AiSteering steering;
+  final SteerHandler onSteer;
+
+  @override
+  State<_SteeringPanel> createState() => _SteeringPanelState();
+}
+
+class _SteeringPanelState extends State<_SteeringPanel> {
+  final _hintController = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _hintController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send({bool? stop, String? hint}) async {
+    setState(() => _busy = true);
+    try {
+      await widget.onSteer(stop: stop, hint: hint);
+      if (hint != null) _hintController.clear();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steering = widget.steering;
+    final status = switch ((steering.stop, steering.hint, steering.delivered)) {
+      (true, _, false) =>
+        'Wordt na deze ronde opgepakt: stoppen en het antwoord schrijven.',
+      (true, _, true) => 'Opgepakt: de onderzoeker schrijft het antwoord.',
+      (false, final hint?, false) when hint.isNotEmpty =>
+        'Wordt na deze ronde opgepakt: "$hint"',
+      (false, final hint?, true) when hint.isNotEmpty =>
+        'Opgepakt in de volgende ronde: "$hint"',
+      _ => null,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Bijsturen',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: appGreen),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'De onderzoeker kijkt na elke ronde of je hem wilt bijsturen.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (status != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            status,
+            key: const Key('steering-status'),
+            style: const TextStyle(
+              color: appGreen,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                key: const Key('steering-hint'),
+                controller: _hintController,
+                enabled: !_busy && !steering.stop,
+                minLines: 1,
+                maxLines: 3,
+                maxLength: 500,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (value) {
+                  final hint = value.trim();
+                  if (hint.isNotEmpty) _send(hint: hint);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Aanwijzing voor de volgende ronde',
+                  hintText: 'Bijvoorbeeld: sla de nertsenfarm over',
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.outlined(
+              key: const Key('steering-send'),
+              onPressed: _busy || steering.stop
+                  ? null
+                  : () {
+                      final hint = _hintController.text.trim();
+                      if (hint.isNotEmpty) _send(hint: hint);
+                    },
+              icon: const Icon(Icons.send),
+              tooltip: 'Aanwijzing sturen',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            key: const Key('steering-stop'),
+            onPressed: _busy || steering.stop ? null : () => _send(stop: true),
+            icon: const Icon(Icons.edit_note),
+            label: const Text('Genoeg gevonden, schrijf het antwoord'),
+          ),
+        ),
+      ],
     );
   }
 }

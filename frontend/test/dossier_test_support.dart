@@ -412,6 +412,15 @@ class FakeDossierSource implements DossierSource {
   ) async => const AiSearchSession(id: 'q1', turns: []);
 
   @override
+  Future<AiSearchSession> steerQuestion(
+    String dossierId,
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) async => const AiSearchSession(id: 'q1', turns: []);
+
+  @override
   Future<void> deleteQuestion(String dossierId, String sessionId) async {}
 
   @override

@@ -191,7 +191,8 @@ class BackendClient
     String sessionId,
     String question, {
     AiResearchDepth depth = AiResearchDepth.fast,
-  }) => _postAi('/api/ai-search/sessions/$sessionId/questions', question, depth);
+  }) =>
+      _postAi('/api/ai-search/sessions/$sessionId/questions', question, depth);
 
   @override
   Future<AiSearchSession> loadAiSearch(String sessionId) async {
@@ -210,6 +211,28 @@ class BackendClient
         .post(
           Uri.parse('$apiBaseUrl/api/ai-search/sessions/$sessionId/cancel'),
           headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    return _parseAiResponse(response);
+  }
+
+  @override
+  Future<AiSearchSession> steerAiSearch(
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) async {
+    final response = await _client
+        .post(
+          Uri.parse(
+            '$apiBaseUrl/api/ai-search/sessions/$sessionId/turns/$turnId/steer',
+          ),
+          headers: _headers(const {'Content-Type': 'application/json'}),
+          body: jsonEncode({
+            if (stop != null) 'stop': stop,
+            if (hint != null) 'hint': hint,
+          }),
         )
         .timeout(const Duration(seconds: 15));
     return _parseAiResponse(response);
@@ -482,6 +505,23 @@ class BackendClient
         'POST',
         '/api/dossiers/$dossierId/questions/$sessionId/questions',
         {'question': question, 'depth': depth.apiValue},
+      ),
+    ),
+  );
+
+  @override
+  Future<AiSearchSession> steerQuestion(
+    String dossierId,
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  }) async => AiSearchSession.fromJson(
+    _decodeMap(
+      await _request(
+        'POST',
+        '/api/dossiers/$dossierId/questions/$sessionId/turns/$turnId/steer',
+        {if (stop != null) 'stop': stop, if (hint != null) 'hint': hint},
       ),
     ),
   );

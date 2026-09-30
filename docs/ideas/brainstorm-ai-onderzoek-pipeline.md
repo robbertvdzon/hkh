@@ -65,7 +65,8 @@ Drie runs van dezelfde vraag (wijk Commandeurs), gemeten in de transcripten van 
 
 ## Stand van zaken
 
-Stories A, B en C zijn op 30 september 2026 gebouwd en naar `main` gepusht. Nog te doen:
+Stories A, B, C en F zijn op 30 september 2026 gebouwd en naar `main` gepusht. De dieptekeuze
+is uitgevoerd als stappenbalk met uitleg en duur in de knop (ontwerpvariant B). Nog te doen:
 
 1. In het beheerscherm **Documenttekst ophalen** starten voor de bestaande collectie (eenmalig,
    ruim 2.200 PDF's in het scrape-tempo).
@@ -140,6 +141,22 @@ Keuze naast het vraagveld in de frontend:
 1. In de publieke frontend onder het AI-antwoord de bronnenlijst vervangen door
    "Alle bronnen (N)" die een aparte pagina of dialoog opent met de volledige lijst.
 2. De `sources`-lijst in het resultaat is al gescheiden van de tekst; backend ongewijzigd.
+
+### Story F: onderzoekslogboek en bijsturen (gebouwd)
+
+De agent kan al naar buiten praten (logregels) en de HKH-API aanroepen; daar bouwt dit op.
+
+1. De agent meldt na iedere afgeronde ronde zijn stand met een POST op een per-vraag geheime
+   URL (token alleen in de prompt): rondenummer, aantal relevante bronnen, twee zinnen over wat
+   hij weet en de sporen die hij hierna wil volgen. HKH bewaart dat als `research_log` bij de
+   vraag en zet de voortgangsmelding op de laatste ronde.
+2. In het antwoord op die POST krijgt hij de bijsturing van de gebruiker: `stop` (schrijf nu het
+   antwoord met wat je hebt) en/of `hint` (aanwijzing voor de volgende ronde). Bijsturing wordt
+   één keer afgeleverd en daarna als "opgepakt" getoond.
+3. Frontend: onderzoekslogboek in de voortgangskaart, veld voor een aanwijzing en de knop
+   "Genoeg gevonden, schrijf het antwoord"; alleen bij Doorzoeken en Uitgebreid.
+4. Kanttekening: bijsturen landt op rondegrenzen (tot een minuut vertraging) en vereist dat het
+   model de meldregel uit de prompt trouw uitvoert; het logboek werkt ook zonder bijsturen.
 
 ### Geparkeerd
 

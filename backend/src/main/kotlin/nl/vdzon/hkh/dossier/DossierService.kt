@@ -157,6 +157,11 @@ class DossierService(
         return view
     }
 
+    fun steer(dossierId: String, user: AuthenticatedUser, sessionId: String, turnId: String, stop: Boolean?, hint: String?): AiSearchSessionView {
+        requireRole(dossierId, user, DossierRole::canResearch, "Alleen onderzoekers en bewerkers mogen een onderzoek bijsturen")
+        return aiSearch.steerInDossier(dossierId, sessionId, turnId, stop, hint)
+    }
+
     fun followUp(dossierId: String, user: AuthenticatedUser, sessionId: String, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
         val (dossier, _) = requireRole(dossierId, user, DossierRole::canResearch, "Alleen onderzoekers en bewerkers mogen vragen stellen")
         ensureUserJobCapacity(user)

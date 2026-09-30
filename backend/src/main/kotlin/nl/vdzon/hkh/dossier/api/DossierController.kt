@@ -44,6 +44,8 @@ data class QuestionRequest(
 
 data class AdoptRequest(@field:NotBlank val sessionId: String)
 
+data class SteerRequest(val stop: Boolean? = null, @field:Size(max = 500) val hint: String? = null)
+
 @RestController
 @RequestMapping("/api/dossiers")
 class DossierController(
@@ -164,6 +166,15 @@ class DossierController(
         @PathVariable sessionId: String,
         @Valid @RequestBody request: QuestionRequest,
     ): AiSearchSessionView = service.followUp(dossierId, sessions.requireUser(authorization), sessionId, request.question, AiResearchDepth.parse(request.depth))
+
+    @PostMapping("/{dossierId}/questions/{sessionId}/turns/{turnId}/steer")
+    fun steer(
+        @RequestHeader(AUTH, required = false) authorization: String?,
+        @PathVariable dossierId: String,
+        @PathVariable sessionId: String,
+        @PathVariable turnId: String,
+        @Valid @RequestBody request: SteerRequest,
+    ): AiSearchSessionView = service.steer(dossierId, sessions.requireUser(authorization), sessionId, turnId, request.stop, request.hint)
 
     @PostMapping("/{dossierId}/questions/{sessionId}/cancel")
     fun cancel(

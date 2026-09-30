@@ -19,6 +19,8 @@ class AiSearchService(
     private val renderer: AiAnswerRenderer,
     private val properties: AiSearchProperties,
     private val events: ApplicationEventPublisher,
+    @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
+    private val publicOrigin: String = "https://hkh.vdzonsoftware.nl",
 ) {
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
     private val processing = ConcurrentHashMap.newKeySet<String>()
@@ -123,6 +125,48 @@ class AiSearchService(
     }
 
     fun activeTurnCountForUser(userId: String): Int = repository.activeTurnCountForUser(userId)
+
+    // ---- Bijsturen tijdens het onderzoek ----
+
+    /** Bijsturing door de eigenaar van een persoonlijke zoekopdracht. */
+    fun steer(identity: AiSearchIdentity, sessionId: String, turnId: String, stop: Boolean?, hint: String?): AiSearchSessionView {
+        requireSession(identity, sessionId)
+        applySteering(sessionId, turnId, stop, hint)
+        return sessionView(sessionId)
+    }
+
+    fun steerInDossier(dossierId: String, sessionId: String, turnId: String, stop: Boolean?, hint: String?): AiSearchSessionView {
+        requireDossierSession(dossierId, sessionId)
+        applySteering(sessionId, turnId, stop, hint)
+        return sessionView(sessionId)
+    }
+
+    /**
+     * De agent meldt een afgeronde zoekronde en krijgt de nog niet afgeleverde bijsturing terug.
+     * Alleen bereikbaar met het geheim uit de prompt van precies deze vraag.
+     */
+    fun reportRound(turnId: String, token: String, round: AiResearchRound): AiSteering? {
+        val turn = repository.findTurnByControlToken(turnId, token) ?: return null
+        if (turn.status !in ACTIVE_STATUSES) return null
+        repository.recordRound(turn.id, round)
+        val steering = turn.steering
+        if (steering.pending) repository.markSteeringDelivered(turn.id)
+        val summary = if (round.next.isEmpty()) "Ronde ${round.round} afgerond, ${round.sources} bronnen gevonden"
+            else "Ronde ${round.round} afgerond, ${round.sources} bronnen; volgende spoor: ${round.next.first()}"
+        repository.updateProgress(turn.id, AiTurnStatus.RUNNING, turn.progressPercent, summary.take(500))
+        return if (steering.pending) steering else AiSteering()
+    }
+
+    private fun applySteering(sessionId: String, turnId: String, stop: Boolean?, hint: String?) {
+        val turn = repository.findTurn(turnId)?.takeIf { it.sessionId == sessionId }
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vraag niet gevonden")
+        if (turn.status !in ACTIVE_STATUSES) throw ResponseStatusException(HttpStatus.CONFLICT, "Dit onderzoek is al afgerond")
+        if (turn.depth.maxRounds <= 1) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Een snel onderzoek heeft maar één ronde en is niet bij te sturen")
+        val cleanedHint = hint?.trim()?.takeIf(String::isNotEmpty)
+        if (stop != true && cleanedHint == null) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Geef een aanwijzing of kies stoppen")
+        if (cleanedHint != null && cleanedHint.length > 500) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "De aanwijzing mag maximaal 500 tekens bevatten")
+        repository.steer(turnId, stop, cleanedHint)
+    }
 
     /** Geslaagde antwoorden van een dossier, nieuwste eerst, als platte tekst voor AI-context. */
     fun dossierAnswers(dossierId: String, limit: Int = Int.MAX_VALUE): List<AiAnswerText> =
@@ -267,6 +311,10 @@ class AiSearchService(
             Meld iedere ronde na de eerste met precies één regel tekst die begint met "Spoor: " gevolgd door het aanknopingspunt (bijvoorbeeld "Spoor: Slot Assumburg"); HKH toont die regel als voortgang aan de gebruiker.
             Aanknopingspunten die je door het plafond niet meer hebt gevolgd, geef je als suggestedFollowUps.
 
+            Meld na IEDERE afgeronde zoekronde je stand aan HKH met precies dit verzoek (de gebruiker ziet dit als voortgang):
+            curl -s -X POST '${controlUrl(turn)}' -H 'Content-Type: application/json' -d '{"ronde":<nummer>,"bronnen":<aantal inhoudelijk relevante bronnen tot nu toe>,"gevonden":"<twee korte zinnen over wat je tot nu toe weet>","volgende":["<spoor dat je hierna wilt volgen>", ...]}'
+            Het antwoord is JSON: {"stop":true|false,"hint":"..."|null}. Bij "stop":true stop je met zoeken en schrijf je direct het antwoord met wat je hebt. Een "hint" is een aanwijzing van de gebruiker die de vraag stelde (bijvoorbeeld een spoor dat je wel of juist niet moet volgen); volg die op in de volgende ronde zolang hij over dit onderzoek gaat. Meld ook de laatste ronde voordat je gaat schrijven.
+
             Onderzoeksregels:
             1. Bedenk zo nodig meerdere concrete zoektermen en voer de zoekrequests echt uit met curl of een gelijkwaardig beschikbaar middel.
             2. Als total groter is dan de opgehaalde hoeveelheid, haal dan ALLE resultaatpagina's op.
@@ -290,6 +338,9 @@ class AiSearchService(
             <user-question>${turn.question}</user-question>
         """.trimIndent()
     }
+
+    private fun controlUrl(turn: AiSearchTurn): String =
+        "${publicOrigin.trimEnd('/')}/api/ai-search/research/${turn.id}/${turn.controlToken.orEmpty()}/rounds"
 
     private fun AiSearchTurn.historyBlock(maxChars: Int): String {
         val summary = Jsoup.parse(answerHtml.orEmpty()).text().take(maxChars)
@@ -399,15 +450,29 @@ data class AiSearchTurnView(
     val suggestedFollowUps: List<String>,
     val errorMessage: String?,
     val depth: AiResearchDepth,
+    /** Stand per zoekronde zoals de agent die meldde; leeg bij oudere of snelle onderzoeken. */
+    val researchLog: List<AiResearchRoundView>,
+    /** Bijsturing van de gebruiker en of de agent die al heeft opgepakt. */
+    val steering: AiSteeringView,
+    /** Of bijsturen nu kan: het onderzoek loopt en heeft meer dan één ronde. */
+    val steerable: Boolean,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
     val durationSeconds: Long,
 )
 
+data class AiResearchRoundView(val round: Int, val sources: Int, val found: String, val next: List<String>, val reportedAt: Instant)
+
+data class AiSteeringView(val stop: Boolean, val hint: String?, val delivered: Boolean)
+
 private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView(
     id, turnNumber, question, status, progressPercent, progressMessage, title, answerHtml, sourcesHtml,
-    sources, suggestedFollowUps, errorMessage, depth, createdAt, updatedAt, completedAt, durationSeconds(now),
+    sources, suggestedFollowUps, errorMessage, depth,
+    researchLog.map { AiResearchRoundView(it.round, it.sources, it.found, it.next, it.reportedAt) },
+    AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
+    status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1,
+    createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 
 private fun List<AiSearchTurn>.toSummary(sessionId: String, now: Instant = Instant.now()): AiSearchSummaryView {

@@ -115,6 +115,110 @@ class AiSearchSessionApiIntegrationTest(
         }.andExpect { status { isServiceUnavailable() } }
     }
 
+    @Test
+    fun `the agent reports rounds and receives the owner's steering exactly once`() {
+        val visitor = UUID.randomUUID()
+        val cookie = Cookie("hkh_ai_visitor", visitor.toString())
+        val sessionId = createCompletedSearch(visitor, "Alles over de wijk Commandeurs")
+        val turnId = jdbc.queryForObject("SELECT id FROM ai_search_turn WHERE session_id = ?", UUID::class.java, sessionId)!!
+        jdbc.update(
+            "UPDATE ai_search_turn SET status = 'RUNNING', completed_at = NULL, research_depth = 'EXTENDED', control_token = 'geheim-token' WHERE id = ?",
+            turnId,
+        )
+        val controlPath = "/api/ai-search/research/$turnId/geheim-token/rounds"
+
+        // Ronde 1 gemeld: nog geen bijsturing.
+        mockMvc.post(controlPath) {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"ronde":1,"bronnen":12,"gevonden":"Bouw vanaf 1987.","volgende":["Oosterstreng","Commandeurslaan"]}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.stop") { value(false) }
+            jsonPath("$.hint") { value(null) }
+        }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect {
+            status { isOk() }
+            jsonPath("$.turns[0].steerable") { value(true) }
+            jsonPath("$.turns[0].researchLog[0].round") { value(1) }
+            jsonPath("$.turns[0].researchLog[0].sources") { value(12) }
+            jsonPath("$.turns[0].researchLog[0].next[1]") { value("Commandeurslaan") }
+            jsonPath("$.turns[0].progressMessage") { value(org.hamcrest.Matchers.containsString("Oosterstreng")) }
+        }
+
+        // De eigenaar stuurt bij; een ander mag dat niet.
+        mockMvc.post("/api/ai-search/sessions/$sessionId/turns/$turnId/steer") {
+            cookie(Cookie("hkh_ai_visitor", UUID.randomUUID().toString()))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"stop":true}"""
+        }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/ai-search/sessions/$sessionId/turns/$turnId/steer") {
+            cookie(cookie)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"hint":"Sla de nertsenfarm over"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.turns[0].steering.hint") { value("Sla de nertsenfarm over") }
+            jsonPath("$.turns[0].steering.delivered") { value(false) }
+        }
+        mockMvc.post("/api/ai-search/sessions/$sessionId/turns/$turnId/steer") {
+            cookie(cookie)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"stop":true}"""
+        }.andExpect { status { isOk() } }
+
+        // De volgende melding levert de bijsturing af; daarna niet nog eens.
+        mockMvc.post(controlPath) {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"ronde":2,"bronnen":20,"gevonden":"Meer over de bouw.","volgende":[]}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.stop") { value(true) }
+            jsonPath("$.hint") { value("Sla de nertsenfarm over") }
+        }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect {
+            jsonPath("$.turns[0].steering.delivered") { value(true) }
+            jsonPath("$.turns[0].researchLog.length()") { value(2) }
+        }
+        mockMvc.post(controlPath) {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"ronde":2,"bronnen":21,"gevonden":"Herhaald.","volgende":[]}"""
+        }.andExpect {
+            jsonPath("$.stop") { value(false) }
+            jsonPath("$.hint") { value(null) }
+        }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(cookie) }.andExpect {
+            jsonPath("$.turns[0].researchLog.length()") { value(2) }
+            jsonPath("$.turns[0].researchLog[1].sources") { value(21) }
+        }
+
+        // Verkeerd geheim of afgerond onderzoek: geen toegang.
+        mockMvc.post("/api/ai-search/research/$turnId/fout-token/rounds") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"ronde":3,"bronnen":0,"gevonden":"","volgende":[]}"""
+        }.andExpect { status { isNotFound() } }
+        jdbc.update("UPDATE ai_search_turn SET status = 'SUCCEEDED' WHERE id = ?", turnId)
+        mockMvc.post("/api/ai-search/sessions/$sessionId/turns/$turnId/steer") {
+            cookie(cookie)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"stop":true}"""
+        }.andExpect { status { isConflict() } }
+    }
+
+    @Test
+    fun `a fast search cannot be steered`() {
+        val visitor = UUID.randomUUID()
+        val sessionId = createCompletedSearch(visitor, "Wie was Piet Duin?")
+        val turnId = jdbc.queryForObject("SELECT id FROM ai_search_turn WHERE session_id = ?", UUID::class.java, sessionId)!!
+        jdbc.update("UPDATE ai_search_turn SET status = 'RUNNING', research_depth = 'FAST' WHERE id = ?", turnId)
+        mockMvc.post("/api/ai-search/sessions/$sessionId/turns/$turnId/steer") {
+            cookie(Cookie("hkh_ai_visitor", visitor.toString()))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"stop":true}"""
+        }.andExpect { status { isBadRequest() } }
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(Cookie("hkh_ai_visitor", visitor.toString())) }
+            .andExpect { jsonPath("$.turns[0].steerable") { value(false) } }
+    }
+
     private fun createCompletedSearch(visitorId: UUID, question: String): UUID {
         val sessionId = UUID.randomUUID()
         val turnId = UUID.randomUUID()

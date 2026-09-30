@@ -22,7 +22,8 @@ enum AiResearchDepth {
   /// Korte consequentie voor tooltips en pillen.
   String get description => switch (this) {
     AiResearchDepth.fast => '1 zoekronde, antwoord in ca. 2 minuten',
-    AiResearchDepth.extended => 'Tot 5 zoekrondes, volgt verbanden, 3 tot 5 minuten',
+    AiResearchDepth.extended =>
+      'Tot 5 zoekrondes, volgt verbanden, 3 tot 5 minuten',
     AiResearchDepth.thorough =>
       'Tot 15 zoekrondes, alles eromheen, 5 tot 10 minuten',
   };
@@ -61,6 +62,50 @@ class AiQuestionDraft {
   final AiResearchDepth depth;
 }
 
+/// Stand na één zoekronde, zoals de digitale onderzoeker die meldt.
+class AiResearchRound {
+  const AiResearchRound({
+    required this.round,
+    required this.sources,
+    required this.found,
+    required this.next,
+  });
+
+  factory AiResearchRound.fromJson(Map<String, dynamic> json) =>
+      AiResearchRound(
+        round: (json['round'] as num?)?.toInt() ?? 0,
+        sources: (json['sources'] as num?)?.toInt() ?? 0,
+        found: json['found'] as String? ?? '',
+        next: (json['next'] as List<dynamic>? ?? const [])
+            .map((item) => item.toString())
+            .toList(growable: false),
+      );
+
+  final int round;
+  final int sources;
+  final String found;
+  final List<String> next;
+}
+
+/// Bijsturing door de gebruiker en of de onderzoeker die al heeft opgepakt.
+class AiSteering {
+  const AiSteering({this.stop = false, this.hint, this.delivered = false});
+
+  factory AiSteering.fromJson(Map<String, dynamic>? json) => json == null
+      ? const AiSteering()
+      : AiSteering(
+          stop: json['stop'] as bool? ?? false,
+          hint: json['hint'] as String?,
+          delivered: json['delivered'] as bool? ?? false,
+        );
+
+  final bool stop;
+  final String? hint;
+  final bool delivered;
+
+  bool get pending => (stop || (hint?.isNotEmpty ?? false)) && !delivered;
+}
+
 class AiSourceRef {
   const AiSourceRef({required this.collection, required this.ident});
 
@@ -92,6 +137,9 @@ class AiSearchTurn {
     required this.durationSeconds,
     this.depth = AiResearchDepth.fast,
     this.sourcesHtml,
+    this.researchLog = const [],
+    this.steering = const AiSteering(),
+    this.steerable = false,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -119,6 +167,11 @@ class AiSearchTurn {
     durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
     depth: AiResearchDepth.fromApiValue(json['depth'] as String?),
     sourcesHtml: json['sourcesHtml'] as String?,
+    researchLog: (json['researchLog'] as List<dynamic>? ?? const [])
+        .map((item) => AiResearchRound.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false),
+    steering: AiSteering.fromJson(json['steering'] as Map<String, dynamic>?),
+    steerable: json['steerable'] as bool? ?? false,
   );
 
   final String id;
@@ -141,6 +194,13 @@ class AiSearchTurn {
   /// Bronnenlijst met beschrijvingen en beelden voor de aparte bronnenpagina;
   /// null bij oudere antwoorden, die de lijst nog in [answerHtml] hebben.
   final String? sourcesHtml;
+
+  /// Stand per zoekronde tijdens het onderzoek (leeg bij Snel of oudere vragen).
+  final List<AiResearchRound> researchLog;
+  final AiSteering steering;
+
+  /// Of bijsturen nu kan: het onderzoek loopt en heeft meer dan één ronde.
+  final bool steerable;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -223,6 +283,14 @@ abstract interface class AiSearchSource {
   });
   Future<AiSearchSession> cancelAiSearch(String sessionId);
   Future<void> deleteAiSearch(String sessionId);
+
+  /// Stuurt een lopend onderzoek bij: stoppen en schrijven, en/of een aanwijzing.
+  Future<AiSearchSession> steerAiSearch(
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  });
 }
 
 /// Haalt een geslaagd AI-antwoord op als PDF-bytes. Staat los van [AiSearchSource]

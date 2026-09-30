@@ -488,6 +488,13 @@ abstract interface class DossierSource {
     AiResearchDepth depth = AiResearchDepth.fast,
   });
   Future<AiSearchSession> cancelQuestion(String dossierId, String sessionId);
+  Future<AiSearchSession> steerQuestion(
+    String dossierId,
+    String sessionId,
+    String turnId, {
+    bool? stop,
+    String? hint,
+  });
   Future<void> deleteQuestion(String dossierId, String sessionId);
   Future<AiSearchSession> adoptSearch(String dossierId, String sessionId);
 
