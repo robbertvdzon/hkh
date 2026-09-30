@@ -39,12 +39,16 @@ class AiAnswerExportService(
     fun exportAnswer(identity: AiSearchIdentity, answerId: String): AiAnswerPdf? {
         val turn = findOwnedAnswer(identity, answerId) ?: return null
         val title = CollectionLinks.rewrite(turn.title?.takeIf(String::isNotBlank) ?: turn.question)
-        val bodyHtml = CollectionLinks.rewrite(turn.answerHtml.orEmpty())
+        val bodyHtml = CollectionLinks.rewrite(turn.answerHtml.orEmpty() + sourcesSection(turn.sourcesHtml))
         val sources = turn.sources.map { ref ->
             "${ref.collection} · ${ref.ident} — ${CollectionLinks.detail(ref.collection, ref.ident, publicOrigin)}"
         }
         return AiAnswerPdf(fileName(turn.id), render(title, bodyHtml, sources))
     }
+
+    /** Het PDF-document blijft compleet: de losse bronnenlijst komt na de tekst, zoals vroeger in de tekst zelf. */
+    private fun sourcesSection(sourcesHtml: String?): String =
+        if (sourcesHtml.isNullOrBlank()) "" else "<section><hr><h2>Bronnen en afbeeldingen</h2>$sourcesHtml</section>"
 
     private fun render(title: String, bodyHtml: String, sources: List<String>): ByteArray {
         val task = executor.submit<ByteArray> { renderer.render(title, bodyHtml, sources) }

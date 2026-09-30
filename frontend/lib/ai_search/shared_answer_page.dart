@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_style.dart';
 import 'answer_html.dart';
 import 'answer_sharing.dart';
+import 'answer_sources_page.dart';
 
 class SharedAnswerPage extends StatefulWidget {
   const SharedAnswerPage({
@@ -132,6 +133,14 @@ class _SharedAnswerPageState extends State<SharedAnswerPage> {
                   AppCard(
                     child: SelectionArea(child: AnswerHtml(answer.answerHtml)),
                   ),
+                  if (answer.sourcesHtml?.trim().isNotEmpty ?? false) ...[
+                    const SizedBox(height: 16),
+                    AnswerSourcesButton(
+                      sourcesHtml: answer.sourcesHtml,
+                      sourceCount: 0,
+                      title: answer.title,
+                    ),
+                  ],
                 ],
               ],
             ),

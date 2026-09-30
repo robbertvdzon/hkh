@@ -3,6 +3,7 @@ package nl.vdzon.hkh.dossier.api
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import nl.vdzon.hkh.aisearch.AiResearchDepth
 import nl.vdzon.hkh.aisearch.AiSearchSessionView
 import nl.vdzon.hkh.aisearch.AiSearchSummaryView
 import nl.vdzon.hkh.auth.SessionService
@@ -35,7 +36,11 @@ data class TransferRequest(@field:NotBlank val email: String)
 
 data class FactSheetRequest(@field:Size(max = 60_000) val markdown: String)
 
-data class QuestionRequest(@field:NotBlank @field:Size(min = 3, max = 1000) val question: String)
+data class QuestionRequest(
+    @field:NotBlank @field:Size(min = 3, max = 1000) val question: String,
+    /** FAST, EXTENDED of THOROUGH; ontbrekend of onbekend betekent FAST. */
+    val depth: String? = null,
+)
 
 data class AdoptRequest(@field:NotBlank val sessionId: String)
 
@@ -131,7 +136,7 @@ class DossierController(
         @RequestHeader(AUTH, required = false) authorization: String?,
         @PathVariable dossierId: String,
         @Valid @RequestBody request: QuestionRequest,
-    ): AiSearchSessionView = service.ask(dossierId, sessions.requireUser(authorization), request.question)
+    ): AiSearchSessionView = service.ask(dossierId, sessions.requireUser(authorization), request.question, AiResearchDepth.parse(request.depth))
 
     @PostMapping("/{dossierId}/questions/adopt")
     fun adopt(
@@ -158,7 +163,7 @@ class DossierController(
         @PathVariable dossierId: String,
         @PathVariable sessionId: String,
         @Valid @RequestBody request: QuestionRequest,
-    ): AiSearchSessionView = service.followUp(dossierId, sessions.requireUser(authorization), sessionId, request.question)
+    ): AiSearchSessionView = service.followUp(dossierId, sessions.requireUser(authorization), sessionId, request.question, AiResearchDepth.parse(request.depth))
 
     @PostMapping("/{dossierId}/questions/{sessionId}/cancel")
     fun cancel(

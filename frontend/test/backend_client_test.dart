@@ -93,6 +93,7 @@ void main() {
         expect(request.method, 'POST');
         expect(jsonDecode(request.body), {
           'question': 'Wat gebeurde er aan de Kerklaan?',
+          'depth': 'FAST',
         });
         return http.Response(
           '{"id":"s1","turns":[{"id":"t1","turnNumber":1,"question":"Wat gebeurde er aan de Kerklaan?","status":"QUEUED","progressPercent":5,"progressMessage":"Klaar","title":null,"answerHtml":null,"sources":[],"suggestedFollowUps":[],"errorMessage":null,"createdAt":"2026-09-12T00:00:00Z","updatedAt":"2026-09-12T00:00:05Z","completedAt":null,"durationSeconds":5}]}',

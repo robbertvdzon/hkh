@@ -79,6 +79,7 @@ class CollectionItemDetail {
     required this.pdfUrl,
     required this.detailUrl,
     required this.fields,
+    this.documentText,
   });
 
   factory CollectionItemDetail.fromJson(Map<String, dynamic> json) =>
@@ -94,6 +95,7 @@ class CollectionItemDetail {
         fields: (json['fields'] as Map<String, dynamic>? ?? const {}).map(
           (key, value) => MapEntry(key, value?.toString() ?? ''),
         ),
+        documentText: json['documentText'] as String?,
       );
 
   final String collection;
@@ -105,6 +107,9 @@ class CollectionItemDetail {
   final String? pdfUrl;
   final String detailUrl;
   final Map<String, String> fields;
+
+  /// Automatisch herkende tekst uit de PDF van het record, als die is opgehaald.
+  final String? documentText;
 }
 
 class SearchPage {

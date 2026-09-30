@@ -591,14 +591,37 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
                   : const Icon(Icons.play_arrow),
               label: Text(
                 running
-                    ? 'Bezig met ophalen (${status?.mode == ScrapeMode.fast ? 'snel' : 'volledig'})…'
+                    ? 'Bezig met ophalen (${status?.mode.label})…'
                     : 'Volledig ophalen (langzaam, alle gegevens)',
               ),
             ),
             const SizedBox(height: 4),
             const Text(
-              'Volledig haalt elk record apart op (± 2 uur voor de hele collectie) en '
-              'vult zo ook het beeld/PDF en de overige velden aan.',
+              'Volledig haalt elk record apart op (± 2 uur voor de hele collectie), '
+              'vult zo ook het beeld/PDF en de overige velden aan en haalt direct de '
+              'tekst uit de PDF van nieuwe records.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const ValueKey('scrape-text'),
+              onPressed: running || _loading
+                  ? null
+                  : () => _start(ScrapeMode.text),
+              icon: running || _loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.text_snippet_outlined),
+              label: const Text('Documenttekst ophalen (alleen ontbrekende)'),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Haalt voor records met een PDF (archief, artikelen) de tekstlaag uit die '
+              'PDF en zet die in de zoekdatabase. Eenmalig nodig voor de bestaande '
+              'collectie; daarna alleen voor records waarvan het eerder mislukte '
+              '(met "alles opnieuw" aangevinkt).',
               style: TextStyle(fontSize: 12),
             ),
           ],
@@ -622,8 +645,7 @@ class _StatusView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Laatste run: ${_label(status.status)} '
-          '(${status.mode == ScrapeMode.fast ? 'snel' : 'volledig'})',
+          'Laatste run: ${_label(status.status)} (${status.mode.label})',
         ),
         if (status.running && status.currentCollection != null) ...[
           const SizedBox(height: 4),
@@ -640,6 +662,15 @@ class _StatusView extends StatelessWidget {
           '${total > 0 ? '  ·  Totaal: $total' : ''}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (status.mode == ScrapeMode.full &&
+            (status.documents > 0 || status.documentsFailed > 0)) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Documentteksten: ${status.documents}'
+            '  ·  Mislukt: ${status.documentsFailed}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
         if (status.message != null) ...[
           const SizedBox(height: 4),
           Text(status.message!, style: Theme.of(context).textTheme.bodySmall),

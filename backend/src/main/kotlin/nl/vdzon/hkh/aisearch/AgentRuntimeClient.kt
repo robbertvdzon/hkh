@@ -104,12 +104,7 @@ class AgentRuntimeClient(
     /** Maakt een JSON-schema-node uit een letterlijke schema-tekst; handig voor andere modules. */
     fun schema(json: String): JsonNode = objectMapper.readTree(json)
 
-    private fun classifyActivity(text: String): String? = when {
-        text.contains("/api/collections/search") -> "Een nieuwe zoekpagina uit de collectie wordt opgehaald"
-        text.contains("/api/collections/") -> "Details van relevante bronnen worden gecontroleerd"
-        text.contains("jq ") || text.contains("python") -> "De gevonden gegevens worden geordend en vergeleken"
-        else -> null
-    }
+    private fun classifyActivity(text: String): String? = RuntimeActivityClassifier.classify(text)
 
     private fun parseJob(node: JsonNode) = RuntimeJob(
         id = node.path("id").asText(),
@@ -155,5 +150,19 @@ class AgentRuntimeClient(
     companion object {
         /** Limiet van het runtime-contract voor `input.instruction`. */
         const val MAX_INSTRUCTION_LENGTH = 65_536
+    }
+}
+
+/** Vertaalt logregels van de agent naar een voortgangsmelding voor de gebruiker. */
+internal object RuntimeActivityClassifier {
+    fun classify(text: String): String? = when {
+        text.contains("Spoor:") -> text.lineSequence()
+            .map(String::trim).lastOrNull { it.trimStart('*', '_', '#', ' ').startsWith("Spoor:") }
+            ?.substringAfter("Spoor:")?.trim()?.trim('"', '*', '_')?.takeIf(String::isNotBlank)
+            ?.let { "Spoor wordt gevolgd: ${it.take(120)}" }
+        text.contains("/api/collections/search") -> "Een nieuwe zoekpagina uit de collectie wordt opgehaald"
+        text.contains("/api/collections/") -> "Details van relevante bronnen worden gecontroleerd"
+        text.contains("jq ") || text.contains("python") -> "De gevonden gegevens worden geordend en vergeleken"
+        else -> null
     }
 }

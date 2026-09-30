@@ -110,7 +110,14 @@ GoRouter createAppRouter({
       key: ValueKey('questions:${session?.identity?.email ?? "anonymous"}'),
       source: aiSearchSource!,
       pdfSource: pdfSource,
-      initialQuestion: state.extra is String ? state.extra as String : null,
+      initialQuestion: switch (state.extra) {
+        final AiQuestionDraft draft => draft.question,
+        final String question => question,
+        _ => null,
+      },
+      initialDepth: state.extra is AiQuestionDraft
+          ? (state.extra as AiQuestionDraft).depth
+          : AiResearchDepth.fast,
       initialSessionId: state.uri.queryParameters['id'],
       emptyMessage: session?.signedIn ?? false
           ? 'Je hebt nog geen AI-zoekopdrachten in je account.'

@@ -9,10 +9,12 @@ import org.springframework.stereotype.Service
 /**
  * FAST: leest alleen de lijstpagina's (30/pagina) - snel, maar zonder PDF-link en een paar
  * velden die alleen op de detailpagina staan. FULL: haalt elk record apart op - langzaam
- * (rate-limited), maar met alle velden. Beide zijn hervatbaar: bestaande records worden
- * overgeslagen tenzij force=true.
+ * (rate-limited), maar met alle velden, en haalt direct de tekst uit de PDF van het record.
+ * TEXT: alleen de documenttekst, voor records met PDF die nog geen tekst hebben (de eenmalige
+ * backfill van de bestaande collectie). Alle drie zijn hervatbaar: bestaande records of
+ * teksten worden overgeslagen tenzij force=true.
  */
-enum class ScrapeMode { FAST, FULL }
+enum class ScrapeMode { FAST, FULL, TEXT }
 
 /**
  * Start en bewaakt het scrapen van alle ZCBS-collecties. Draait op een
@@ -24,6 +26,7 @@ class CollectionScrapeService(
     private val items: CollectionItemStore,
     private val runs: ScrapeRunStore,
     private val properties: ZcbsProperties,
+    private val documents: DocumentTextService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val running = AtomicBoolean(false)
@@ -61,10 +64,11 @@ class CollectionScrapeService(
                 when (mode) {
                     ScrapeMode.FAST -> scrapeCollectionFast(collection, force, progress)
                     ScrapeMode.FULL -> scrapeCollectionFull(collection, force, progress)
+                    ScrapeMode.TEXT -> extractCollectionText(collection, force, progress)
                 }
             }
             runs.update(progress)
-            runs.finish(runId, ScrapeStatus.COMPLETED, "Klaar: ${progress.processed} opgehaald, ${progress.skipped} overgeslagen, ${progress.failed} mislukt")
+            runs.finish(runId, ScrapeStatus.COMPLETED, summary(mode, progress))
             logger.info("Scrape {} voltooid: {}", runId, progress)
         } catch (ex: Exception) {
             logger.error("Scrape {} mislukt", runId, ex)
@@ -111,6 +115,7 @@ class CollectionScrapeService(
         runs.update(progress)
 
         val complete = if (force) emptySet() else items.completeIdents(collection)
+        val withText = if (force) emptySet() else items.documentTextIdents(collection)
         for (ident in idents) {
             if (!force && ident in complete) {
                 progress.skipped++
@@ -121,6 +126,12 @@ class CollectionScrapeService(
                 items.upsert(record)
                 progress.processed++
                 progress.perCollection.merge(collection, 1, Int::plus)
+                val pdfUrl = record.pdfUrl
+                if (pdfUrl != null && ident !in withText) {
+                    sleep()
+                    val previousHash = if (force) items.find(collection, ident)?.documentPdfHash else null
+                    count(progress, documents.extract(collection, ident, pdfUrl, previousHash))
+                }
             } catch (ex: Exception) {
                 progress.failed++
                 logger.warn("Record {}/{} mislukt: {}", collection, ident, ex.message)
@@ -129,6 +140,47 @@ class CollectionScrapeService(
             sleep()
         }
         runs.update(progress)
+    }
+
+    /**
+     * Backfill: alleen de documenttekst, voor records met PDF en zonder tekst. Zonder force
+     * blijven eerder mislukte records liggen; met force worden ook die opnieuw geprobeerd.
+     */
+    private fun extractCollectionText(collection: String, force: Boolean, progress: RunProgress) {
+        val pending = items.pendingDocuments(collection, includeFailed = force)
+        progress.total += pending.size
+        progress.perCollection.putIfAbsent(collection, 0)
+        runs.update(progress)
+        for (document in pending) {
+            val outcome = documents.extract(document.collection, document.ident, document.pdfUrl)
+            count(progress, outcome)
+            if (outcome is DocumentTextOutcome.Failed) {
+                progress.failed++
+            } else {
+                progress.processed++
+                progress.perCollection.merge(collection, 1, Int::plus)
+            }
+            if ((progress.processed + progress.failed) % 10 == 0) runs.update(progress)
+            sleep()
+        }
+        runs.update(progress)
+    }
+
+    private fun count(progress: RunProgress, outcome: DocumentTextOutcome) {
+        when (outcome) {
+            is DocumentTextOutcome.Extracted -> progress.documents++
+            is DocumentTextOutcome.Failed -> progress.documentsFailed++
+            DocumentTextOutcome.Unchanged -> Unit
+        }
+    }
+
+    private fun summary(mode: ScrapeMode, progress: RunProgress): String {
+        val records = "${progress.processed} opgehaald, ${progress.skipped} overgeslagen, ${progress.failed} mislukt"
+        return when (mode) {
+            ScrapeMode.TEXT -> "Klaar: ${progress.processed} documentteksten opgehaald, ${progress.failed} mislukt"
+            ScrapeMode.FULL -> "Klaar: $records; ${progress.documents} documentteksten, ${progress.documentsFailed} mislukt"
+            ScrapeMode.FAST -> "Klaar: $records"
+        }
     }
 
     private fun sleep() {

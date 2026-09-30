@@ -196,15 +196,17 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
                 detail.year,
                 detail.fields,
               );
-              final text = detail.fields.entries
-                  .where(
-                    (e) => documentFieldNames.any(
-                      (k) => k.toLowerCase() == e.key.toLowerCase(),
-                    ),
-                  )
-                  .map((e) => e.value)
-                  .where((v) => v.trim().isNotEmpty)
-                  .join('\n\n');
+              final text = detail.documentText?.trim().isNotEmpty == true
+                  ? detail.documentText!.trim()
+                  : detail.fields.entries
+                        .where(
+                          (e) => documentFieldNames.any(
+                            (k) => k.toLowerCase() == e.key.toLowerCase(),
+                          ),
+                        )
+                        .map((e) => e.value)
+                        .where((v) => v.trim().isNotEmpty)
+                        .join('\n\n');
               final core = <String, String>{
                 config.number: detail.ident,
                 if (detail.year != null && detail.collection != 'bidprent')

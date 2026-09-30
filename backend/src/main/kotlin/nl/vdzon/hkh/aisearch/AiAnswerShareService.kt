@@ -16,6 +16,8 @@ data class SharedAiAnswer(
     val question: String,
     val title: String?,
     val answerHtml: String,
+    /** Bronnenlijst voor een aparte pagina; null bij antwoorden van vóór die scheiding. */
+    val sourcesHtml: String?,
     val sources: List<AiSourceRef>,
     val answeredAt: Instant?,
     val sharedAt: Instant,
@@ -41,15 +43,15 @@ class AiAnswerShareService(
         // Een herhaalde klik houdt dezelfde link en dezelfde leesversie in stand.
         jdbc.update(
             """
-            INSERT INTO ai_answer_share (answer_id, token, question, title, answer_html, sources, answered_at)
-            SELECT turn_item.id, ?::uuid, ?, ?, ?, ?::jsonb, turn_item.completed_at
+            INSERT INTO ai_answer_share (answer_id, token, question, title, answer_html, sources_html, sources, answered_at)
+            SELECT turn_item.id, ?::uuid, ?, ?, ?, ?, ?::jsonb, turn_item.completed_at
             FROM ai_search_turn turn_item JOIN ai_search_session session ON session.id = turn_item.session_id
             WHERE turn_item.id = ?::uuid AND ${identity.predicate("session")}
             ON CONFLICT (answer_id) DO NOTHING
             """.trimIndent(),
             UUID.randomUUID(), CollectionLinks.rewrite(answer.question),
             answer.title?.let(CollectionLinks::rewrite), CollectionLinks.rewrite(answer.answerHtml),
-            mapper.writeValueAsString(answer.sources), answerId, identity.id,
+            answer.sourcesHtml?.let(CollectionLinks::rewrite), mapper.writeValueAsString(answer.sources), answerId, identity.id,
         )
         return AiAnswerShareState(token(answerId) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND))
     }
@@ -71,6 +73,7 @@ class AiAnswerShareService(
                 question = rs.getString("question"),
                 title = rs.getString("title"),
                 answerHtml = rs.getString("answer_html"),
+                sourcesHtml = rs.getString("sources_html"),
                 sources = buildList {
                     for (node in mapper.readTree(rs.getString("sources"))) {
                         add(AiSourceRef(node.path("collection").asText(), node.path("ident").asText()))

@@ -23,6 +23,8 @@ data class RunProgress(
     var failed: Int = 0,
     var currentCollection: String? = null,
     val perCollection: MutableMap<String, Int> = linkedMapOf(),
+    var documents: Int = 0,
+    var documentsFailed: Int = 0,
 )
 
 @Repository
@@ -49,7 +51,8 @@ class ScrapeRunRepository(
             """
             UPDATE scrape_run
             SET total = ?, processed = ?, skipped = ?, failed = ?,
-                current_collection = ?, per_collection = ?::jsonb
+                current_collection = ?, per_collection = ?::jsonb,
+                documents = ?, documents_failed = ?
             WHERE id = ?
             """.trimIndent(),
             run.total,
@@ -58,6 +61,8 @@ class ScrapeRunRepository(
             run.failed,
             run.currentCollection,
             objectMapper.writeValueAsString(run.perCollection),
+            run.documents,
+            run.documentsFailed,
             run.id,
         )
     }
@@ -98,6 +103,8 @@ class ScrapeRunRepository(
             currentCollection = rs.getString("current_collection"),
             message = rs.getString("message"),
             perCollection = parseCounts(rs.getString("per_collection")),
+            documents = rs.getInt("documents"),
+            documentsFailed = rs.getInt("documents_failed"),
         )
     }
 

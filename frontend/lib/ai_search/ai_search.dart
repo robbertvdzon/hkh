@@ -1,5 +1,45 @@
 import 'dart:typed_data';
 
+/// Hoeveel zoekrondes de digitale onderzoeker mag doen. Een ronde zoekt op
+/// termen uit de vraag (ronde 1) of op aanknopingspunten uit de vorige ronde.
+enum AiResearchDepth {
+  fast,
+  extended,
+  thorough;
+
+  String get apiValue => switch (this) {
+    AiResearchDepth.fast => 'FAST',
+    AiResearchDepth.extended => 'EXTENDED',
+    AiResearchDepth.thorough => 'THOROUGH',
+  };
+
+  String get label => switch (this) {
+    AiResearchDepth.fast => 'Snel',
+    AiResearchDepth.extended => 'Doorzoeken',
+    AiResearchDepth.thorough => 'Uitgebreid',
+  };
+
+  String get description => switch (this) {
+    AiResearchDepth.fast => '1 zoekronde, antwoord in enkele minuten',
+    AiResearchDepth.extended => 'Maximaal 5 zoekrondes, volgt verbanden',
+    AiResearchDepth.thorough =>
+      'Maximaal 15 zoekrondes, alles eromheen; kan lang duren',
+  };
+
+  static AiResearchDepth fromApiValue(String? value) => switch (value) {
+    'EXTENDED' => AiResearchDepth.extended,
+    'THOROUGH' => AiResearchDepth.thorough,
+    _ => AiResearchDepth.fast,
+  };
+}
+
+/// Een vraag met gekozen diepte, zoals de homepage die aan de vragenpagina geeft.
+class AiQuestionDraft {
+  const AiQuestionDraft(this.question, {this.depth = AiResearchDepth.fast});
+  final String question;
+  final AiResearchDepth depth;
+}
+
 class AiSourceRef {
   const AiSourceRef({required this.collection, required this.ident});
 
@@ -29,6 +69,8 @@ class AiSearchTurn {
     required this.updatedAt,
     required this.completedAt,
     required this.durationSeconds,
+    this.depth = AiResearchDepth.fast,
+    this.sourcesHtml,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -54,6 +96,8 @@ class AiSearchTurn {
         ? null
         : DateTime.parse(json['completedAt'] as String),
     durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
+    depth: AiResearchDepth.fromApiValue(json['depth'] as String?),
+    sourcesHtml: json['sourcesHtml'] as String?,
   );
 
   final String id;
@@ -71,6 +115,11 @@ class AiSearchTurn {
   final DateTime updatedAt;
   final DateTime? completedAt;
   final int durationSeconds;
+  final AiResearchDepth depth;
+
+  /// Bronnenlijst met beschrijvingen en beelden voor de aparte bronnenpagina;
+  /// null bij oudere antwoorden, die de lijst nog in [answerHtml] hebben.
+  final String? sourcesHtml;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -141,9 +190,16 @@ class AiSearchSession {
 
 abstract interface class AiSearchSource {
   Future<List<AiSearchSummary>> listAiSearches();
-  Future<AiSearchSession> startAiSearch(String question);
+  Future<AiSearchSession> startAiSearch(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  });
   Future<AiSearchSession> loadAiSearch(String sessionId);
-  Future<AiSearchSession> askFollowUp(String sessionId, String question);
+  Future<AiSearchSession> askFollowUp(
+    String sessionId,
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  });
   Future<AiSearchSession> cancelAiSearch(String sessionId);
   Future<void> deleteAiSearch(String sessionId);
 }

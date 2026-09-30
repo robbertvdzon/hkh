@@ -33,6 +33,8 @@ data class ScrapeRunResponse(
     val currentCollection: String?,
     val message: String?,
     val perCollection: Map<String, Int>,
+    val documents: Int,
+    val documentsFailed: Int,
 )
 
 @RestController
@@ -88,4 +90,6 @@ private fun ScrapeRun.toResponse(running: Boolean) = ScrapeRunResponse(
     currentCollection = currentCollection,
     message = message,
     perCollection = perCollection,
+    documents = documents,
+    documentsFailed = documentsFailed,
 )

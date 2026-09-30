@@ -53,8 +53,13 @@ class AiAnswerRendererTest {
         assertFalse(rendered.html.contains("evil.test"))
         assertContains(rendered.html, CollectionLinks.detail(item.collection, item.ident))
         assertFalse(rendered.html.contains("historischekringheemskerk", ignoreCase = true))
-        assertContains(rendered.html, CollectionLinks.media(item.imageUrl)!!)
-        assertContains(rendered.html, "Bekijk dit object in de collectie")
+        // De bronnenlijst staat los van de tekst, voor een aparte pagina.
+        assertFalse(rendered.html.contains("Bekijk dit object in de collectie"))
+        val sourcesHtml = rendered.sourcesHtml!!
+        assertContains(sourcesHtml, CollectionLinks.media(item.imageUrl)!!)
+        assertContains(sourcesHtml, "Bekijk dit object in de collectie")
+        assertContains(sourcesHtml, CollectionLinks.detail(item.collection, item.ident))
+        assertFalse(sourcesHtml.contains("historischekringheemskerk", ignoreCase = true))
     }
     @Test
     fun `plaatst een gecontroleerde foto tussen alinea's met bijschrift en bron zonder dubbel beeld`() {
@@ -68,15 +73,17 @@ class AiAnswerRendererTest {
             <p>Na de foto.</p>
         """.trimIndent())
         val document = Jsoup.parseBodyFragment(html)
-        assertEquals(listOf("p", "figure", "p", "section"), document.body().children().map { it.tagName() })
+        assertEquals(listOf("p", "figure", "p"), document.body().children().map { it.tagName() })
         assertEquals(1, document.select("img").size)
         val figure = document.selectFirst("figure")!!
         assertEquals(CollectionLinks.media(item.imageUrl), figure.selectFirst("img")!!.attr("src"))
         assertEquals("Kerklaan rond 1950 in beeld", figure.selectFirst("img")!!.attr("alt"))
         assertContains(figure.selectFirst("figcaption")!!.text(), "Kerklaan rond 1950 in beeld — beeldbank · 42")
         assertEquals(CollectionLinks.detail("beeldbank", "42"), figure.selectFirst("figcaption a")!!.attr("href"))
-        assertTrue(document.select("section img").isEmpty())
-        assertContains(document.selectFirst("section")!!.text(), "Bekijk dit object in de collectie")
+        // Een foto die al tussen de tekst staat, komt in de losse bronnenlijst niet nog eens voor.
+        val sources = Jsoup.parseBodyFragment(renderSourcesHtml(item, html = "<figure data-hkh-source=\"beeldbank/42\"></figure>")!!)
+        assertTrue(sources.select("img").isEmpty())
+        assertContains(sources.text(), "Bekijk dit object in de collectie")
         assertFalse(html.contains("evil"))
         assertFalse(html.contains("data-hkh-source"))
     }
@@ -124,11 +131,19 @@ class AiAnswerRendererTest {
         item: CollectionItem,
         html: String,
         sources: String = """[{"collection":"beeldbank","ident":"42"}]""",
-    ): String {
+    ): String = render(item, html, sources).html
+
+    private fun renderSourcesHtml(item: CollectionItem, html: String): String? = render(item, html).sourcesHtml
+
+    private fun render(
+        item: CollectionItem,
+        html: String,
+        sources: String = """[{"collection":"beeldbank","ident":"42"}]""",
+    ): RenderedAiAnswer {
         val mapper = ObjectMapper()
         val result = mapper.createObjectNode().put("title", "Onderzoek").put("answerHtml", html)
         result.set("sources", mapper.readTree(sources))
-        return AiAnswerRenderer(CollectionSearchService(FakeStore(item))).render(result).html
+        return AiAnswerRenderer(CollectionSearchService(FakeStore(item))).render(result)
     }
 
     private fun imageRecord(imageUrl: String? = "https://www.historischekringheemskerk.nl/foto.jpg") = CollectionItem(

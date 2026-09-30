@@ -5,16 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
 import 'package:hkh_app/ai_search/ai_search_page.dart';
+import 'package:hkh_app/ai_search/answer_html.dart';
 
 class _AiSource implements AiSearchSource {
   AiSearchSession? session;
   final List<AiSearchSummary> searches = [];
+  final List<AiResearchDepth> startedDepths = [];
+  final List<AiResearchDepth> followUpDepths = [];
 
   @override
   Future<List<AiSearchSummary>> listAiSearches() async => searches;
 
   @override
-  Future<AiSearchSession> startAiSearch(String question) async {
+  Future<AiSearchSession> startAiSearch(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async {
+    startedDepths.add(depth);
     session = AiSearchSession(
       id: 'session-1',
       turns: [
@@ -46,8 +53,12 @@ class _AiSource implements AiSearchSource {
   @override
   Future<AiSearchSession> askFollowUp(
     String sessionId,
-    String question,
-  ) async => session!;
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async {
+    followUpDepths.add(depth);
+    return session!;
+  }
 
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async => session!;
@@ -58,7 +69,8 @@ class _AiSource implements AiSearchSource {
   }
 }
 
-AiSearchTurn _answeredTurn({String id = 'turn-1'}) => AiSearchTurn(
+AiSearchTurn _answeredTurn({String id = 'turn-1', String? sourcesHtml}) =>
+    AiSearchTurn(
   id: id,
   turnNumber: 1,
   question: 'Wie was Jan Klaasz. Beemster?',
@@ -74,6 +86,8 @@ AiSearchTurn _answeredTurn({String id = 'turn-1'}) => AiSearchTurn(
   updatedAt: DateTime(2026),
   completedAt: DateTime(2026),
   durationSeconds: 60,
+  depth: AiResearchDepth.extended,
+  sourcesHtml: sourcesHtml,
 );
 
 /// Levert het geladen antwoord; de exportactie hoort daarna zichtbaar te zijn.
@@ -398,5 +412,100 @@ void main() {
     expect(pdfSource.calls, 1);
     expect(saver.savedNames, ['antwoord-turn-1.pdf']);
     expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+  });
+
+  testWidgets('the chosen research depth is sent with the question', (
+    tester,
+  ) async {
+    final source = _AiSource();
+    await tester.pumpWidget(MaterialApp(home: AiSearchPage(source: source)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('research-depth')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('research-depth-thorough')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('research-depth-thorough')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Alles over Slot Assumburg');
+    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ai-question-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(source.startedDepths, [AiResearchDepth.thorough]);
+    // De keuze blijft staan voor de vervolgvraag, via het compacte menu.
+    expect(find.byKey(const Key('research-depth-menu')), findsOneWidget);
+    expect(find.text('Uitgebreid'), findsWidgets);
+  });
+
+  testWidgets('a follow-up question uses the depth picked in the menu', (
+    tester,
+  ) async {
+    final source = _AnsweredSource();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('research-depth-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Doorzoeken').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'En zijn zoon?');
+    await tester.tap(find.byTooltip('Vraag stellen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(source.followUpDepths, [AiResearchDepth.extended]);
+  });
+
+  testWidgets('an answer shows its depth and opens all sources on a page', (
+    tester,
+  ) async {
+    final source = _AiSource()
+      ..session = AiSearchSession(
+        id: 'session-1',
+        turns: [
+          _answeredTurn(
+            sourcesHtml:
+                '<article><h3>Resolutieboek</h3><p>Notulen van de schepenbank.</p></article>',
+          ),
+        ],
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Doorzoeken'), findsOneWidget);
+    expect(find.text('Notulen van de schepenbank.'), findsNothing);
+    final button = find.byKey(const Key('answer-sources-button'));
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bronnen en afbeeldingen'), findsOneWidget);
+    final rendered = tester.widget<AnswerHtml>(find.byType(AnswerHtml).last);
+    expect(rendered.html, contains('Notulen van de schepenbank.'));
+  });
+
+  testWidgets('older answers without a separate source list keep no button', (
+    tester,
+  ) async {
+    final source = _AnsweredSource();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('answer-sources-button')), findsNothing);
   });
 }

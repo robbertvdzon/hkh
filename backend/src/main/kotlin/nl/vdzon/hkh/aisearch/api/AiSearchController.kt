@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import nl.vdzon.hkh.aisearch.AiResearchDepth
 import nl.vdzon.hkh.aisearch.AiSearchService
 import nl.vdzon.hkh.aisearch.AiSearchSessionView
 import nl.vdzon.hkh.aisearch.AiSearchSummaryView
@@ -19,7 +20,11 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
-data class AskAiRequest(@field:NotBlank @field:Size(min = 3, max = 1000) val question: String)
+data class AskAiRequest(
+    @field:NotBlank @field:Size(min = 3, max = 1000) val question: String,
+    /** FAST, EXTENDED of THOROUGH; ontbrekend of onbekend betekent FAST. */
+    val depth: String? = null,
+)
 
 @RestController
 @RequestMapping("/api/ai-search/sessions")
@@ -51,7 +56,7 @@ class AiSearchController(private val service: AiSearchService, private val ident
         servletRequest: HttpServletRequest,
         response: HttpServletResponse,
         @Valid @RequestBody request: AskAiRequest,
-    ): AiSearchSessionView = service.start(identities.resolve(visitorCookie, servletRequest, response), request.question)
+    ): AiSearchSessionView = service.start(identities.resolve(visitorCookie, servletRequest, response), request.question, AiResearchDepth.parse(request.depth))
 
     @GetMapping("/{sessionId}")
     fun get(
@@ -73,6 +78,7 @@ class AiSearchController(private val service: AiSearchService, private val ident
         identities.resolve(visitorCookie, servletRequest, response),
         sessionId,
         request.question,
+        AiResearchDepth.parse(request.depth),
     )
 
     @PostMapping("/{sessionId}/cancel")

@@ -4,19 +4,29 @@ import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
 
-/// Snel (alleen lijstpagina's, geen beeld/PDF-link) of volledig (elk record
-/// apart, alle velden) - zie [AdminScrapeSource.start].
+/// Snel (alleen lijstpagina's, geen beeld/PDF-link), volledig (elk record
+/// apart, alle velden, inclusief de tekst uit de PDF) of alleen documenttekst
+/// (backfill voor records met PDF zonder tekst) - zie [AdminScrapeSource.start].
 enum ScrapeMode {
   fast,
-  full;
+  full,
+  text;
 
   String get apiValue => switch (this) {
     ScrapeMode.fast => 'FAST',
     ScrapeMode.full => 'FULL',
+    ScrapeMode.text => 'TEXT',
+  };
+
+  String get label => switch (this) {
+    ScrapeMode.fast => 'snel',
+    ScrapeMode.full => 'volledig',
+    ScrapeMode.text => 'documenttekst',
   };
 
   static ScrapeMode fromApiValue(String? value) => switch (value) {
     'FAST' => ScrapeMode.fast,
+    'TEXT' => ScrapeMode.text,
     _ => ScrapeMode.full,
   };
 }
@@ -36,6 +46,8 @@ class ScrapeStatus {
     required this.perCollection,
     required this.startedAt,
     required this.finishedAt,
+    this.documents = 0,
+    this.documentsFailed = 0,
   });
 
   factory ScrapeStatus.fromJson(Map<String, dynamic> json) => ScrapeStatus(
@@ -57,6 +69,8 @@ class ScrapeStatus {
     finishedAt: json['finishedAt'] == null
         ? null
         : DateTime.tryParse(json['finishedAt'] as String),
+    documents: json['documents'] as int? ?? 0,
+    documentsFailed: json['documentsFailed'] as int? ?? 0,
   );
 
   final String status;
@@ -71,6 +85,10 @@ class ScrapeStatus {
   final Map<String, int> perCollection;
   final DateTime? startedAt;
   final DateTime? finishedAt;
+
+  /// Documentteksten die deze run uit PDF's heeft gehaald, en hoeveel mislukten.
+  final int documents;
+  final int documentsFailed;
 }
 
 abstract interface class AdminScrapeSource {

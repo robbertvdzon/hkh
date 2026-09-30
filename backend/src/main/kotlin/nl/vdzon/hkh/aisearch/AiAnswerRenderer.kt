@@ -11,7 +11,10 @@ import tools.jackson.databind.JsonNode
 
 data class RenderedAiAnswer(
     val title: String,
+    /** De antwoordtekst zelf, zonder bronnenlijst. */
     val html: String,
+    /** Bronnenlijst met beschrijvingen en beelden, voor een aparte pagina; null zonder geverifieerde bronnen. */
+    val sourcesHtml: String?,
     val sources: List<AiSourceRef>,
     val suggestedFollowUps: List<String>,
 )
@@ -81,20 +84,19 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
             .addTags("article", "section", "figure", "figcaption")
             .addAttributes("a", "target", "rel")
         val narrative = Jsoup.clean(document.body().html(), "", safeList, org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
-        val html = buildString {
-            append(narrative)
-            if (records.isNotEmpty()) append(buildSourceSection(records, inlineImages))
-        }
+        val sourcesHtml = if (records.isEmpty()) null else buildSourceSection(records, inlineImages)
         val rawFollowUps = mutableListOf<String>()
         for (node in result.path("suggestedFollowUps")) rawFollowUps += node.asText().trim()
         val followUps = rawFollowUps.filter(String::isNotBlank).distinct().take(4)
-        return RenderedAiAnswer(CollectionLinks.rewrite(title), CollectionLinks.rewrite(html), records.map { it.first }, followUps.map(CollectionLinks::rewrite))
+        return RenderedAiAnswer(
+            CollectionLinks.rewrite(title), CollectionLinks.rewrite(narrative), sourcesHtml?.let(CollectionLinks::rewrite),
+            records.map { it.first }, followUps.map(CollectionLinks::rewrite),
+        )
     }
 
+    /** Eén artikel per geverifieerde bron: titel, eventueel beeld, beschrijving en link. Zonder eigen kop; de pagina levert die. */
     private fun buildSourceSection(records: List<Pair<AiSourceRef, CollectionItem>>, inlineImages: Set<String>): String {
         val section = Element("section")
-        section.appendElement("hr")
-        section.appendElement("h2").text("Bronnen en afbeeldingen")
         records.forEach { (ref, item) ->
             val article = section.appendElement("article")
             val heading = article.appendElement("h3")

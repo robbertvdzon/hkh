@@ -6,17 +6,22 @@ class SharedAiAnswer {
     required this.title,
     required this.answerHtml,
     required this.sharedAt,
+    this.sourcesHtml,
   });
   factory SharedAiAnswer.fromJson(Map<String, dynamic> json) => SharedAiAnswer(
     question: json['question'] as String,
     title: json['title'] as String?,
     answerHtml: json['answerHtml'] as String,
     sharedAt: DateTime.parse(json['sharedAt'] as String),
+    sourcesHtml: json['sourcesHtml'] as String?,
   );
   final String question;
   final String? title;
   final String answerHtml;
   final DateTime sharedAt;
+
+  /// Bronnenlijst voor de aparte bronnenpagina; null bij oudere gedeelde antwoorden.
+  final String? sourcesHtml;
 }
 
 /// Delen is losgekoppeld van het stellen of bewerken van vragen.

@@ -475,13 +475,18 @@ abstract interface class DossierSource {
   Future<DossierDetail> refreshFactSheet(String dossierId);
 
   Future<List<AiSearchSummary>> listQuestions(String dossierId);
-  Future<AiSearchSession> askQuestion(String dossierId, String question);
+  Future<AiSearchSession> askQuestion(
+    String dossierId,
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  });
   Future<AiSearchSession> loadQuestion(String dossierId, String sessionId);
   Future<AiSearchSession> askFollowUpQuestion(
     String dossierId,
     String sessionId,
-    String question,
-  );
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  });
   Future<AiSearchSession> cancelQuestion(String dossierId, String sessionId);
   Future<void> deleteQuestion(String dossierId, String sessionId);
   Future<AiSearchSession> adoptSearch(String dossierId, String sessionId);

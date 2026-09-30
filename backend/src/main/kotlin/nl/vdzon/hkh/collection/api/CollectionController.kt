@@ -46,6 +46,8 @@ data class CollectionItemDetail(
     val pdfUrl: String?,
     val detailUrl: String,
     val fields: Map<String, String>,
+    /** Tekstlaag uit de PDF, automatisch herkend; null als er geen PDF is of de tekst nog niet is opgehaald. */
+    val documentText: String? = null,
 )
 
 data class SearchResponse(
@@ -120,6 +122,7 @@ private fun CollectionItem.toDetail() = CollectionItemDetail(
     pdfUrl = CollectionLinks.media(pdfUrl),
     detailUrl = CollectionLinks.detail(collection, ident),
     fields = fields,
+    documentText = documentText?.takeIf(String::isNotBlank),
 )
 
 /** All user values stay JDBC parameters. Reject malformed ranges/settings instead of silently broadening a search. */

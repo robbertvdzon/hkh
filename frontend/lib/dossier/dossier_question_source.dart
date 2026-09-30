@@ -13,16 +13,21 @@ class DossierQuestionSource implements AiSearchSource {
       source.listQuestions(dossierId);
 
   @override
-  Future<AiSearchSession> startAiSearch(String question) =>
-      source.askQuestion(dossierId, question);
+  Future<AiSearchSession> startAiSearch(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) => source.askQuestion(dossierId, question, depth: depth);
 
   @override
   Future<AiSearchSession> loadAiSearch(String sessionId) =>
       source.loadQuestion(dossierId, sessionId);
 
   @override
-  Future<AiSearchSession> askFollowUp(String sessionId, String question) =>
-      source.askFollowUpQuestion(dossierId, sessionId, question);
+  Future<AiSearchSession> askFollowUp(
+    String sessionId,
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) => source.askFollowUpQuestion(dossierId, sessionId, question, depth: depth);
 
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) =>

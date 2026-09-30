@@ -21,14 +21,18 @@ class _NewsSource implements AdminLatestNewsSource {
 }
 
 class _ScrapeSource implements AdminScrapeSource {
+  final List<ScrapeMode> started = [];
+  ScrapeStatus? current;
   @override
-  Future<ScrapeStatus?> loadStatus(AdminIdentity identity) async => null;
+  Future<ScrapeStatus?> loadStatus(AdminIdentity identity) async => current;
   @override
   Future<ScrapeStatus> start({
     required AdminIdentity identity,
     required ScrapeMode mode,
     required bool force,
-  }) async => ScrapeStatus.fromJson({
+  }) async {
+    started.add(mode);
+    return current = ScrapeStatus.fromJson({
     'status': 'RUNNING',
     'running': true,
     'mode': mode.apiValue,
@@ -37,6 +41,7 @@ class _ScrapeSource implements AdminScrapeSource {
     'skipped': 0,
     'failed': 0,
   });
+  }
 }
 
 class _AuthenticatedSession implements AdminSessionSource {
@@ -101,5 +106,31 @@ void main() {
       find.text('Google-login is nog niet geconfigureerd.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the document text button starts a text-only run', (
+    tester,
+  ) async {
+    final scrapeSource = _ScrapeSource();
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        newsSource: _NewsSource(),
+        scrapeSource: scrapeSource,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey('scrape-text'));
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    // Een lopende run toont een doorlopende voortgangsbalk; niet wachten tot alles stilstaat.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(scrapeSource.started, [ScrapeMode.text]);
+    expect(find.text('Laatste run: bezig (documenttekst)'), findsOneWidget);
+    expect(find.text('Bezig met ophalen (documenttekst)…'), findsOneWidget);
   });
 }

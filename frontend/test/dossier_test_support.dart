@@ -382,7 +382,11 @@ class FakeDossierSource implements DossierSource {
   }
 
   @override
-  Future<AiSearchSession> askQuestion(String dossierId, String question) async {
+  Future<AiSearchSession> askQuestion(
+    String dossierId,
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async {
     calls.add('askQuestion:$question');
     return const AiSearchSession(id: 'q1', turns: []);
   }
@@ -397,8 +401,9 @@ class FakeDossierSource implements DossierSource {
   Future<AiSearchSession> askFollowUpQuestion(
     String dossierId,
     String sessionId,
-    String question,
-  ) async => const AiSearchSession(id: 'q1', turns: []);
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async => const AiSearchSession(id: 'q1', turns: []);
 
   @override
   Future<AiSearchSession> cancelQuestion(

@@ -341,6 +341,7 @@ class _AiHomeCard extends StatefulWidget {
 
 class _AiHomeCardState extends State<_AiHomeCard> {
   final _controller = TextEditingController();
+  AiResearchDepth _depth = AiResearchDepth.fast;
 
   @override
   void dispose() {
@@ -358,21 +359,25 @@ class _AiHomeCardState extends State<_AiHomeCard> {
 
   void _open() {
     final question = _controller.text.trim();
+    final draft = question.isEmpty
+        ? null
+        : AiQuestionDraft(question, depth: _depth);
     if (GoRouter.maybeOf(context) case final router?) {
-      router.go('/vragen', extra: question.isEmpty ? null : question);
+      router.go('/vragen', extra: draft);
     } else {
-      _openHistory(question: question.isEmpty ? null : question);
+      _openHistory(draft: draft);
     }
   }
 
-  void _openHistory({String? question}) {
+  void _openHistory({AiQuestionDraft? draft}) {
     openAppPage(
       context,
       '/vragen',
       () => AiSearchPage(
         source: widget.source,
         pdfSource: widget.pdfSource,
-        initialQuestion: question,
+        initialQuestion: draft?.question,
+        initialDepth: draft?.depth ?? _depth,
         onAdopt: _onAdopt,
       ),
     );
@@ -383,6 +388,8 @@ class _AiHomeCardState extends State<_AiHomeCard> {
     controller: _controller,
     onSubmit: _open,
     onHistory: () => _openHistory(),
+    depth: _depth,
+    onDepthChanged: (depth) => setState(() => _depth = depth),
   );
 }
 

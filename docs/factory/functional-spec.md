@@ -27,11 +27,12 @@ primaire inhoud in deze toetsenbord- en visuele volgorde:
    onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.**
 3. De neutrale, omrande sectie **Zelf zoeken in de collectie**.
 
-De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, de gevulde
-primaire actie **Vraag stellen** en de link **Eerdere vragen**. Een ingevulde
-vraag opent de bestaande AI-zoekpagina en start die vraag; een lege start en de
-link Eerdere vragen openen het bestaande overzicht. De AI-knop is de enige
-gevulde primaire actie in de homepage-inhoud.
+De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, de keuze
+**Onderzoek:** met de chips **Snel** (standaard), **Doorzoeken** en **Uitgebreid**,
+de gevulde primaire actie **Vraag stellen** en de link **Eerdere vragen**. Een
+ingevulde vraag opent de bestaande AI-zoekpagina en start die vraag met de gekozen
+diepte; een lege start en de link Eerdere vragen openen het bestaande overzicht.
+De AI-knop is de enige gevulde primaire actie in de homepage-inhoud.
 
 De collectiekaart toont direct de collectie-ingangen Archief, Beeldbank, Bibliotheek,
 Bidprentjes, Artikelen en Objecten, het gelabelde veld **Zoekterm**, de omrande actie
@@ -57,7 +58,13 @@ De zoekpagina biedt:
   Gewoon zoeken ondersteunt aanhalingstekens; alleen bij nul resultaten wordt zoeken op delen
   van woorden aangeboden, met een voorbeeld. Oude URL-instellingen blijven herkenbaar en wisbaar.
 - Treffers in documenttekst tonen **Gevonden in documenttekst** met een kort fragment. De volledige
-  documenttekst staat niet in de zoekresultaten-API.
+  documenttekst staat niet in de zoekresultaten-API, wel in de detail-API (`documentText`).
+- Documenttekst is de tekstlaag uit de PDF van een record (archief, artikelen). De backend haalt
+  die bij **Volledig ophalen** direct na elk nieuw record uit de PDF; **Documenttekst ophalen** in
+  het beheerscherm doet dat eenmalig voor de bestaande collectie (alleen ontbrekende, met
+  "alles opnieuw" ook eerder mislukte). Een rescrape van de metadata raakt de tekst niet.
+  De detailpagina toont de tekst onder het tabblad **Documenttekst**, met de melding dat
+  herkende tekst fouten kan bevatten.
 - Inclusieve periodegrenzen; bij bidprentjes betekent dit geboortejaar.
 - Sortering op standaardvolgorde, nummer, titel/naam, jaar, auteur of eerste toevoegdatum.
 - Lijst- en galerijweergave met de eigen metadata van iedere collectie.
@@ -118,6 +125,32 @@ horizontale overflow en worden lange e-mailadressen met ellipsis afgekapt. Deze
 vormgeving raakt alleen de presentatie: teksten, validatie, de `canResearch`-
 filter van In dossier zetten en de `canManage`-autorisatie van Delen en leden
 blijven ongewijzigd.
+
+## AI-onderzoek: diepte en bronnen
+
+Bij elke vraag en vervolgvraag kiest de gebruiker de onderzoeksdiepte. Een zoekronde is:
+zoektermen bepalen, alle resultaatpagina's ophalen, samenvattingen beoordelen en de details
+van relevante treffers lezen; ronde 1 komt uit de vraag, elke volgende ronde uit
+aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
+
+| Keuze | Rondes | Antwoord |
+| --- | --- | --- |
+| Snel (standaard) | 1 | compact maar volledig |
+| Doorzoeken | max 5 | verbanden één niveau diep |
+| Uitgebreid | max 15 | lang verhaal met alles eromheen |
+
+Het maximum is een plafond: de onderzoeker stopt eerder zodra een ronde niets nieuws oplevert,
+en niet-gevolgde sporen komen terug als voorgestelde vervolgvragen. De vraagkaart toont de
+keuze als chips; de vervolgvraagbalk als compact menu naast de verzendknop, zodat de balk
+één regel hoog blijft. Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de
+voortgangsmelding toont **Spoor wordt gevolgd: …** zodra de onderzoeker een aanknopingspunt
+oppakt. De API neemt `depth` (`FAST`, `EXTENDED`, `THOROUGH`) mee in het vraagverzoek;
+ontbrekend of onbekend betekent `FAST`.
+
+De bronnenlijst met beschrijvingen en beelden staat niet meer onder de antwoordtekst, maar
+achter de knop **Alle bronnen (N)**, die een aparte pagina **Bronnen en afbeeldingen** opent.
+Dit geldt ook voor gedeelde antwoorden. Antwoorden van vóór deze scheiding houden de lijst
+in de tekst en tonen geen knop. De PDF-export bevat de bronnenlijst nog steeds na de tekst.
 
 ## PDF-export van een AI-antwoord
 

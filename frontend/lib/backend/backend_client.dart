@@ -181,12 +181,17 @@ class BackendClient
   }
 
   @override
-  Future<AiSearchSession> startAiSearch(String question) =>
-      _postAi('/api/ai-search/sessions', question);
+  Future<AiSearchSession> startAiSearch(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) => _postAi('/api/ai-search/sessions', question, depth);
 
   @override
-  Future<AiSearchSession> askFollowUp(String sessionId, String question) =>
-      _postAi('/api/ai-search/sessions/$sessionId/questions', question);
+  Future<AiSearchSession> askFollowUp(
+    String sessionId,
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) => _postAi('/api/ai-search/sessions/$sessionId/questions', question, depth);
 
   @override
   Future<AiSearchSession> loadAiSearch(String sessionId) async {
@@ -293,12 +298,16 @@ class BackendClient
     );
   }
 
-  Future<AiSearchSession> _postAi(String path, String question) async {
+  Future<AiSearchSession> _postAi(
+    String path,
+    String question,
+    AiResearchDepth depth,
+  ) async {
     final response = await _client
         .post(
           Uri.parse('$apiBaseUrl$path'),
           headers: _headers(const {'Content-Type': 'application/json'}),
-          body: jsonEncode({'question': question}),
+          body: jsonEncode({'question': question, 'depth': depth.apiValue}),
         )
         .timeout(const Duration(seconds: 15));
     return _parseAiResponse(response);
@@ -440,11 +449,13 @@ class BackendClient
   @override
   Future<AiSearchSession> askQuestion(
     String dossierId,
-    String question,
-  ) async => AiSearchSession.fromJson(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async => AiSearchSession.fromJson(
     _decodeMap(
       await _request('POST', '/api/dossiers/$dossierId/questions', {
         'question': question,
+        'depth': depth.apiValue,
       }),
     ),
   );
@@ -463,13 +474,14 @@ class BackendClient
   Future<AiSearchSession> askFollowUpQuestion(
     String dossierId,
     String sessionId,
-    String question,
-  ) async => AiSearchSession.fromJson(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async => AiSearchSession.fromJson(
     _decodeMap(
       await _request(
         'POST',
         '/api/dossiers/$dossierId/questions/$sessionId/questions',
-        {'question': question},
+        {'question': question, 'depth': depth.apiValue},
       ),
     ),
   );

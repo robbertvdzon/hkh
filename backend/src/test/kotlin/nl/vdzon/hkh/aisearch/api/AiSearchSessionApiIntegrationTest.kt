@@ -11,7 +11,9 @@ import org.springframework.http.HttpHeaders
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -85,6 +87,32 @@ class AiSearchSessionApiIntegrationTest(
             cookie(Cookie("hkh_ai_visitor", visitor.toString()))
         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
         kotlin.test.assertFalse(overview.contains("historischekringheemskerk", ignoreCase = true))
+    }
+
+    @Test
+    fun `answers expose their research depth and the separate source list`() {
+        val visitor = UUID.randomUUID()
+        val sessionId = createCompletedSearch(visitor, "Alles over Slot Assumburg")
+        jdbc.update(
+            "UPDATE ai_search_turn SET research_depth = 'THOROUGH', answer_html = '<p>Het slot.</p>', sources_html = '<article><h3>Leenbrief</h3></article>' WHERE session_id = ?",
+            sessionId,
+        )
+        mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(Cookie("hkh_ai_visitor", visitor.toString())) }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.turns[0].depth") { value("THOROUGH") }
+                jsonPath("$.turns[0].answerHtml") { value("<p>Het slot.</p>") }
+                jsonPath("$.turns[0].sourcesHtml") { value("<article><h3>Leenbrief</h3></article>") }
+            }
+    }
+
+    @Test
+    fun `an unknown depth in a request falls back to fast instead of failing`() {
+        // Zonder runtime is de dienst niet beschikbaar (503); de aanvraag zelf is wel geldig (geen 400).
+        mockMvc.post("/api/ai-search/sessions") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"question":"Wie woonde er op de Kerkweg?","depth":"onbekend"}"""
+        }.andExpect { status { isServiceUnavailable() } }
     }
 
     private fun createCompletedSearch(visitorId: UUID, question: String): UUID {

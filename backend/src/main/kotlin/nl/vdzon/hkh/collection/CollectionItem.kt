@@ -21,7 +21,14 @@ data class CollectionItem(
     val isComplete: Boolean,
     val scrapedAt: Instant,
     val documentSnippet: String? = null,
+    /** Tekst uit de PDF van het record; null zolang die nog niet (of niet succesvol) is opgehaald. */
+    val documentText: String? = null,
+    val documentPdfHash: String? = null,
+    val documentTextError: String? = null,
 )
+
+/** Record met PDF waarvan de documenttekst nog ontbreekt. */
+data class PendingDocument(val collection: String, val ident: String, val pdfUrl: String)
 
 /** Ruwe, geparste weergave van een recordpagina, vóór opslag. */
 data class ScrapedRecord(

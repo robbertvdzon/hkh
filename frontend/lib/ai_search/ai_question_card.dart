@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_style.dart';
+import 'ai_search.dart';
+import 'research_depth_selector.dart';
 
 /// Hetzelfde ruime vraagblok op de homepage en boven het vragenoverzicht.
 class AiQuestionCard extends StatelessWidget {
@@ -8,12 +10,18 @@ class AiQuestionCard extends StatelessWidget {
     required this.onSubmit,
     this.enabled = true,
     this.onHistory,
+    this.depth = AiResearchDepth.fast,
+    this.onDepthChanged,
     super.key,
   });
   final TextEditingController controller;
   final VoidCallback onSubmit;
   final VoidCallback? onHistory;
   final bool enabled;
+
+  /// Gekozen onderzoeksdiepte; de keuze verschijnt alleen met [onDepthChanged].
+  final AiResearchDepth depth;
+  final ValueChanged<AiResearchDepth>? onDepthChanged;
 
   @override
   Widget build(BuildContext context) => Theme(
@@ -45,6 +53,14 @@ class AiQuestionCard extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             _questionField(),
+            if (onDepthChanged != null) ...[
+              const SizedBox(height: 12),
+              ResearchDepthSelector(
+                value: depth,
+                enabled: enabled,
+                onChanged: onDepthChanged!,
+              ),
+            ],
             const SizedBox(height: 12),
             FilledButton(
               key: const Key('ai-question-button'),

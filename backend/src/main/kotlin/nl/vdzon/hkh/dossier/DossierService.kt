@@ -1,5 +1,6 @@
 package nl.vdzon.hkh.dossier
 
+import nl.vdzon.hkh.aisearch.AiResearchDepth
 import nl.vdzon.hkh.aisearch.AiSearchIdentity
 import nl.vdzon.hkh.aisearch.AiSearchOwner
 import nl.vdzon.hkh.aisearch.AiSearchService
@@ -148,18 +149,18 @@ class DossierService(
         return aiSearch.listInDossier(dossierId)
     }
 
-    fun ask(dossierId: String, user: AuthenticatedUser, question: String): AiSearchSessionView {
+    fun ask(dossierId: String, user: AuthenticatedUser, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
         val (dossier, _) = requireRole(dossierId, user, DossierRole::canResearch, "Alleen onderzoekers en bewerkers mogen vragen stellen")
         ensureUserJobCapacity(user)
-        val view = aiSearch.startInDossier(owner(dossier, user), question, questionContext(dossier))
+        val view = aiSearch.startInDossier(owner(dossier, user), question, questionContext(dossier), depth)
         repository.touch(dossierId)
         return view
     }
 
-    fun followUp(dossierId: String, user: AuthenticatedUser, sessionId: String, question: String): AiSearchSessionView {
+    fun followUp(dossierId: String, user: AuthenticatedUser, sessionId: String, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
         val (dossier, _) = requireRole(dossierId, user, DossierRole::canResearch, "Alleen onderzoekers en bewerkers mogen vragen stellen")
         ensureUserJobCapacity(user)
-        val view = aiSearch.followUpInDossier(dossierId, sessionId, question, questionContext(dossier))
+        val view = aiSearch.followUpInDossier(dossierId, sessionId, question, questionContext(dossier), depth)
         repository.touch(dossierId)
         return view
     }

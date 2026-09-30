@@ -276,19 +276,41 @@ class CollectionSearchIntegrationTest(
     }
 
     @Test
-    fun `document text can be included separately and is omitted from result metadata`() {
-        store.upsert(fullRecord("ocr-only", "Uniek OCR document", fields = mapOf("OCR-tekst" to "documenttekstmatch", "Auteur(s)" to "Auteur")))
+    fun `document text is searchable, excerpted in results and returned on the detail`() {
+        store.upsert(fullRecord("ocr-only", "Uniek OCR document", fields = mapOf("Auteur(s)" to "Auteur")).copy(collection = "archief", pdfUrl = "https://www.historischekringheemskerk.nl/archief/pdf/ocr-only.pdf"))
+        assertEquals(1, store.pendingDocuments("archief", includeFailed = false).count { it.ident == "ocr-only" })
+        store.saveDocumentText("archief", "ocr-only", "Inleiding.\n\nDe notaristoetsakte over de Kerklaan werd gepasseerd.", "hash-1")
         assertTrue(service.documentTextAvailable())
-        assertEquals(1, service.search("documenttekstmatch", null, emptyMap(), 0, 20,
+        assertTrue(store.pendingDocuments("archief", includeFailed = false).none { it.ident == "ocr-only" })
+        assertEquals(1, service.search("notaristoetsakte", null, emptyMap(), 0, 20,
             options = CollectionSearchOptions(mode = "and", partial = true, documentText = true)).total)
-        assertEquals(0, service.search("documenttekstmatch", null, emptyMap(), 0, 20,
+        assertEquals(0, service.search("notaristoetsakte", null, emptyMap(), 0, 20,
             options = CollectionSearchOptions(mode = "and", partial = true, documentText = false)).total)
-        mockMvc.get("/api/collections/search") { param("q", "documenttekstmatch") }.andExpect {
+        val web = service.search("notaristoetsakte", null, emptyMap(), 0, 20).items.single()
+        assertTrue(web.documentSnippet!!.contains("notaristoetsakte"))
+        mockMvc.get("/api/collections/search") { param("q", "notaristoetsakte") }.andExpect {
             status { isOk() }
             jsonPath("$.items[0].fields['Auteur(s)']") { value("Auteur") }
-            jsonPath("$.items[0].fields['OCR-tekst']") { doesNotExist() }
+            jsonPath("$.items[0].documentSnippet") { isNotEmpty() }
             jsonPath("$.documentTextAvailable") { value(true) }
         }
+        mockMvc.get("/api/collections/archief/ocr-only").andExpect {
+            status { isOk() }
+            jsonPath("$.documentText") { value(org.hamcrest.Matchers.containsString("Kerklaan")) }
+        }
+        // Een rescrape overschrijft velden en zoektekst, maar nooit de documenttekst.
+        store.upsert(fullRecord("ocr-only", "Uniek OCR document, opnieuw").copy(collection = "archief"))
+        assertEquals("hash-1", store.find("archief", "ocr-only")!!.documentPdfHash)
+        assertEquals(1, service.search("notaristoetsakte", null, emptyMap(), 0, 20).total)
+    }
+
+    @Test
+    fun `failed extractions stay pending only when retried explicitly`() {
+        store.upsert(fullRecord("ocr-failed", "Kapotte scan").copy(collection = "archief", pdfUrl = "https://www.historischekringheemskerk.nl/archief/pdf/x.pdf"))
+        store.saveDocumentTextError("archief", "ocr-failed", "Lege PDF")
+        assertTrue(store.pendingDocuments("archief", includeFailed = false).none { it.ident == "ocr-failed" })
+        assertTrue(store.pendingDocuments("archief", includeFailed = true).any { it.ident == "ocr-failed" })
+        assertEquals("Lege PDF", store.find("archief", "ocr-failed")!!.documentTextError)
     }
 
     @Test
@@ -321,10 +343,10 @@ class CollectionSearchIntegrationTest(
     }
 
     @Test
-    fun `document matches include bounded excerpts without exposing the full OCR field`() {
-        store.upsert(fullRecord("ocr-excerpt", "Bijzondere dorpskroniek", fields = mapOf(
-            "OCR-tekst" to "In deze kroniek staat dat de fragmenttoetsschool aan de Kerklaan werd geopend. " + "Overige tekst. ".repeat(100),
-        )))
+    fun `document matches include bounded excerpts without exposing the full document text`() {
+        store.upsert(fullRecord("ocr-excerpt", "Bijzondere dorpskroniek"))
+        store.saveDocumentText("artikelen", "ocr-excerpt",
+            "In deze kroniek staat dat de fragmenttoetsschool aan de Kerklaan werd geopend. " + "Overige tekst. ".repeat(100), "hash-excerpt")
         val documentOnly = service.search("fragmenttoetsschool", null, emptyMap(), 0, 20).items.single()
         assertTrue(documentOnly.documentSnippet!!.contains("fragmenttoetsschool"))
         assertTrue(documentOnly.documentSnippet.length <= 500)
@@ -342,7 +364,7 @@ class CollectionSearchIntegrationTest(
         mockMvc.get("/api/collections/search") { param("q", "fragmenttoetsschool") }.andExpect {
             status { isOk() }
             jsonPath("$.items[0].documentSnippet") { isNotEmpty() }
-            jsonPath("$.items[0].fields['OCR-tekst']") { doesNotExist() }
+            jsonPath("$.items[0].documentText") { doesNotExist() }
         }
     }
 

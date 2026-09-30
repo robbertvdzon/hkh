@@ -19,4 +19,7 @@ data class ScrapeRun(
     val currentCollection: String?,
     val message: String?,
     val perCollection: Map<String, Int>,
+    /** Documentteksten die in deze run uit PDF's zijn gehaald, en hoeveel daarvan mislukten. */
+    val documents: Int = 0,
+    val documentsFailed: Int = 0,
 )

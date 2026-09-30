@@ -25,6 +25,9 @@ data class AiSearchTurn(
     val completedAt: Instant?,
     /** Dossiercontext (titel, doel, feitenlijst) die bij het stellen van de vraag is vastgelegd. */
     val dossierContext: String? = null,
+    val depth: AiResearchDepth = AiResearchDepth.DEFAULT,
+    /** Bronnenlijst met beschrijvingen en beelden, los van de antwoordtekst; null bij oudere antwoorden. */
+    val sourcesHtml: String? = null,
 )
 
 /** Eigenaar van een zoekopdracht: een anonieme browser of een dossier. */

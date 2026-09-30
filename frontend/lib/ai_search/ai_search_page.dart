@@ -10,6 +10,8 @@ import 'answer_sharing.dart';
 import 'ai_search.dart';
 import 'ai_question_card.dart';
 import 'answer_pdf_saver.dart';
+import 'answer_sources_page.dart';
+import 'research_depth_selector.dart';
 
 /// Zet een afgeronde anonieme zoekopdracht in een dossier. Geeft de titel van het gekozen
 /// dossier terug, of null als de gebruiker annuleert.
@@ -20,6 +22,7 @@ class AiSearchPage extends StatefulWidget {
   const AiSearchPage({
     required this.source,
     this.initialQuestion,
+    this.initialDepth = AiResearchDepth.fast,
     this.initialSessionId,
     this.title,
     this.overviewTitle = 'Mijn zoekopdrachten',
@@ -38,6 +41,9 @@ class AiSearchPage extends StatefulWidget {
 
   final AiSearchSource source;
   final String? initialQuestion;
+
+  /// Onderzoeksdiepte waarmee [initialQuestion] wordt gestart en die de keuze vooraf instelt.
+  final AiResearchDepth initialDepth;
   final String? initialSessionId;
 
   /// Titel in de AppBar; standaard 'Vraag het archief'.
@@ -87,6 +93,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
   bool _loadingSearches = false;
   bool _exporting = false;
   String? _error;
+  late AiResearchDepth _depth = widget.initialDepth;
 
   @override
   void initState() {
@@ -147,8 +154,12 @@ class _AiSearchPageState extends State<AiSearchPage> {
     });
     try {
       final session = _session == null
-          ? await widget.source.startAiSearch(question)
-          : await widget.source.askFollowUp(_session!.id, question);
+          ? await widget.source.startAiSearch(question, depth: _depth)
+          : await widget.source.askFollowUp(
+              _session!.id,
+              question,
+              depth: _depth,
+            );
       if (!mounted) return;
       setState(() {
         _session = session;
@@ -381,6 +392,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
                           controller: _questionController,
                           enabled: !_submitting,
                           onSubmit: _submit,
+                          depth: _depth,
+                          onDepthChanged: (depth) =>
+                              setState(() => _depth = depth),
                         ),
                       const SizedBox(height: 24),
                       Row(
@@ -490,6 +504,8 @@ class _AiSearchPageState extends State<AiSearchPage> {
                       ? 'Start een nieuwe zoekopdracht'
                       : 'Stel een vervolgvraag',
                   onSubmit: _submit,
+                  depth: _depth,
+                  onDepthChanged: (depth) => setState(() => _depth = depth),
                 )
               else if (!widget.canAsk)
                 Padding(
@@ -855,6 +871,10 @@ class _TurnCard extends StatelessWidget {
                   const Icon(Icons.schedule, size: 18),
                   const SizedBox(width: 7),
                   Text(elapsed ?? ''),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.manage_search, size: 18),
+                  const SizedBox(width: 7),
+                  Text(turn.depth.label),
                 ],
               ),
               if (onShare != null || showPdf) ...[
@@ -889,6 +909,14 @@ class _TurnCard extends StatelessWidget {
               ],
               const SizedBox(height: 14),
               AnswerHtml(turn.answerHtml ?? ''),
+              if (turn.sourcesHtml?.trim().isNotEmpty ?? false) ...[
+                const SizedBox(height: 16),
+                AnswerSourcesButton(
+                  sourcesHtml: turn.sourcesHtml,
+                  sourceCount: turn.sources.length,
+                  title: turn.title,
+                ),
+              ],
               if (turn.suggestedFollowUps.isNotEmpty &&
                   onSuggestedQuestion != null) ...[
                 const SizedBox(height: 18),
@@ -923,12 +951,16 @@ class _QuestionComposer extends StatelessWidget {
     required this.enabled,
     required this.label,
     required this.onSubmit,
+    required this.depth,
+    required this.onDepthChanged,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final String label;
   final VoidCallback onSubmit;
+  final AiResearchDepth depth;
+  final ValueChanged<AiResearchDepth> onDepthChanged;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -954,7 +986,13 @@ class _QuestionComposer extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          ResearchDepthMenuButton(
+            value: depth,
+            enabled: enabled,
+            onChanged: onDepthChanged,
+          ),
+          const SizedBox(width: 4),
           IconButton.filled(
             onPressed: enabled ? onSubmit : null,
             icon: const Icon(Icons.arrow_upward),

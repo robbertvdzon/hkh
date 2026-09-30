@@ -149,7 +149,10 @@ class _AiSource implements AiSearchSource {
   }
 
   @override
-  Future<AiSearchSession> startAiSearch(String question) async {
+  Future<AiSearchSession> startAiSearch(
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async {
     startedQuestions.add(question);
     return current = _session(question);
   }
@@ -160,8 +163,9 @@ class _AiSource implements AiSearchSource {
   @override
   Future<AiSearchSession> askFollowUp(
     String sessionId,
-    String question,
-  ) async => current!;
+    String question, {
+    AiResearchDepth depth = AiResearchDepth.fast,
+  }) async => current!;
 
   @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async => current!;
@@ -433,6 +437,9 @@ void main() {
     expect(aiSource.listCalls, 1);
 
     await tester.pageBack();
+    await tester.pumpAndSettle();
+    // De vraagkaart heeft sinds de dieptekeuze een extra rij; de link kan onder de vouw staan.
+    await tester.ensureVisible(find.text('Eerdere vragen'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Eerdere vragen'));
     await tester.pump();

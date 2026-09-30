@@ -20,6 +20,16 @@ interface CollectionItemStore {
     fun searchCounts(query: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions): List<CollectionCount> =
         counts().map { CollectionCount(it.collection, searchCount(query, it.collection, fieldQueries, year, options)) }
     fun documentTextAvailable(): Boolean = false
+
+    /** Idents in een collectie waarvan de documenttekst al is opgehaald. */
+    fun documentTextIdents(collection: String): Set<String> = emptySet()
+
+    /** Records met PDF zonder documenttekst; mislukte extracties tellen mee als [includeFailed]. */
+    fun pendingDocuments(collection: String, includeFailed: Boolean): List<PendingDocument> = emptyList()
+
+    fun saveDocumentText(collection: String, ident: String, text: String, pdfHash: String) {}
+
+    fun saveDocumentTextError(collection: String, ident: String, error: String) {}
 }
 
 @Repository
@@ -166,9 +176,8 @@ class CollectionItemRepository(
     }
 
     private fun literalDocumentSnippet(item: CollectionItem, query: String, options: CollectionSearchOptions): String? {
-        val text = item.fields.entries.filter { (key, _) ->
-            CollectionCatalog.documentFields.any { it.equals(key, ignoreCase = true) }
-        }.joinToString(" ") { it.value }.replace(Regex("\\s+"), " ")
+        val text = item.documentText.orEmpty().replace(Regex("\\s+"), " ")
+        if (text.isBlank()) return null
         val words = if (options.mode == "phrase") listOf(query.trim().removeSurrounding("\"")) else
             Regex("\"([^\"]+)\"|(\\S+)").findAll(query).map { it.groupValues[1].ifEmpty { it.groupValues[2] } }.toList()
         val match = words.filter { it.isNotBlank() }.mapNotNull { word ->
@@ -193,8 +202,46 @@ class CollectionItemRepository(
     }
 
     override fun documentTextAvailable(): Boolean = jdbc.queryForObject(
-        "SELECT EXISTS (SELECT 1 FROM collection_item WHERE ($documentText) <> '')", Boolean::class.java,
+        "SELECT EXISTS (SELECT 1 FROM collection_item WHERE document_text IS NOT NULL AND document_text <> '')", Boolean::class.java,
     ) == true
+
+    override fun documentTextIdents(collection: String): Set<String> =
+        jdbc.query(
+            "SELECT ident FROM collection_item WHERE collection = ? AND document_text IS NOT NULL",
+            { rs, _ -> rs.getString("ident") },
+            collection,
+        ).toHashSet()
+
+    override fun pendingDocuments(collection: String, includeFailed: Boolean): List<PendingDocument> =
+        jdbc.query(
+            """
+            SELECT collection, ident, pdf_url FROM collection_item
+            WHERE collection = ? AND pdf_url IS NOT NULL AND document_text IS NULL
+              AND (? OR document_text_error IS NULL)
+            ORDER BY length(ident), ident
+            """.trimIndent(),
+            { rs, _ -> PendingDocument(rs.getString("collection"), rs.getString("ident"), rs.getString("pdf_url")) },
+            collection,
+            includeFailed,
+        )
+
+    override fun saveDocumentText(collection: String, ident: String, text: String, pdfHash: String) {
+        jdbc.update(
+            """
+            UPDATE collection_item
+            SET document_text = ?, document_pdf_hash = ?, document_text_extracted_at = CURRENT_TIMESTAMP, document_text_error = NULL
+            WHERE collection = ? AND ident = ?
+            """.trimIndent(),
+            text, pdfHash, collection, ident,
+        )
+    }
+
+    override fun saveDocumentTextError(collection: String, ident: String, error: String) {
+        jdbc.update(
+            "UPDATE collection_item SET document_text_error = ?, document_text_extracted_at = CURRENT_TIMESTAMP WHERE collection = ? AND ident = ?",
+            error.take(500), collection, ident,
+        )
+    }
 
     override fun facet(query: String?, collection: String, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions, field: String, valueQuery: String): CollectionFacet {
         // Exclude this facet's own selections so alternatives remain selectable (OR within one facet).
@@ -212,14 +259,13 @@ class CollectionItemRepository(
 
     private data class Expression(val sql: String, val args: List<Any> = emptyList())
 
-    private val documentKeys = CollectionCatalog.documentFields.joinToString(",") { "'${it.lowercase()}'" }
-    private val documentText get() = "coalesce((SELECT string_agg(value, ' ') FROM jsonb_each_text(fields) WHERE lower(key) IN ($documentKeys)), '')"
-    private val metadataText get() = "concat_ws(' ', title, description, ident, (SELECT string_agg(value, ' ') FROM jsonb_each_text(fields) WHERE lower(key) NOT IN ($documentKeys)))"
+    private val documentText = "coalesce(document_text, '')"
+    private val metadataText = "search_text"
     // A bidprent's generic year can denote death/publication; never treat that as its birth year.
     private val dateYear = "CASE WHEN collection = 'bidprent' THEN substring(fields ->> 'Geboren op' from '(?:^|[^0-9])([12][0-9]{3})(?:[^0-9]|$)')::integer ELSE year END"
 
     private fun expression(field: String, includeDocument: Boolean): Expression = when (field.lowercase()) {
-        "all" -> Expression(if (includeDocument) "search_text" else metadataText)
+        "all" -> Expression(if (includeDocument) "concat_ws(' ', search_text, document_text)" else metadataText)
         "title" -> Expression("title")
         "description" -> Expression("description")
         "ident" -> Expression("ident")
@@ -302,6 +348,9 @@ class CollectionItemRepository(
             fields = parseFields(rs.getString("fields")),
             isComplete = rs.getBoolean("is_complete"),
             scrapedAt = rs.getTimestamp("scraped_at").toInstant(),
+            documentText = rs.getString("document_text"),
+            documentPdfHash = rs.getString("document_pdf_hash"),
+            documentTextError = rs.getString("document_text_error"),
         )
     }
 
