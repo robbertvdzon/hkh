@@ -584,19 +584,11 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.enterText(
-      find.byKey(const Key('steering-hint')),
-      'Sla de nertsenfarm over',
-    );
-    await tester.tap(find.byKey(const Key('steering-send')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(source.steerings, [('turn-1', null, 'Sla de nertsenfarm over')]);
-
+    expect(find.byKey(const Key('steering-hint')), findsNothing);
     await tester.tap(find.byKey(const Key('steering-stop')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(source.steerings.last, ('turn-1', true, null));
+    expect(source.steerings, [('turn-1', true, null)]);
   });
 
   testWidgets('pending steering is shown and a fast search has no controls', (

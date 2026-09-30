@@ -1023,7 +1023,7 @@ class _ResearchLog extends StatelessWidget {
   );
 }
 
-/// Bijsturen: genoeg gevonden (schrijf nu) of een aanwijzing voor de volgende ronde.
+/// Bijsturen: genoeg gevonden, schrijf nu het antwoord met wat er is.
 class _SteeringPanel extends StatefulWidget {
   const _SteeringPanel({required this.steering, required this.onSteer});
 
@@ -1035,20 +1035,12 @@ class _SteeringPanel extends StatefulWidget {
 }
 
 class _SteeringPanelState extends State<_SteeringPanel> {
-  final _hintController = TextEditingController();
   bool _busy = false;
 
-  @override
-  void dispose() {
-    _hintController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send({bool? stop, String? hint}) async {
+  Future<void> _stop() async {
     setState(() => _busy = true);
     try {
-      await widget.onSteer(stop: stop, hint: hint);
-      if (hint != null) _hintController.clear();
+      await widget.onSteer(stop: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1057,89 +1049,28 @@ class _SteeringPanelState extends State<_SteeringPanel> {
   @override
   Widget build(BuildContext context) {
     final steering = widget.steering;
-    final status = switch ((steering.stop, steering.hint, steering.delivered)) {
-      (true, _, false) =>
-        'Wordt na deze ronde opgepakt: stoppen en het antwoord schrijven.',
-      (true, _, true) => 'Opgepakt: de onderzoeker schrijft het antwoord.',
-      (false, final hint?, false) when hint.isNotEmpty =>
-        'Wordt na deze ronde opgepakt: "$hint"',
-      (false, final hint?, true) when hint.isNotEmpty =>
-        'Opgepakt in de volgende ronde: "$hint"',
-      _ => null,
-    };
+    final status = !steering.stop
+        ? null
+        : steering.delivered
+        ? 'Opgepakt: de onderzoeker schrijft het antwoord.'
+        : 'Wordt na deze ronde opgepakt: stoppen en het antwoord schrijven.';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Bijsturen',
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(color: appGreen),
+        FilledButton.tonalIcon(
+          key: const Key('steering-stop'),
+          onPressed: _busy || steering.stop ? null : _stop,
+          icon: const Icon(Icons.edit_note),
+          label: const Text('Genoeg gevonden, schrijf het antwoord'),
         ),
         const SizedBox(height: 6),
         Text(
-          'De onderzoeker kijkt na elke ronde of je hem wilt bijsturen.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        if (status != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            status,
-            key: const Key('steering-status'),
-            style: const TextStyle(
-              color: appGreen,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                key: const Key('steering-hint'),
-                controller: _hintController,
-                enabled: !_busy && !steering.stop,
-                minLines: 1,
-                maxLines: 3,
-                maxLength: 500,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (value) {
-                  final hint = value.trim();
-                  if (hint.isNotEmpty) _send(hint: hint);
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Aanwijzing voor de volgende ronde',
-                  hintText: 'Bijvoorbeeld: sla de nertsenfarm over',
-                  border: OutlineInputBorder(),
-                  counterText: '',
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.outlined(
-              key: const Key('steering-send'),
-              onPressed: _busy || steering.stop
-                  ? null
-                  : () {
-                      final hint = _hintController.text.trim();
-                      if (hint.isNotEmpty) _send(hint: hint);
-                    },
-              icon: const Icon(Icons.send),
-              tooltip: 'Aanwijzing sturen',
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.tonalIcon(
-            key: const Key('steering-stop'),
-            onPressed: _busy || steering.stop ? null : () => _send(stop: true),
-            icon: const Icon(Icons.edit_note),
-            label: const Text('Genoeg gevonden, schrijf het antwoord'),
-          ),
+          status ??
+              'De onderzoeker kijkt na elke ronde of je genoeg hebt; dan schrijft hij het antwoord met wat hij tot dan toe vond.',
+          key: const Key('steering-status'),
+          style: status == null
+              ? Theme.of(context).textTheme.bodySmall
+              : const TextStyle(color: appGreen, fontWeight: FontWeight.w600),
         ),
       ],
     );

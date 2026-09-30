@@ -153,16 +153,16 @@ ontbrekend of onbekend betekent `FAST`.
 
 Tijdens een onderzoek met meer dan één ronde toont de voortgangskaart een **Onderzoekslogboek**:
 per afgeronde ronde het aantal bronnen, twee zinnen over wat er tot dan toe gevonden is en de
-sporen die de onderzoeker hierna wil volgen. Daaronder staat **Bijsturen**: een veld
-**Aanwijzing voor de volgende ronde** met verzendknop en de knop **Genoeg gevonden, schrijf het
-antwoord**. Een bijsturing wordt pas op de eerstvolgende rondegrens opgepakt; de kaart toont
-**Wordt na deze ronde opgepakt: …** en daarna **Opgepakt: …**. Na "genoeg gevonden" is de
-knop inactief en schrijft de onderzoeker het antwoord met wat hij heeft (anders dan **Stoppen**,
-dat het onderzoek afbreekt zonder antwoord). Een snel onderzoek (één ronde) is niet bij te
-sturen. Technisch meldt de agent na iedere ronde zijn stand met een POST op een per-vraag
-geheime URL (`/api/ai-search/research/{turnId}/{token}/rounds`) en krijgt in het antwoord
-`stop` en `hint` terug; de eigenaar stuurt bij via `…/turns/{turnId}/steer`, in een dossier via
-`…/questions/{sessionId}/turns/{turnId}/steer` (rol met onderzoeksrecht).
+sporen die de onderzoeker hierna wil volgen. Daaronder staat de knop **Genoeg gevonden,
+schrijf het antwoord**. Die wordt pas op de eerstvolgende rondegrens opgepakt; de kaart toont
+**Wordt na deze ronde opgepakt: …** en daarna **Opgepakt: …**, en de knop is dan inactief. De
+onderzoeker schrijft het antwoord met wat hij heeft (anders dan **Stoppen**, dat het onderzoek
+afbreekt zonder antwoord). Een snel onderzoek (één ronde) is niet bij te sturen. Technisch
+meldt de agent na iedere ronde zijn stand met een POST op een per-vraag geheime URL
+(`/api/ai-search/research/{turnId}/{token}/rounds`) en krijgt in het antwoord `stop` (en een
+optionele `hint`, die de app nu niet aanbiedt) terug; de eigenaar stuurt bij via
+`…/turns/{turnId}/steer`, in een dossier via `…/questions/{sessionId}/turns/{turnId}/steer`
+(rol met onderzoeksrecht).
 
 De bronnenlijst met beschrijvingen en beelden staat niet meer onder de antwoordtekst, maar
 achter de knop **Alle bronnen (N)**, die een aparte pagina **Bronnen en afbeeldingen** opent.
