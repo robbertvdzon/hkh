@@ -30,8 +30,10 @@ class DocumentTextService(
 
     fun extract(collection: String, ident: String, pdfUrl: String, previousHash: String? = null): DocumentTextOutcome {
         val outcome = try {
-            val pdf = client.getWithRetry(URI(pdfUrl))
+            // Oudere records hebben de pdf.js-viewerpagina als PDF-link; haal het bestand zelf op.
+            val pdf = client.getWithRetry(URI(CollectionLinks.directPdf(pdfUrl)))
             if (pdf.isEmpty()) throw IllegalStateException("Lege PDF")
+            if (!looksLikePdf(pdf)) throw IllegalStateException("Geen PDF ontvangen maar ${describe(pdf)}")
             val hash = sha256(pdf)
             if (previousHash != null && previousHash == hash) return DocumentTextOutcome.Unchanged
             val text = PdfTextExtractor.extract(pdf)
@@ -46,6 +48,18 @@ class DocumentTextService(
             logger.warn("Documenttekst {}/{} mislukt: {}", collection, ident, outcome.reason)
         }
         return outcome
+    }
+
+    private fun looksLikePdf(bytes: ByteArray): Boolean {
+        val head = bytes.take(1024).toByteArray()
+        val index = String(head, Charsets.ISO_8859_1).indexOf("%PDF-")
+        return index in 0..1019
+    }
+
+    private fun describe(bytes: ByteArray): String {
+        val head = String(bytes.take(200).toByteArray(), Charsets.ISO_8859_1).replace(Regex("\\s+"), " ").trim()
+        return if (head.contains("<html", ignoreCase = true) || head.contains("<!doctype", ignoreCase = true)) "een HTML-pagina (${bytes.size} bytes)"
+            else "${bytes.size} bytes: ${head.take(60)}"
     }
 
     private fun sha256(bytes: ByteArray): String =

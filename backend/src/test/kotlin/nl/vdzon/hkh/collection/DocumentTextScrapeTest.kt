@@ -24,7 +24,7 @@ class DocumentTextScrapeTest {
             requests += url
             when {
                 url.endsWith("/archief/pdf/10983.pdf") -> MockClientHttpResponse(pdf, HttpStatus.OK)
-                url.endsWith("/archief/pdf/broken.pdf") -> MockClientHttpResponse("geen pdf".toByteArray(), HttpStatus.OK)
+                url.endsWith("/archief/pdf/broken.pdf") -> MockClientHttpResponse("<!DOCTYPE html><html><body>viewer</body></html>".toByteArray(), HttpStatus.OK)
                 url.contains("archief.pl") && url.contains("ident=10983") -> MockClientHttpResponse(RECORD_PAGE.toByteArray(Charsets.ISO_8859_1), HttpStatus.OK)
                 url.contains("archief.pl") && url.contains("search=ALL") -> MockClientHttpResponse(LIST_PAGE.toByteArray(Charsets.ISO_8859_1), HttpStatus.OK)
                 else -> MockClientHttpResponse(ByteArray(0), HttpStatus.NOT_FOUND)
@@ -38,7 +38,8 @@ class DocumentTextScrapeTest {
     @Test
     fun `backfill extracts text for pending records and records failures per item`() {
         val items = InMemoryItems()
-        items.upsert(record("10983", pdfUrl = "$BASE/archief/pdf/10983.pdf"))
+        // Oudere records verwijzen naar de pdf.js-viewer; de extractie haalt dan het bestand uit de file-parameter.
+        items.upsert(record("10983", pdfUrl = "$BASE/pdfjs3/web/viewer.html?file=/archief/pdf/10983.pdf#search=&phrase=true"))
         items.upsert(record("11000", pdfUrl = "$BASE/archief/pdf/broken.pdf"))
         items.upsert(record("11001", pdfUrl = null))
         val runs = InMemoryRuns()
@@ -55,16 +56,19 @@ class DocumentTextScrapeTest {
         assertEquals(1, run.documentsFailed)
         assertTrue(items.find("archief", "10983")!!.documentText!!.contains("Notaris Bremmers"))
         assertNotNull(items.find("archief", "10983")!!.documentPdfHash)
-        assertNotNull(items.find("archief", "11000")!!.documentTextError)
+        assertTrue(items.find("archief", "11000")!!.documentTextError!!.contains("HTML-pagina"), items.find("archief", "11000")!!.documentTextError)
         assertNull(items.find("archief", "11001")!!.documentText)
         assertTrue(run.message!!.contains("1 documentteksten"), run.message)
 
-        // Zonder force blijft de mislukte laten liggen; er is dan niets meer te doen.
+        // Een volgende backfill probeert alleen de mislukte opnieuw.
         service.start("test@example.org", ScrapeMode.TEXT, force = false)
-        assertEquals(0, runs.awaitFinished().total)
-        // Met force wordt de mislukte opnieuw geprobeerd.
-        service.start("test@example.org", ScrapeMode.TEXT, force = true)
         assertEquals(1, runs.awaitFinished().total)
+        // Met force ook de al opgehaalde, maar een ongewijzigde PDF telt als overgeslagen.
+        service.start("test@example.org", ScrapeMode.TEXT, force = true)
+        val forced = runs.awaitFinished()
+        assertEquals(2, forced.total)
+        assertEquals(1, forced.skipped)
+        assertEquals(1, forced.failed)
     }
 
     @Test
@@ -129,9 +133,9 @@ class DocumentTextScrapeTest {
         override fun search(query: String?, collection: String?, fieldQueries: Map<String, String>, limit: Int, offset: Int, year: Int?, options: CollectionSearchOptions) = emptyList<CollectionItem>()
         override fun searchCount(query: String?, collection: String?, fieldQueries: Map<String, String>, year: Int?, options: CollectionSearchOptions) = 0L
         override fun documentTextIdents(collection: String) = rows.values.filter { it.collection == collection && it.documentText != null }.map { it.ident }.toSet()
-        override fun pendingDocuments(collection: String, includeFailed: Boolean) = rows.values
-            .filter { it.collection == collection && it.pdfUrl != null && it.documentText == null && (includeFailed || it.documentTextError == null) }
-            .map { PendingDocument(it.collection, it.ident, it.pdfUrl!!) }
+        override fun pendingDocuments(collection: String, includeExtracted: Boolean) = rows.values
+            .filter { it.collection == collection && it.pdfUrl != null && (includeExtracted || it.documentText == null) }
+            .map { PendingDocument(it.collection, it.ident, it.pdfUrl!!, it.documentPdfHash) }
 
         override fun saveDocumentText(collection: String, ident: String, text: String, pdfHash: String) {
             rows.computeIfPresent(key(collection, ident)) { _, item -> item.copy(documentText = text, documentPdfHash = pdfHash, documentTextError = null) }

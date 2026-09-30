@@ -24,8 +24,11 @@ interface CollectionItemStore {
     /** Idents in een collectie waarvan de documenttekst al is opgehaald. */
     fun documentTextIdents(collection: String): Set<String> = emptySet()
 
-    /** Records met PDF zonder documenttekst; mislukte extracties tellen mee als [includeFailed]. */
-    fun pendingDocuments(collection: String, includeFailed: Boolean): List<PendingDocument> = emptyList()
+    /**
+     * Records met PDF waarvan de documenttekst ontbreekt of eerder mislukte; met [includeExtracted]
+     * ook records die al tekst hebben (om een gewijzigde PDF op te merken).
+     */
+    fun pendingDocuments(collection: String, includeExtracted: Boolean): List<PendingDocument> = emptyList()
 
     fun saveDocumentText(collection: String, ident: String, text: String, pdfHash: String) {}
 
@@ -212,17 +215,16 @@ class CollectionItemRepository(
             collection,
         ).toHashSet()
 
-    override fun pendingDocuments(collection: String, includeFailed: Boolean): List<PendingDocument> =
+    override fun pendingDocuments(collection: String, includeExtracted: Boolean): List<PendingDocument> =
         jdbc.query(
             """
-            SELECT collection, ident, pdf_url FROM collection_item
-            WHERE collection = ? AND pdf_url IS NOT NULL AND document_text IS NULL
-              AND (? OR document_text_error IS NULL)
+            SELECT collection, ident, pdf_url, document_pdf_hash FROM collection_item
+            WHERE collection = ? AND pdf_url IS NOT NULL AND (? OR document_text IS NULL)
             ORDER BY length(ident), ident
             """.trimIndent(),
-            { rs, _ -> PendingDocument(rs.getString("collection"), rs.getString("ident"), rs.getString("pdf_url")) },
+            { rs, _ -> PendingDocument(rs.getString("collection"), rs.getString("ident"), rs.getString("pdf_url"), rs.getString("document_pdf_hash")) },
             collection,
-            includeFailed,
+            includeExtracted,
         )
 
     override fun saveDocumentText(collection: String, ident: String, text: String, pdfHash: String) {

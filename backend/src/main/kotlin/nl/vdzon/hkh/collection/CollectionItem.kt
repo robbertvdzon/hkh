@@ -27,8 +27,8 @@ data class CollectionItem(
     val documentTextError: String? = null,
 )
 
-/** Record met PDF waarvan de documenttekst nog ontbreekt. */
-data class PendingDocument(val collection: String, val ident: String, val pdfUrl: String)
+/** Record met PDF waarvan de documenttekst nog ontbreekt, mislukte of opnieuw gecontroleerd wordt. */
+data class PendingDocument(val collection: String, val ident: String, val pdfUrl: String, val pdfHash: String? = null)
 
 /** Ruwe, geparste weergave van een recordpagina, vóór opslag. */
 data class ScrapedRecord(

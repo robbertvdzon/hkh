@@ -64,8 +64,11 @@ De zoekpagina biedt:
   documenttekst staat niet in de zoekresultaten-API, wel in de detail-API (`documentText`).
 - Documenttekst is de tekstlaag uit de PDF van een record (archief, artikelen). De backend haalt
   die bij **Volledig ophalen** direct na elk nieuw record uit de PDF; **Documenttekst ophalen** in
-  het beheerscherm doet dat eenmalig voor de bestaande collectie (alleen ontbrekende, met
-  "alles opnieuw" ook eerder mislukte). Een rescrape van de metadata raakt de tekst niet.
+  het beheerscherm doet dat eenmalig voor de bestaande collectie (ontbrekende en eerder
+  mislukte; met "alles opnieuw" worden ook al opgehaalde PDF's op wijzigingen gecontroleerd via
+  hun hash). Oudere records verwijzen naar de pdf.js-viewerpagina in plaats van de PDF; de
+  extractie haalt dan het bestand uit de `file`-parameter, net als de media-proxy. Een
+  rescrape van de metadata raakt de tekst niet.
   De detailpagina toont de tekst onder het tabblad **Documenttekst**, met de melding dat
   herkende tekst fouten kan bevatten.
 - Inclusieve periodegrenzen; bij bidprentjes betekent dit geboortejaar.

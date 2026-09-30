@@ -143,22 +143,25 @@ class CollectionScrapeService(
     }
 
     /**
-     * Backfill: alleen de documenttekst, voor records met PDF en zonder tekst. Zonder force
-     * blijven eerder mislukte records liggen; met force worden ook die opnieuw geprobeerd.
+     * Backfill: alleen de documenttekst, voor records met PDF waarvan de tekst ontbreekt of eerder
+     * mislukte. Met force worden ook records met tekst opnieuw opgehaald; bij een ongewijzigde PDF
+     * (zelfde hash) wordt niets opnieuw geëxtraheerd.
      */
     private fun extractCollectionText(collection: String, force: Boolean, progress: RunProgress) {
-        val pending = items.pendingDocuments(collection, includeFailed = force)
+        val pending = items.pendingDocuments(collection, includeExtracted = force)
         progress.total += pending.size
         progress.perCollection.putIfAbsent(collection, 0)
         runs.update(progress)
         for (document in pending) {
-            val outcome = documents.extract(document.collection, document.ident, document.pdfUrl)
+            val outcome = documents.extract(document.collection, document.ident, document.pdfUrl, document.pdfHash)
             count(progress, outcome)
-            if (outcome is DocumentTextOutcome.Failed) {
-                progress.failed++
-            } else {
-                progress.processed++
-                progress.perCollection.merge(collection, 1, Int::plus)
+            when (outcome) {
+                is DocumentTextOutcome.Failed -> progress.failed++
+                DocumentTextOutcome.Unchanged -> progress.skipped++
+                is DocumentTextOutcome.Extracted -> {
+                    progress.processed++
+                    progress.perCollection.merge(collection, 1, Int::plus)
+                }
             }
             if ((progress.processed + progress.failed) % 10 == 0) runs.update(progress)
             sleep()
@@ -177,7 +180,7 @@ class CollectionScrapeService(
     private fun summary(mode: ScrapeMode, progress: RunProgress): String {
         val records = "${progress.processed} opgehaald, ${progress.skipped} overgeslagen, ${progress.failed} mislukt"
         return when (mode) {
-            ScrapeMode.TEXT -> "Klaar: ${progress.processed} documentteksten opgehaald, ${progress.failed} mislukt"
+            ScrapeMode.TEXT -> "Klaar: ${progress.processed} documentteksten opgehaald, ${progress.skipped} ongewijzigd, ${progress.failed} mislukt"
             ScrapeMode.FULL -> "Klaar: $records; ${progress.documents} documentteksten, ${progress.documentsFailed} mislukt"
             ScrapeMode.FAST -> "Klaar: $records"
         }

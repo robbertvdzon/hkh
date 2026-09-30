@@ -74,7 +74,7 @@ object CollectionLinks {
      * media proxy correctly refuses to serve as a PDF. Use its `file` parameter instead, so old
      * imports start working after the application update; a full re-import is not needed.
      */
-    private fun directPdf(value: String): String = runCatching {
+    fun directPdf(value: String): String = runCatching {
         val viewer = URI(value)
         val file = viewer.rawQuery.orEmpty().split('&')
             .firstOrNull { it.substringBefore('=').equals("file", ignoreCase = true) }

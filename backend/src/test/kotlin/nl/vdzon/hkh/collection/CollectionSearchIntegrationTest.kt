@@ -278,10 +278,11 @@ class CollectionSearchIntegrationTest(
     @Test
     fun `document text is searchable, excerpted in results and returned on the detail`() {
         store.upsert(fullRecord("ocr-only", "Uniek OCR document", fields = mapOf("Auteur(s)" to "Auteur")).copy(collection = "archief", pdfUrl = "https://www.historischekringheemskerk.nl/archief/pdf/ocr-only.pdf"))
-        assertEquals(1, store.pendingDocuments("archief", includeFailed = false).count { it.ident == "ocr-only" })
+        assertEquals(1, store.pendingDocuments("archief", includeExtracted = false).count { it.ident == "ocr-only" })
         store.saveDocumentText("archief", "ocr-only", "Inleiding.\n\nDe notaristoetsakte over de Kerklaan werd gepasseerd.", "hash-1")
         assertTrue(service.documentTextAvailable())
-        assertTrue(store.pendingDocuments("archief", includeFailed = false).none { it.ident == "ocr-only" })
+        assertTrue(store.pendingDocuments("archief", includeExtracted = false).none { it.ident == "ocr-only" })
+        assertEquals("hash-1", store.pendingDocuments("archief", includeExtracted = true).single { it.ident == "ocr-only" }.pdfHash)
         assertEquals(1, service.search("notaristoetsakte", null, emptyMap(), 0, 20,
             options = CollectionSearchOptions(mode = "and", partial = true, documentText = true)).total)
         assertEquals(0, service.search("notaristoetsakte", null, emptyMap(), 0, 20,
@@ -305,11 +306,10 @@ class CollectionSearchIntegrationTest(
     }
 
     @Test
-    fun `failed extractions stay pending only when retried explicitly`() {
+    fun `failed extractions stay pending and keep their error`() {
         store.upsert(fullRecord("ocr-failed", "Kapotte scan").copy(collection = "archief", pdfUrl = "https://www.historischekringheemskerk.nl/archief/pdf/x.pdf"))
         store.saveDocumentTextError("archief", "ocr-failed", "Lege PDF")
-        assertTrue(store.pendingDocuments("archief", includeFailed = false).none { it.ident == "ocr-failed" })
-        assertTrue(store.pendingDocuments("archief", includeFailed = true).any { it.ident == "ocr-failed" })
+        assertTrue(store.pendingDocuments("archief", includeExtracted = false).any { it.ident == "ocr-failed" })
         assertEquals("Lege PDF", store.find("archief", "ocr-failed")!!.documentTextError)
     }
 

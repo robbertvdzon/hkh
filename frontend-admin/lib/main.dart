@@ -614,14 +614,14 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.text_snippet_outlined),
-              label: const Text('Documenttekst ophalen (alleen ontbrekende)'),
+              label: const Text('Documenttekst ophalen (ontbrekende en mislukte)'),
             ),
             const SizedBox(height: 4),
             const Text(
               'Haalt voor records met een PDF (archief, artikelen) de tekstlaag uit die '
               'PDF en zet die in de zoekdatabase. Eenmalig nodig voor de bestaande '
-              'collectie; daarna alleen voor records waarvan het eerder mislukte '
-              '(met "alles opnieuw" aangevinkt).',
+              'collectie; eerder mislukte records worden opnieuw geprobeerd. Met "alles '
+              'opnieuw" worden ook al opgehaalde PDF\'s op wijzigingen gecontroleerd.',
               style: TextStyle(fontSize: 12),
             ),
           ],
