@@ -15,7 +15,7 @@ images:
   newTag: sha-97fe715
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-97fe715
+  newTag: sha-b355f95
 patches:
 - path: agent-access-patch.yaml
 - path: central-postgres-patch.yaml
