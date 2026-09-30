@@ -19,12 +19,33 @@ enum AiResearchDepth {
     AiResearchDepth.thorough => 'Uitgebreid',
   };
 
+  /// Korte consequentie voor tooltips en pillen.
   String get description => switch (this) {
-    AiResearchDepth.fast => '1 zoekronde, antwoord in enkele minuten',
-    AiResearchDepth.extended => 'Maximaal 5 zoekrondes, volgt verbanden',
+    AiResearchDepth.fast => '1 zoekronde, antwoord in ca. 2 minuten',
+    AiResearchDepth.extended => 'Tot 5 zoekrondes, volgt verbanden, 3 tot 5 minuten',
     AiResearchDepth.thorough =>
-      'Maximaal 15 zoekrondes, alles eromheen; kan lang duren',
+      'Tot 15 zoekrondes, alles eromheen, 5 tot 10 minuten',
   };
+
+  /// Verwachte duur, als schatting.
+  String get duration => switch (this) {
+    AiResearchDepth.fast => 'ca. 2 min',
+    AiResearchDepth.extended => '3 tot 5 min',
+    AiResearchDepth.thorough => '5 tot 10 min',
+  };
+
+  /// Eén zin uitleg onder de keuze op de vraagkaart.
+  String get explanation => switch (this) {
+    AiResearchDepth.fast =>
+      '1 zoekronde op de vraag zelf, compact maar volledig antwoord, meestal binnen 2 minuten.',
+    AiResearchDepth.extended =>
+      'Tot 5 zoekrondes: volgt personen, adressen en gebouwen die opduiken. Meestal 3 tot 5 minuten.',
+    AiResearchDepth.thorough =>
+      'Tot 15 zoekrondes: alles eromheen, met tijdlijn, verbanden en onzekerheden. Meestal 5 tot 10 minuten.',
+  };
+
+  /// Grondigheid van 1 tot 3, voor de balkjes onder de uitleg.
+  int get level => index + 1;
 
   static AiResearchDepth fromApiValue(String? value) => switch (value) {
     'EXTENDED' => AiResearchDepth.extended,

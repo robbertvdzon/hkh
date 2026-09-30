@@ -71,24 +71,24 @@ class _AiSource implements AiSearchSource {
 
 AiSearchTurn _answeredTurn({String id = 'turn-1', String? sourcesHtml}) =>
     AiSearchTurn(
-  id: id,
-  turnNumber: 1,
-  question: 'Wie was Jan Klaasz. Beemster?',
-  status: 'SUCCEEDED',
-  progressPercent: 100,
-  progressMessage: 'Onderzoek afgerond',
-  title: 'Jan Klaasz. Beemster',
-  answerHtml: '<p>Hij was schepen en molenaar in Heemskerk.</p>',
-  sources: const [],
-  suggestedFollowUps: const [],
-  errorMessage: null,
-  createdAt: DateTime(2026),
-  updatedAt: DateTime(2026),
-  completedAt: DateTime(2026),
-  durationSeconds: 60,
-  depth: AiResearchDepth.extended,
-  sourcesHtml: sourcesHtml,
-);
+      id: id,
+      turnNumber: 1,
+      question: 'Wie was Jan Klaasz. Beemster?',
+      status: 'SUCCEEDED',
+      progressPercent: 100,
+      progressMessage: 'Onderzoek afgerond',
+      title: 'Jan Klaasz. Beemster',
+      answerHtml: '<p>Hij was schepen en molenaar in Heemskerk.</p>',
+      sources: const [],
+      suggestedFollowUps: const [],
+      errorMessage: null,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+      completedAt: DateTime(2026),
+      durationSeconds: 60,
+      depth: AiResearchDepth.extended,
+      sourcesHtml: sourcesHtml,
+    );
 
 /// Levert het geladen antwoord; de exportactie hoort daarna zichtbaar te zijn.
 class _AnsweredSource extends _AiSource {
@@ -418,12 +418,12 @@ void main() {
     tester,
   ) async {
     final source = _AiSource();
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(home: AiSearchPage(source: source)));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('research-depth')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('research-depth-thorough')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('research-depth-thorough')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Alles over Slot Assumburg');
@@ -436,7 +436,7 @@ void main() {
     expect(source.startedDepths, [AiResearchDepth.thorough]);
     // De keuze blijft staan voor de vervolgvraag, via het compacte menu.
     expect(find.byKey(const Key('research-depth-menu')), findsOneWidget);
-    expect(find.text('Uitgebreid'), findsWidgets);
+    expect(find.textContaining('Uitgebreid · 5 tot 10 min'), findsOneWidget);
   });
 
   testWidgets('a follow-up question uses the depth picked in the menu', (

@@ -65,7 +65,11 @@ class AiQuestionCard extends StatelessWidget {
             FilledButton(
               key: const Key('ai-question-button'),
               onPressed: enabled ? onSubmit : null,
-              child: const Text('Vraag stellen'),
+              child: Text(
+                onDepthChanged == null
+                    ? 'Vraag stellen'
+                    : 'Vraag stellen · ${depth.label.toLowerCase()}, ${depth.duration}',
+              ),
             ),
             if (onHistory != null) ...[
               const SizedBox(height: 4),

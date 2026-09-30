@@ -968,37 +968,40 @@ class _QuestionComposer extends StatelessWidget {
     color: Theme.of(context).colorScheme.surface,
     child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSubmit(),
-              decoration: InputDecoration(
-                labelText: label,
-                hintText: 'Wat wil je weten?',
-                border: const OutlineInputBorder(),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                enabled: enabled,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSubmit(),
+                decoration: InputDecoration(
+                  labelText: label,
+                  hintText: 'Wat wil je weten?',
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          ResearchDepthMenuButton(
-            value: depth,
-            enabled: enabled,
-            onChanged: onDepthChanged,
-          ),
-          const SizedBox(width: 4),
-          IconButton.filled(
-            onPressed: enabled ? onSubmit : null,
-            icon: const Icon(Icons.arrow_upward),
-            tooltip: 'Vraag stellen',
-          ),
-        ],
+            const SizedBox(width: 4),
+            ResearchDepthMenuButton(
+              value: depth,
+              enabled: enabled,
+              compact: constraints.maxWidth < 520,
+              onChanged: onDepthChanged,
+            ),
+            const SizedBox(width: 4),
+            IconButton.filled(
+              onPressed: enabled ? onSubmit : null,
+              icon: const Icon(Icons.arrow_upward),
+              tooltip: 'Vraag stellen',
+            ),
+          ],
+        ),
       ),
     ),
   );

@@ -27,12 +27,15 @@ primaire inhoud in deze toetsenbord- en visuele volgorde:
    onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.**
 3. De neutrale, omrande sectie **Zelf zoeken in de collectie**.
 
-De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, de keuze
-**Onderzoek:** met de chips **Snel** (standaard), **Doorzoeken** en **Uitgebreid**,
-de gevulde primaire actie **Vraag stellen** en de link **Eerdere vragen**. Een
-ingevulde vraag opent de bestaande AI-zoekpagina en start die vraag met de gekozen
-diepte; een lege start en de link Eerdere vragen openen het bestaande overzicht.
-De AI-knop is de enige gevulde primaire actie in de homepage-inhoud.
+De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, het blok
+**Onderzoek** met een afgeronde stappenbalk **Snel** (standaard), **Doorzoeken** en
+**Uitgebreid**, daaronder één zin met de consequentie van de keuze (rondes, soort
+antwoord, verwachte duur) en drie balkjes voor de grondigheid, de gevulde primaire
+actie **Vraag stellen · snel, ca. 2 min** (de tekst volgt de keuze) en de link
+**Eerdere vragen**. Op smalle schermen staat het label boven de balk. Een ingevulde
+vraag opent de bestaande AI-zoekpagina en start die vraag met de gekozen diepte; een
+lege start en de link Eerdere vragen openen het bestaande overzicht. De AI-knop is de
+enige gevulde primaire actie in de homepage-inhoud.
 
 De collectiekaart toont direct de collectie-ingangen Archief, Beeldbank, Bibliotheek,
 Bidprentjes, Artikelen en Objecten, het gelabelde veld **Zoekterm**, de omrande actie
@@ -141,8 +144,9 @@ aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
 
 Het maximum is een plafond: de onderzoeker stopt eerder zodra een ronde niets nieuws oplevert,
 en niet-gevolgde sporen komen terug als voorgestelde vervolgvragen. De vraagkaart toont de
-keuze als chips; de vervolgvraagbalk als compact menu naast de verzendknop, zodat de balk
-één regel hoog blijft. Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de
+keuze als stappenbalk met uitleg; de vervolgvraagbalk als pil **Snel · ca. 2 min** naast de
+verzendknop die een menu met de drie opties en hun consequentie opent, zodat de balk één
+regel hoog blijft (op smalle schermen zonder duur). Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de
 voortgangsmelding toont **Spoor wordt gevolgd: …** zodra de onderzoeker een aanknopingspunt
 oppakt. De API neemt `depth` (`FAST`, `EXTENDED`, `THOROUGH`) mee in het vraagverzoek;
 ontbrekend of onbekend betekent `FAST`.

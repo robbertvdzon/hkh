@@ -365,6 +365,13 @@ void main() {
     tester,
   ) async {
     await _pumpHome(tester, size: const Size(600, 1100));
+    // De vraagkaart is met de dieptekeuze hoger; de collectiekaart staat onder de vouw.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('collection-search-button')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
 
     final aiField = tester.getRect(find.byKey(const Key('ai-question-field')));
     final aiButton = tester.getRect(
@@ -416,6 +423,8 @@ void main() {
       find.byKey(const Key('ai-question-field')),
       'Wat gebeurde er aan de Kerklaan?',
     );
+    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ai-question-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -429,6 +438,8 @@ void main() {
   ) async {
     final aiSource = _AiSource();
     await _pumpHome(tester, size: const Size(800, 1000), aiSource: aiSource);
+    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ai-question-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
