@@ -172,6 +172,17 @@ achter de knop **Alle bronnen (N)**, die een aparte pagina **Bronnen en afbeeldi
 Dit geldt ook voor gedeelde antwoorden. Antwoorden van vóór deze scheiding houden de lijst
 in de tekst en tonen geen knop. De PDF-export bevat de bronnenlijst nog steeds na de tekst.
 
+## Beheer: model van de AI-onderzoeker
+
+Het beheerscherm toont onder de collectie-import het blok **AI-onderzoeker: model**: het nu
+actieve model (met "uit de configuratie" zolang geen beheerder heeft gekozen, anders wie het
+koos), een keuzelijst met alle modellen uit de catalogus van de agent-runtime voor dit project
+(leverancier · model · uitvoeringswijze, met de melding "geen worker online" waar dat zo is),
+de knop **Dit model gebruiken**, **Terug naar configuratie** en **Catalogus verversen**. De
+keuze staat in `app_setting` (sleutel `ai-search.execution`) en geldt direct voor nieuwe
+vragen; lopende onderzoeken maken hun huidige model af. Alleen modellen uit de catalogus zijn
+te kiezen. API: `GET`/`PUT`/`DELETE /api/admin/ai-search/model`.
+
 ## PDF-export van een AI-antwoord
 
 Zodra op het AI-antwoordscherm een antwoord geladen en zichtbaar is, toont de

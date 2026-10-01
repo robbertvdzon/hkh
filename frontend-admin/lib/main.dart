@@ -8,6 +8,7 @@ import 'config/app_config.dart';
 import 'google_signin_button_stub.dart'
     if (dart.library.html) 'google_signin_button_web.dart'
     as google_button;
+import 'ai/admin_ai_model.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'news/admin_latest_news.dart';
 
@@ -25,6 +26,7 @@ void main() {
       sessionSource: sessionSource,
       newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
       scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
+      aiModelSource: AdminAiModelClient(AppConfig.apiBaseUrl),
     ),
   );
 }
@@ -34,6 +36,7 @@ class HkhAdminApp extends StatelessWidget {
     required this.sessionSource,
     required this.newsSource,
     required this.scrapeSource,
+    this.aiModelSource,
     this.googleButtonBuilder,
     super.key,
   });
@@ -41,6 +44,9 @@ class HkhAdminApp extends StatelessWidget {
   final AdminSessionSource sessionSource;
   final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
+
+  /// Modelkeuze van de digitale onderzoeker; zonder bron wordt het blok niet getoond.
+  final AdminAiModelSource? aiModelSource;
   final Widget Function()? googleButtonBuilder;
 
   @override
@@ -56,6 +62,7 @@ class HkhAdminApp extends StatelessWidget {
         sessionSource: sessionSource,
         newsSource: newsSource,
         scrapeSource: scrapeSource,
+        aiModelSource: aiModelSource,
         googleButtonBuilder:
             googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
@@ -69,12 +76,14 @@ class AdminGate extends StatefulWidget {
     required this.newsSource,
     required this.scrapeSource,
     required this.googleButtonBuilder,
+    this.aiModelSource,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
   final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
+  final AdminAiModelSource? aiModelSource;
   final Widget Function() googleButtonBuilder;
 
   @override
@@ -167,6 +176,7 @@ class _AdminGateState extends State<AdminGate> {
         identity: identity,
         newsSource: widget.newsSource,
         scrapeSource: widget.scrapeSource,
+        aiModelSource: widget.aiModelSource,
         onSignOut: _signOut,
       );
     }
@@ -252,11 +262,13 @@ class _AdminHome extends StatefulWidget {
     required this.newsSource,
     required this.scrapeSource,
     required this.onSignOut,
+    this.aiModelSource,
   });
 
   final AdminIdentity identity;
   final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
+  final AdminAiModelSource? aiModelSource;
   final VoidCallback onSignOut;
 
   @override
@@ -340,6 +352,13 @@ class _AdminHomeState extends State<_AdminHome> {
                     identity: widget.identity,
                     source: widget.scrapeSource,
                   ),
+                  if (widget.aiModelSource case final aiModelSource?) ...[
+                    const SizedBox(height: 32),
+                    _AiModelSection(
+                      identity: widget.identity,
+                      source: aiModelSource,
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   const Divider(),
                   const SizedBox(height: 20),
@@ -614,7 +633,9 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.text_snippet_outlined),
-              label: const Text('Documenttekst ophalen (ontbrekende en mislukte)'),
+              label: const Text(
+                'Documenttekst ophalen (ontbrekende en mislukte)',
+              ),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -624,6 +645,222 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
               'opnieuw" worden ook al opgehaalde PDF\'s op wijzigingen gecontroleerd.',
               style: TextStyle(fontSize: 12),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Kiest het model van de digitale onderzoeker uit de catalogus van de agent-runtime.
+class _AiModelSection extends StatefulWidget {
+  const _AiModelSection({required this.identity, required this.source});
+
+  final AdminIdentity identity;
+  final AdminAiModelSource source;
+
+  @override
+  State<_AiModelSection> createState() => _AiModelSectionState();
+}
+
+class _AiModelSectionState extends State<_AiModelSection> {
+  AiModelState? _state;
+  String? _selectedKey;
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  String? _success;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final state = await widget.source.load(widget.identity);
+      if (!mounted) return;
+      setState(() {
+        _state = state;
+        _selectedKey = state.current.key;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error is StateError
+            ? error.message
+            : 'Modelinstelling kon niet worden geladen.';
+      });
+    }
+  }
+
+  Future<void> _apply(
+    Future<AiModelState> Function() action,
+    String success,
+  ) async {
+    setState(() {
+      _saving = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final state = await action();
+      if (!mounted) return;
+      setState(() {
+        _state = state;
+        _selectedKey = state.current.key;
+        _success = success;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _error = error is StateError ? error.message : 'Opslaan mislukt.',
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = _state;
+    final options = state?.options ?? const <AiModelOption>[];
+    final keys = options.map((o) => o.execution.key).toSet();
+    final selectedKey = _selectedKey != null && keys.contains(_selectedKey)
+        ? _selectedKey
+        : null;
+    final selectedOption = options
+        .where((o) => o.execution.key == selectedKey)
+        .firstOrNull;
+    final changed = selectedKey != null && selectedKey != state?.current.key;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.psychology_outlined),
+                const SizedBox(width: 8),
+                Text(
+                  'AI-onderzoeker: model',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Het model waarmee de digitale onderzoeker vragen beantwoordt. De keuze geldt '
+              'direct voor nieuwe vragen; lopende onderzoeken maken hun huidige model af.',
+            ),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else ...[
+              if (state != null)
+                Text(
+                  'Nu actief: ${state.current.label}'
+                  '${state.fromSetting ? '' : ' (uit de configuratie)'}'
+                  '${state.updatedBy == null ? '' : ' · gekozen door ${state.updatedBy}'}',
+                  key: const Key('ai-model-current'),
+                ),
+              if (state?.catalogError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  state!.catalogError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: const Key('ai-model-select'),
+                initialValue: selectedKey,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final option in options)
+                    DropdownMenuItem(
+                      value: option.execution.key,
+                      child: Text(
+                        '${option.execution.label}'
+                        '${option.available ? '' : ' · geen worker online'}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _saving || options.isEmpty
+                    ? null
+                    : (value) => setState(() {
+                        _selectedKey = value;
+                        _success = null;
+                      }),
+              ),
+              if (selectedOption != null && !selectedOption.available) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Voor dit model is nu geen worker online; vragen blijven dan wachten.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    key: const Key('ai-model-save'),
+                    onPressed: _saving || !changed || selectedOption == null
+                        ? null
+                        : () => _apply(
+                            () => widget.source.select(
+                              widget.identity,
+                              selectedOption.execution,
+                            ),
+                            'Het model is gewijzigd.',
+                          ),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Dit model gebruiken'),
+                  ),
+                  OutlinedButton(
+                    key: const Key('ai-model-reset'),
+                    onPressed: _saving || !(state?.fromSetting ?? false)
+                        ? null
+                        : () => _apply(
+                            () => widget.source.reset(widget.identity),
+                            'Terug naar het model uit de configuratie.',
+                          ),
+                    child: const Text('Terug naar configuratie'),
+                  ),
+                  TextButton.icon(
+                    onPressed: _saving ? null : _load,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Catalogus verversen'),
+                  ),
+                ],
+              ),
+              if (_success != null) ...[
+                const SizedBox(height: 8),
+                Text(_success!, key: const Key('ai-model-success')),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
           ],
         ),
       ),
@@ -644,9 +881,7 @@ class _StatusView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Laatste run: ${_label(status.status)} (${status.mode.label})',
-        ),
+        Text('Laatste run: ${_label(status.status)} (${status.mode.label})'),
         if (status.running && status.currentCollection != null) ...[
           const SizedBox(height: 4),
           Text('Bezig met: ${status.currentCollection}'),

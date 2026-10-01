@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_admin/auth/admin_session.dart';
 import 'package:hkh_admin/main.dart';
 import 'package:hkh_admin/news/admin_latest_news.dart';
+import 'package:hkh_admin/ai/admin_ai_model.dart';
 import 'package:hkh_admin/collection/admin_collection_scrape.dart';
 
 class _NewsSource implements AdminLatestNewsSource {
@@ -33,14 +34,81 @@ class _ScrapeSource implements AdminScrapeSource {
   }) async {
     started.add(mode);
     return current = ScrapeStatus.fromJson({
-    'status': 'RUNNING',
-    'running': true,
-    'mode': mode.apiValue,
-    'total': 0,
-    'processed': 0,
-    'skipped': 0,
-    'failed': 0,
-  });
+      'status': 'RUNNING',
+      'running': true,
+      'mode': mode.apiValue,
+      'total': 0,
+      'processed': 0,
+      'skipped': 0,
+      'failed': 0,
+    });
+  }
+}
+
+class _AiModelSource implements AdminAiModelSource {
+  AiExecution current = const AiExecution(
+    vendorId: 'anthropic',
+    model: 'claude-sonnet-5-5',
+    mode: 'SUBSCRIPTION',
+    label: 'anthropic · claude-sonnet-5-5 · subscription',
+  );
+  bool fromSetting = false;
+  final List<AiExecution> selected = [];
+
+  AiModelState _state() => AiModelState(
+    current: current,
+    fromSetting: fromSetting,
+    updatedAt: null,
+    updatedBy: fromSetting ? 'admin@example.com' : null,
+    options: const [
+      AiModelOption(
+        execution: AiExecution(
+          vendorId: 'anthropic',
+          model: 'claude-opus-5',
+          mode: 'SUBSCRIPTION',
+          label: 'anthropic · claude-opus-5 · subscription',
+        ),
+        available: true,
+        onlineWorkers: 1,
+      ),
+      AiModelOption(
+        execution: AiExecution(
+          vendorId: 'anthropic',
+          model: 'claude-sonnet-5-5',
+          mode: 'SUBSCRIPTION',
+          label: 'anthropic · claude-sonnet-5-5 · subscription',
+        ),
+        available: true,
+        onlineWorkers: 1,
+      ),
+    ],
+    catalogError: null,
+  );
+
+  @override
+  Future<AiModelState> load(AdminIdentity identity) async => _state();
+
+  @override
+  Future<AiModelState> select(
+    AdminIdentity identity,
+    AiExecution execution,
+  ) async {
+    selected.add(execution);
+    current = execution;
+    fromSetting = true;
+    return _state();
+  }
+
+  @override
+  Future<AiModelState> reset(AdminIdentity identity) async {
+    fromSetting = false;
+    current = const AiExecution(
+      vendorId: 'anthropic',
+      model: 'claude-sonnet-5-5',
+      mode: 'SUBSCRIPTION',
+      label: 'anthropic · claude-sonnet-5-5 · subscription',
+    );
+    return _state();
   }
 }
 
@@ -132,5 +200,50 @@ void main() {
     expect(scrapeSource.started, [ScrapeMode.text]);
     expect(find.text('Laatste run: bezig (documenttekst)'), findsOneWidget);
     expect(find.text('Bezig met ophalen (documenttekst)…'), findsOneWidget);
+  });
+
+  testWidgets('the administrator can switch the AI model and go back', (
+    tester,
+  ) async {
+    final aiModelSource = _AiModelSource();
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        newsSource: _NewsSource(),
+        scrapeSource: _ScrapeSource(),
+        aiModelSource: aiModelSource,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Nu actief: anthropic · claude-sonnet-5-5'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('(uit de configuratie)'), findsOneWidget);
+    final save = find.byKey(const Key('ai-model-save'));
+    expect(tester.widget<FilledButton>(save).enabled, isFalse);
+
+    await tester.ensureVisible(find.byKey(const Key('ai-model-select')));
+    await tester.tap(find.byKey(const Key('ai-model-select')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text('anthropic · claude-opus-5 · subscription').last,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(save).enabled, isTrue);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(aiModelSource.selected.single.model, 'claude-opus-5');
+    expect(
+      find.textContaining('Nu actief: anthropic · claude-opus-5'),
+      findsOneWidget,
+    );
+    expect(find.text('Het model is gewijzigd.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('ai-model-reset')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('(uit de configuratie)'), findsOneWidget);
   });
 }

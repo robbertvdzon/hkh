@@ -25,6 +25,7 @@ class AgentRuntimeClient(
     private val properties: AiSearchProperties,
     private val fixtures: PreviewAiRuntimeFixtures,
     private val objectMapper: ObjectMapper,
+    private val modelSettings: AiModelSettings,
 ) {
     private val client: RestClient by lazy {
         val requestFactory = JdkClientHttpRequestFactory(
@@ -48,14 +49,15 @@ class AgentRuntimeClient(
         executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
     ): RuntimeJob {
         if (fixtures.enabled) return fixtures.create(idempotencyKey, resultSchema)
+        val execution = modelSettings.execution()
         val body = mapOf(
             "idempotencyKey" to idempotencyKey,
             "jobKind" to "APPLICATION_WORK",
             "taskType" to "STRUCTURED_GENERATION",
             "execution" to mapOf(
-                "vendorId" to properties.vendorId,
-                "model" to properties.model,
-                "mode" to properties.mode,
+                "vendorId" to execution.vendorId,
+                "model" to execution.model,
+                "mode" to execution.mode,
             ),
             "input" to mapOf("instruction" to instruction.take(MAX_INSTRUCTION_LENGTH), "objects" to emptyList<Any>()),
             "output" to mapOf("resultSchema" to resultSchema, "artifacts" to emptyList<Any>()),
@@ -99,6 +101,25 @@ class AgentRuntimeClient(
             classifyActivity(text)?.let { activity = it }
         }
         return RuntimeActivity(cursor, activity)
+    }
+
+    /** Modellen die de runtime voor dit project kan uitvoeren, met of er nu een worker voor online is. */
+    fun executionOptions(): List<AiExecutionOption> {
+        if (fixtures.enabled) {
+            return listOf(AiExecutionOption(AiExecution(properties.vendorId, properties.model, properties.mode), available = true, onlineWorkers = 1))
+        }
+        val json = client.get().uri("/v2/execution-options?taskType=STRUCTURED_GENERATION").retrieve().body(String::class.java)
+            ?: error("Agent Runtime gaf geen catalogus terug")
+        val options = mutableListOf<AiExecutionOption>()
+        for (node in objectMapper.readTree(json)) {
+            val execution = node.path("execution")
+            options += AiExecutionOption(
+                AiExecution(execution.path("vendorId").asText(), execution.path("model").asText(), execution.path("mode").asText()),
+                available = node.path("available").asBoolean(false),
+                onlineWorkers = node.path("matchingOnlineWorkers").asInt(0),
+            )
+        }
+        return options.sortedWith(compareBy({ it.execution.vendorId }, { it.execution.model }))
     }
 
     /** Maakt een JSON-schema-node uit een letterlijke schema-tekst; handig voor andere modules. */
