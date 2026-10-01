@@ -306,6 +306,18 @@ class CollectionSearchIntegrationTest(
     }
 
     @Test
+    fun `an empty record page never counts as complete`() {
+        store.upsert(fullRecord("leeg-record", title = "", description = "").copy(collection = "artikelen", fields = emptyMap()))
+        store.upsert(fullRecord("vol-record", "Echte titel").copy(collection = "artikelen"))
+        val complete = store.completeIdents("artikelen")
+        assertFalse("leeg-record" in complete)
+        assertTrue("vol-record" in complete)
+        // Een oud leeg record dat ooit als compleet is opgeslagen, wordt alsnog opnieuw opgehaald.
+        jdbc.update("UPDATE collection_item SET is_complete = true WHERE collection = 'artikelen' AND ident = 'leeg-record'")
+        assertFalse("leeg-record" in store.completeIdents("artikelen"))
+    }
+
+    @Test
     fun `failed extractions stay pending and keep their error`() {
         store.upsert(fullRecord("ocr-failed", "Kapotte scan").copy(collection = "archief", pdfUrl = "https://www.historischekringheemskerk.nl/archief/pdf/x.pdf"))
         store.saveDocumentTextError("archief", "ocr-failed", "Lege PDF")

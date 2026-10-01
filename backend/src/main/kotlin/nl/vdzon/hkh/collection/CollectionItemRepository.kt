@@ -44,11 +44,14 @@ class CollectionItemRepository(
     override fun upsert(record: ScrapedRecord) {
         val fieldsJson = objectMapper.writeValueAsString(record.fields)
         val searchText = buildSearchText(record.title, record.description, record.ident, record.fields)
+        // Een recordpagina zonder velden (tijdelijke storing, lege pagina) is niet compleet: een
+        // volgende volledige scrape probeert zo'n record opnieuw in plaats van het over te slaan.
+        val complete = record.fields.isNotEmpty() || record.title.isNotBlank()
         jdbc.update(
             """
             INSERT INTO collection_item
                 (collection, ident, title, description, year, image_url, pdf_url, detail_url, fields, search_text, is_complete, scraped_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, true, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT (collection, ident) DO UPDATE SET
                 title = EXCLUDED.title,
                 description = EXCLUDED.description,
@@ -58,7 +61,7 @@ class CollectionItemRepository(
                 detail_url = EXCLUDED.detail_url,
                 fields = EXCLUDED.fields,
                 search_text = EXCLUDED.search_text,
-                is_complete = true,
+                is_complete = EXCLUDED.is_complete,
                 scraped_at = CURRENT_TIMESTAMP
             """.trimIndent(),
             record.collection,
@@ -71,6 +74,7 @@ class CollectionItemRepository(
             record.detailUrl,
             fieldsJson,
             searchText,
+            complete,
         )
     }
 
@@ -116,9 +120,10 @@ class CollectionItemRepository(
             collection,
         ).toHashSet()
 
+    /** Eerder als compleet opgeslagen maar lege records (geen titel, geen velden) tellen niet mee. */
     override fun completeIdents(collection: String): Set<String> =
         jdbc.query(
-            "SELECT ident FROM collection_item WHERE collection = ? AND is_complete = true",
+            "SELECT ident FROM collection_item WHERE collection = ? AND is_complete = true AND (title <> '' OR fields <> '{}'::jsonb)",
             { rs, _ -> rs.getString("ident") },
             collection,
         ).toHashSet()
