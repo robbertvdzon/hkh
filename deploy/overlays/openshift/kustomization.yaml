@@ -12,7 +12,7 @@ images:
   newTag: sha-68858f8
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-aac3396
+  newTag: sha-bd33a4b
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-e2fa81c
