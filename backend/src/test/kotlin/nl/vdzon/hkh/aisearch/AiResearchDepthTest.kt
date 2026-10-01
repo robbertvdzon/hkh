@@ -18,6 +18,8 @@ class AiResearchDepthTest {
     fun `deeper research allows more rounds and more time`() {
         val depths = AiResearchDepth.entries
         assertEquals(listOf(1, 5, 15), depths.map { it.maxRounds })
+        assertEquals(listOf(1, 3, 6), depths.map { it.minRounds })
+        assertTrue(depths.all { it.minRounds <= it.maxRounds })
         assertTrue(depths.zipWithNext().all { (a, b) -> a.executionTimeoutSeconds < b.executionTimeoutSeconds })
     }
 

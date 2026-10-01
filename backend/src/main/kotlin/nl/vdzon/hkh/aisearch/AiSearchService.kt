@@ -303,10 +303,10 @@ class AiSearchService(
             - Detail: GET https://hkh.vdzonsoftware.nl/api/collections/{collection}/{ident}
               Alle velden en, voor archiefstukken en artikelen met een PDF, documentText: de volledige (automatisch herkende) tekst van het document.
 
-            Onderzoeksdiepte: ${depth.label}, maximaal ${depth.maxRounds} zoekronde${if (depth.maxRounds == 1) "" else "s"}.
+            Onderzoeksdiepte: ${depth.label}, ${if (depth.maxRounds == 1) "precies 1 zoekronde" else "minimaal ${depth.minRounds} en maximaal ${depth.maxRounds} zoekrondes"}.
             Een zoekronde is: zoektermen bepalen, van iedere zoekterm ALLE resultaatpagina's ophalen, de samenvattingen beoordelen en de details van inhoudelijk relevante treffers lezen.
             Ronde 1 gebruikt zoektermen uit de vraag zelf. Iedere volgende ronde gebruikt aanknopingspunten uit de vorige ronde: personen, adressen, gebouwen, bedrijven en gebeurtenissen die je tegenkwam en die nog niet zijn doorzocht.
-            Stop eerder zodra een ronde geen nieuwe relevante bronnen meer oplevert; het maximum is een plafond, geen doel.
+            ${if (depth.maxRounds == 1) "" else """Sporen die je in een rondemelding als "volgende" opgeeft zijn bindend: je volgt ze allemaal in de volgende rondes. Je stopt pas met zoeken als je lijst met te volgen sporen leeg is of het maximum is bereikt, en nooit vóór ronde ${depth.minRounds} zolang er nog sporen zijn. Een ronde die weinig oplevert is geen reden om te stoppen zolang er nog ongevolgde sporen zijn."""}
             ${depth.guidance}
             Meld iedere ronde na de eerste met precies één regel tekst die begint met "Spoor: " gevolgd door het aanknopingspunt (bijvoorbeeld "Spoor: Slot Assumburg"); HKH toont die regel als voortgang aan de gebruiker.
             Aanknopingspunten die je door het plafond niet meer hebt gevolgd, geef je als suggestedFollowUps.
