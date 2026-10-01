@@ -142,12 +142,13 @@ aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
 | Keuze | Rondes | Antwoord |
 | --- | --- | --- |
 | Snel (standaard) | 1 | compact maar volledig |
-| Doorzoeken | 3 tot 5 | verbanden één niveau diep |
-| Uitgebreid | 6 tot 15 | lang verhaal met alles eromheen, ook straat, buren, gebouwen en collega's |
+| Doorzoeken | max 5 | verbanden één niveau diep |
+| Uitgebreid | max 15 | lang verhaal met alles eromheen, waar de vraag daarom vraagt ook straat, buren, gebouwen en collega's |
 
-Sporen die de onderzoeker in een rondemelding opgeeft zijn bindend: hij stopt pas als die lijst
-leeg is of het maximum is bereikt, en nooit vóór het minimum zolang er sporen zijn. Niet-gevolgde
-sporen komen terug als voorgestelde vervolgvragen. De vraagkaart toont de
+Het maximum is een plafond, geen doel: de vraag bepaalt hoe ver de onderzoeker gaat. Een
+afgebakende vraag is na één ronde klaar; een vraag naar verbanden, familie of "alles" gaat door tot
+de sporen op zijn. Sporen die de onderzoeker in een rondemelding opgeeft zijn bindend: hij stopt
+niet zolang die lijst gevuld is. Niet-gevolgde sporen komen terug als voorgestelde vervolgvragen. De vraagkaart toont de
 keuze als stappenbalk met uitleg; de vervolgvraagbalk als pil **Snel · ca. 2 min** naast de
 verzendknop die een menu met de drie opties en hun consequentie opent, zodat de balk één
 regel hoog blijft (op smalle schermen zonder duur). Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de

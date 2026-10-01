@@ -92,13 +92,13 @@ Keuze naast het vraagveld in de frontend:
 | Optie | Rondes | Antwoord |
 | --- | --- | --- |
 | Snel (standaard) | 1 | compact maar volledig |
-| Doorzoeken | 3 tot 5 | verbanden één niveau diep |
-| Uitgebreid | 6 tot 15 | lang verhaal met alles eromheen |
+| Doorzoeken | max 5 | verbanden één niveau diep |
+| Uitgebreid | max 15 | lang verhaal met alles eromheen |
 
 Meting op 1 oktober 2026 (Oostrum-vraag, Uitgebreid): Sonnet 5.5 stopte na 2 rondes (2:17,
 26 bronnen), Opus 5.5 na 5 (5:32, 54 bronnen), Opus 5 na 13 (14:44, 58 bronnen), Haiku 4.5 na
-3 (5:28, 18 bronnen, zwak). Daarom zijn gemelde sporen bindend gemaakt en geldt per diepte een
-minimum aantal rondes. Opus 5.5 is de beste balans; het model is in het beheerscherm te kiezen.
+3 (5:28, 18 bronnen, zwak). Daarom zijn gemelde sporen bindend gemaakt en bepaalt de vraag zelf
+of er doorgezocht wordt (geen minimum aantal rondes: een afgebakende vraag is na één ronde klaar). Opus 5.5 is de beste balans; het model is in het beheerscherm te kiezen.
 
 1. API: `depth` (FAST, EXTENDED, THOROUGH) bij het starten van een zoekopdracht en bij een
    vervolgvraag; opslaan op `ai_search_turn`, zodat de prompt en de weergave het kennen.
