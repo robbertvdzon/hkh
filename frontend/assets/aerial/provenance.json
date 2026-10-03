@@ -15,63 +15,134 @@
   "crs": "EPSG:28992",
   "date_label": "PDOK luchtfotolaag 2026; exacte lokale vluchtdag niet vastgesteld",
   "attribution": "PDOK / Beeldmateriaal, CC BY 4.0",
-  "historical_file": "heemskerk-1962-1964.png",
+  "historical_file": "heemskerk-1962-1965.png",
   "current_file": "heemskerk-2026.jpg",
+  "historical_period": "1962-1965",
   "layers": [
     {
       "id": "10905",
-      "source_file": "fotos/1962-1964/10905.jpg",
-      "source_sha256": "0487723a0f48c989bb886e0935ce615b23700544b81af825a1495444247405fb",
+      "mask_id": 10905,
+      "source_file": "boekfotos/analyse-10905/bron-boek-64797-grijs.png",
+      "source_sha256": "140fd9a4037be07965a2bb9d66e53ebda5f3248105db2dd6a0b78efebc80c700",
       "source_to_output_pixel_matrix": [
         [
-          -1.1105433964535643,
-          4.302945728516095,
-          1452.5076054131532
+          -3.303847633153029,
+          12.53062575476747,
+          -70.76519887888196
         ],
         [
-          -0.3266381512470968,
-          -0.5950923867639742,
-          1097.603932961034
+          -1.1102637591853317,
+          -1.1367231102278461,
+          8382.254110301054
         ],
         [
-          -0.0002318427230449246,
-          0.002475668570529078,
+          -0.0008850760354425287,
+          0.007352429344243616,
           1.0
         ]
       ],
       "source_mask_polygon": [
         [
-          211,
-          300
+          506.49858002961304,
+          1562.630585849305
         ],
         [
-          378,
-          229
+          944.4851442312489,
+          1365.89277872563
         ],
         [
-          555,
-          308
+          1401.6003074063556,
+          1563.3202323134853
         ],
         [
-          515,
-          366
+          1307.2903409623784,
+          1720.4057405470608
         ]
       ],
+      "source_mask_erosion_pixels": 0,
       "fit_diagnostics": {
         "control_residual_pixels": [
-          5.684341886080802e-14,
-          1.7053025658242404e-13,
-          0.0,
-          1.6077746776921858e-13
+          4.0990372275064023e-13,
+          4.43961293735052e-13,
+          5.084229945850415e-13,
+          3.595093471822542e-13
         ],
-        "control_rmse_pixels": 1.2058310082691391e-13,
+        "control_rmse_pixels": 4.3383856571136184e-13,
         "leave_one_out_pixels": [],
         "leave_one_out_rmse_pixels": null
+      },
+      "book_source": {
+        "book_number": "64797",
+        "caption_year": 1964,
+        "hkh_ident": "10905",
+        "original_file": "boekfotos/originelen/1964-64797.jpeg",
+        "original_sha256": "a6ce52f493f1d7c0b2049513c406cbb28c7ff2c477dc1f3255da0facfd62a107",
+        "processing": "Deterministic RGB-to-grayscale conversion and geometric projection of supplied pixels. No synthesis, retouching or inpainting.",
+        "registration": {
+          "inliers": 541,
+          "rmse_book_px": 1.477439522743225,
+          "held_out_matches": 109,
+          "held_out_rmse_book_px": 1.5652550510761083,
+          "held_out_median_book_px": 0.937344505185483,
+          "local_sampling": [
+            {
+              "archive_xy": [
+                211,
+                300
+              ],
+              "sampling_singular_values": [
+                2.7498494232527526,
+                2.6483391103117
+              ]
+            },
+            {
+              "archive_xy": [
+                378,
+                229
+              ],
+              "sampling_singular_values": [
+                2.5954396822601864,
+                2.5654613547534924
+              ]
+            },
+            {
+              "archive_xy": [
+                555,
+                308
+              ],
+              "sampling_singular_values": [
+                2.641396001643903,
+                2.5078981630793185
+              ]
+            },
+            {
+              "archive_xy": [
+                515,
+                366
+              ],
+              "sampling_singular_values": [
+                2.7031053640730778,
+                2.563163717228522
+              ]
+            },
+            {
+              "archive_xy": [
+                335,
+                264
+              ],
+              "sampling_singular_values": [
+                2.6445245167917446,
+                2.600971525869241
+              ]
+            }
+          ]
+        }
       },
       "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
     },
     {
       "id": "12309",
+      "mask_id": 12309,
       "source_file": "fotos/1962-1964/12309.jpg",
       "source_sha256": "84f037ed3c01632e8a330b5ba2eba5ea618b374c6e6fd31b84021559c84202c2",
       "source_to_output_pixel_matrix": [
@@ -121,6 +192,7 @@
           299
         ]
       ],
+      "source_mask_erosion_pixels": 0,
       "fit_diagnostics": {
         "control_residual_pixels": [
           1.4915964641322337,
@@ -147,21 +219,1833 @@
         ],
         "leave_one_out_rmse_pixels": 2.671623199105335
       },
+      "book_source": null,
+      "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
+    },
+    {
+      "id": "boek-67781",
+      "mask_id": 60001,
+      "source_file": "boekfotos/uitbreiding-67781/bron-67781-grijs.png",
+      "source_sha256": "2b49ef463f59f938a8f96f2f80631b80796bf35e059a2cafc6f858266d945bee",
+      "source_to_output_pixel_matrix": [
+        [
+          -0.11376749552439115,
+          -1.9481297078991124,
+          847.3360190138429
+        ],
+        [
+          -0.20920609764207462,
+          -0.8163521012441894,
+          445.460462984871
+        ],
+        [
+          -0.0001591457861800672,
+          -0.001674566706120318,
+          1.0
+        ]
+      ],
+      "source_mask_polygon": [
+        [
+          541,
+          1349
+        ],
+        [
+          707,
+          1272
+        ],
+        [
+          727,
+          1287
+        ],
+        [
+          951,
+          1500
+        ],
+        [
+          1075,
+          1625
+        ],
+        [
+          928,
+          1744
+        ]
+      ],
+      "source_mask_erosion_pixels": 3,
+      "fit_diagnostics": {
+        "control_residual_pixels": [
+          3.5361684764953516,
+          2.815265678130937,
+          0.6927237066077335,
+          0.40768747812069434,
+          2.671089864807793,
+          1.3453404780258262,
+          3.3665176640845416,
+          1.011437357808462
+        ],
+        "control_rmse_pixels": 2.3015590456577404,
+        "leave_one_out_pixels": [
+          6.094681228169847,
+          6.354030429431124,
+          1.0472096525461843,
+          0.8978027118906952,
+          4.096846365620059,
+          7.138478446374924,
+          5.271744097331931,
+          5.350869570733572
+        ],
+        "leave_one_out_rmse_pixels": 5.044633973350011
+      },
+      "book_source": {
+        "book_number": "67781",
+        "caption_year": 1965,
+        "original_file": "boekfotos/originelen/1965-67781.jpeg",
+        "original_sha256": "57a0ff1d72c282d3d48ac533a5effb6c3c6260bc689721ca810290715a1ea4f1",
+        "processing": "Deterministische RGB-naar-grijsconversie en geometrische projectie. Geen synthese, retouche of verzonnen pixels."
+      },
+      "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
+    },
+    {
+      "id": "10904",
+      "mask_id": 10904,
+      "source_file": "boekfotos/uitbreiding-62058/bron-boek-62058-grijs.png",
+      "source_sha256": "331945975fc7eebd38efd009f3c09b7ac724ba8b617bc6a6a726b5c44adb823e",
+      "source_to_output_pixel_matrix": [
+        [
+          -0.6660989679497784,
+          -2.1564725901607034,
+          1503.1516307610823
+        ],
+        [
+          -0.23103498629020078,
+          -0.880604506800603,
+          569.8816820048792
+        ],
+        [
+          -0.0004827360417395534,
+          -0.0014999619545496112,
+          1.0
+        ]
+      ],
+      "source_mask_polygon": [
+        [
+          109.20961037892833,
+          1320.750765614498
+        ],
+        [
+          267.4508998027105,
+          983.1408093021231
+        ],
+        [
+          327.13832184630274,
+          960.3753660993193
+        ],
+        [
+          711.1336815481758,
+          1265.5973074614872
+        ],
+        [
+          168.9040179288319,
+          1379.5775958177896
+        ]
+      ],
+      "source_mask_erosion_pixels": 0,
+      "fit_diagnostics": {
+        "control_residual_pixels": [
+          0.827414851698999,
+          1.0465374141511041,
+          2.2357839977226748,
+          2.234234852811211,
+          2.305720445472545,
+          1.7256401175357114
+        ],
+        "control_rmse_pixels": 1.8286867758921999,
+        "leave_one_out_pixels": [
+          11.425864876078213,
+          6.902338537483213,
+          5.647439559490456,
+          5.378975467797297,
+          4.873083965406411,
+          4.946024358592746
+        ],
+        "leave_one_out_rmse_pixels": 6.918932003368011
+      },
+      "book_source": {
+        "book_number": "62058",
+        "caption_year": 1963,
+        "catalog_year": "1962",
+        "date_conflict": true,
+        "hkh_ident": "10904",
+        "original_file": "boekfotos/originelen/1963-62058.jpeg",
+        "original_sha256": "decba2f8c4c82fdc8c4fd45b109793c3578cc4011adff4bc802837ebb987d57c",
+        "processing": "Deterministic grayscale conversion and projective resampling of supplied source pixels.",
+        "registration": {
+          "book_number": "62058",
+          "caption_year": 1963,
+          "hkh_id": "10904",
+          "catalog_year": "1962",
+          "ratio_matches": 1755,
+          "inliers": 1539,
+          "median_inlier_book_pixel_error": 1.2377628087997437,
+          "archive_to_book_matrix": [
+            [
+              2.13761948467244,
+              -0.09117996791906682,
+              74.64141934696224
+            ],
+            [
+              0.07485555287964035,
+              1.9350837917443595,
+              796.7817988664979
+            ],
+            [
+              7.232308252983346e-05,
+              -0.00014260046873750174,
+              1.0
+            ]
+          ],
+          "geographic_reference": false
+        }
+      },
+      "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
+    },
+    {
+      "id": "10903",
+      "mask_id": 10903,
+      "source_file": "boekfotos/analyse-10903/bron-boek-62057-grijs.png",
+      "source_sha256": "338896f8d343f868f984ffc3433e9a5c0d818bea22905b4979ab82592eb14a0a",
+      "source_to_output_pixel_matrix": [
+        [
+          -0.21173632276823406,
+          -0.2594398022898825,
+          1313.0583348601745
+        ],
+        [
+          -0.11387053203351347,
+          -0.06581810866901701,
+          522.0133709052735
+        ],
+        [
+          -0.0001737097629259916,
+          -0.00020774404056852415,
+          1.0
+        ]
+      ],
+      "source_mask_polygon": [
+        [
+          279.52528715359836,
+          1439.6780875979116
+        ],
+        [
+          830.0578346288845,
+          1199.992927958728
+        ],
+        [
+          995.3911763820931,
+          1209.3448522359663
+        ],
+        [
+          940.7617417458745,
+          1434.349508930668
+        ],
+        [
+          813.5952004020575,
+          1594.9436964176073
+        ],
+        [
+          496.25963767190046,
+          1612.1899811875926
+        ]
+      ],
+      "source_mask_erosion_pixels": 0,
+      "fit_diagnostics": {
+        "control_residual_pixels": [
+          1.603965481336275,
+          0.5050498684304348,
+          3.1693588390135776,
+          2.162354527807491,
+          2.063157590885528,
+          1.418298766062055,
+          2.879371342406933
+        ],
+        "control_rmse_pixels": 2.141673683007187,
+        "leave_one_out_pixels": [
+          3.1728519454732345,
+          0.9586544285504743,
+          4.051880956051689,
+          3.6348808741465968,
+          4.416728186812199,
+          9.601738147153958,
+          6.98346912190963
+        ],
+        "leave_one_out_rmse_pixels": 5.359714948868642
+      },
+      "book_source": {
+        "book_number": "62057",
+        "caption_year": 1963,
+        "catalog_year": "1962",
+        "date_conflict": true,
+        "hkh_ident": "10903",
+        "original_file": "boekfotos/originelen/1963-62057.jpeg",
+        "original_sha256": "a94542fa40e0595b6eb64238c229dbc661423ca0a36e0e7bd36586c9abce98fe",
+        "processing": "Deterministic RGB-to-grayscale conversion and geometric projection. No generated or retouched content.",
+        "registration": {
+          "book_number": "62057",
+          "caption_year": 1963,
+          "hkh_id": "10903",
+          "catalog_year": "1962",
+          "ratio_matches": 1663,
+          "inliers": 1546,
+          "median_inlier_book_pixel_error": 1.2535130977630615,
+          "archive_to_book_matrix": [
+            [
+              2.1134165103009344,
+              -0.1858029128667862,
+              131.64858994965385
+            ],
+            [
+              0.1952620276704051,
+              1.8021734795452022,
+              812.3846287018971
+            ],
+            [
+              0.00012890701253968963,
+              -0.0001985870947984479,
+              1.0
+            ]
+          ],
+          "geographic_reference": false
+        }
+      },
       "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
     }
   ],
-  "historical_filled_pixels": 15568,
+  "historical_filled_pixels": 17890,
   "grid_pixels": 2284800,
   "north_up": true,
   "alignment": "Identical raster grid; historical ground-plane placement approximate.",
   "unknown_historical_pixels": "pure RGB white 255,255,255; alpha 0 in transparent version",
   "synthesis": false,
-  "resampling": "Historical source pixels: bilinear. Current image: unmodified downloaded WMS JPEG.",
-  "original_export_historical_file": "gemeente-1962-1964.png",
-  "bundled_files": {
-    "heemskerk-2026.jpg": "543fc0c62e4c335a78213b54f920e13a9066939d25fee2c7f05bbb78d1070e91",
-    "heemskerk-1962-1964.png": "f31e01aa5ad5e9e6986278cd90f125956d4bf83e385448032def31a3497c9939"
-  },
+  "resampling": "Historical book pixels: deterministic grayscale conversion, projective transform and bilinear resampling. Current image: unmodified downloaded WMS JPEG.",
+  "original_export_historical_file": "gemeente-1962-1965.png",
+  "historical_control_points": [
+    {
+      "source_id": "10905",
+      "source_file": "boekfotos/analyse-10905/bron-boek-64797-grijs.png",
+      "source_pixels": [
+        1536,
+        2040
+      ],
+      "reference_file": "referentie/kaarten/heemskerk-topotijdreis-1963.png",
+      "reference_pixels": [
+        2000,
+        1792
+      ],
+      "reference_bbox_rd": [
+        104500,
+        500200,
+        109300,
+        504500
+      ],
+      "reference_crs": "EPSG:28992",
+      "status": "approved_same_coverage_higher_detail",
+      "pixel_convention": "x right, y down, original pixel coordinates",
+      "points": [
+        {
+          "id": "neksloot_northern_bow",
+          "source_xy": [
+            1307.2903409623784,
+            1720.4057405470608
+          ],
+          "reference_xy": [
+            822,
+            372
+          ],
+          "confidence": "medium",
+          "accepted": true,
+          "surface": "ground_water",
+          "description_nl": "Noordelijke grote Nekslootboog om de woonwijk; boogvorm en buurtpatroon zijn eenduidig. Gegeven punt benadert midden noordboog, geen scherp meetpunt.",
+          "archive_source_xy": [
+            515,
+            366
+          ],
+          "source_transfer_method": "SIFT/RANSAC book-to-same-archive-frame; not a new independent ground point"
+        },
+        {
+          "id": "neksloot_western_crossing",
+          "source_xy": [
+            1401.6003074063556,
+            1563.3202323134853
+          ],
+          "reference_xy": [
+            715,
+            477
+          ],
+          "confidence": "medium",
+          "accepted": true,
+          "surface": "ground_water",
+          "description_nl": "Westelijke overgang van de woonwijk naar de bosrand, op het smalle uiteinde van Nekslootboog. Exacte wegrand is bij 700px bron slecht onderscheidbaar.",
+          "archive_source_xy": [
+            555,
+            308
+          ],
+          "source_transfer_method": "SIFT/RANSAC book-to-same-archive-frame; not a new independent ground point"
+        },
+        {
+          "id": "neksloot_eastern_crossing",
+          "source_xy": [
+            506.49858002961304,
+            1562.630585849305
+          ],
+          "reference_xy": [
+            1045,
+            588
+          ],
+          "confidence": "medium",
+          "accepted": true,
+          "surface": "ground_water",
+          "description_nl": "Overgang Neksloot nabij De Knip/boerenerf aan oostzijde van het bebouwde gebied. Identiteit ondersteund door HKH-objectbeschrijving en relatieve ligging t.o.v. Laurentius.",
+          "archive_source_xy": [
+            211,
+            300
+          ],
+          "source_transfer_method": "SIFT/RANSAC book-to-same-archive-frame; not a new independent ground point"
+        },
+        {
+          "id": "laurentius_ground_location",
+          "source_xy": [
+            834.6408736511183,
+            1459.4371899736027
+          ],
+          "reference_xy": [
+            889,
+            641
+          ],
+          "confidence": "medium",
+          "accepted": true,
+          "surface": "ground_approximate_building_location",
+          "description_nl": "Benaderd middelpunt grondlocatie Laurentiuskerk, niet torentop. Gebouwen en bomen maken precieze gebouwvoet onzeker.",
+          "archive_source_xy": [
+            335,
+            264
+          ],
+          "source_transfer_method": "SIFT/RANSAC book-to-same-archive-frame; not a new independent ground point"
+        },
+        {
+          "id": "dorpskerk_ground_location_validation",
+          "source_xy": [
+            944.4851442312489,
+            1365.89277872563
+          ],
+          "reference_xy": [
+            793,
+            728
+          ],
+          "confidence": "medium",
+          "accepted": false,
+          "use": "independent_validation_only",
+          "surface": "ground_approximate_building_location",
+          "description_nl": "Dorpskerk-voet bij ingang/kerkterrein; kerkidentiteit klopt met HKH-beschrijving en M.v.Heemskerckstraat die achter de kerk doorloopt. Niet de toren op source y222 gebruiken.",
+          "archive_source_xy": [
+            378,
+            229
+          ],
+          "source_transfer_method": "SIFT/RANSAC book-to-same-archive-frame; not a new independent ground point"
+        }
+      ],
+      "suggested_source_polygon": [
+        [
+          506.49858002961304,
+          1562.630585849305
+        ],
+        [
+          944.4851442312489,
+          1365.89277872563
+        ],
+        [
+          1401.6003074063556,
+          1563.3202323134853
+        ],
+        [
+          1307.2903409623784,
+          1720.4057405470608
+        ]
+      ],
+      "uncertainty_m_approx": [
+        20,
+        40
+      ],
+      "mask_rationale_nl": "Exact dezelfde conservatieve gebiedsgrens als10905 in eersteversie; via gevalideerde boek-/archiefbeeldregistratie naar boekpixels overgezet. Geen nieuwe dekking.",
+      "validation_nl": "Vierpunts-homografie op eerste vier punten voorspelt onafhankelijke Dorpskerk op ref(801.0,722.3), tegenover aangewezen(793,728): ongeveer24m verschil. Dit is één onafhankelijke aanwijzing, geen volledige validatie.",
+      "limitations_nl": [
+        "Geen exacte historische orthofoto; laagresolutie schuine foto met gebouwen en bomen.",
+        "Topografische kaart1963 is gegeneraliseerd en niet even exact als moderne orthofoto.",
+        "Boogapex is een breed geomorfologisch kenmerk, niet een onveranderlijk scherp punt; 20–40m is indicatieve orde, geen gecertificeerde foutgrens.",
+        "Voorlopige afsplitsingsmatch source410368 naar ref892400 is verworpen; niet gebruiken.",
+        "Geen 4 exacte straatkruispunten gevonden; deze set is bewust geschikt voor ruwe eerste versie, niet meetkundige nauwkeurigheid.",
+        "Brongeografie blijft dezelfde grove20–40m benadering; scherperepixels maken die niet automatisch preciezer.",
+        "Boekfoto heeft perspectief/papierbuiging, print-raster en moiré; alleen centrale geregistreerde zone toepassen.",
+        "Zwartwitvariant is gewone lineaire RGB-naar-grijsomzetting om gekleurde moiré te verminderen; geen retouche,inpainting of AI-detail."
+      ],
+      "method": "One deterministic composed homography. Book photo is the identical historical aerial exposure as HKH10905. Four existing geographic correspondences are transferred via541 robust image-to-image matches. No new geographic claims.",
+      "diagnostic_homography_source_to_reference": [
+        [
+          -5.076465079560828,
+          11.098242977166056,
+          -2188.5524976651504
+        ],
+        [
+          -1.908224099628121,
+          -5.735120146662495,
+          17008.40158798055
+        ],
+        [
+          -0.0008850760354427295,
+          0.007352429344245705,
+          1.0
+        ]
+      ],
+      "book_registration": {
+        "inliers": 541,
+        "rmse_book_px": 1.477439522743225,
+        "held_out_matches": 109,
+        "held_out_rmse_book_px": 1.5652550510761083,
+        "held_out_median_book_px": 0.937344505185483,
+        "local_sampling": [
+          {
+            "archive_xy": [
+              211,
+              300
+            ],
+            "sampling_singular_values": [
+              2.7498494232527526,
+              2.6483391103117
+            ]
+          },
+          {
+            "archive_xy": [
+              378,
+              229
+            ],
+            "sampling_singular_values": [
+              2.5954396822601864,
+              2.5654613547534924
+            ]
+          },
+          {
+            "archive_xy": [
+              555,
+              308
+            ],
+            "sampling_singular_values": [
+              2.641396001643903,
+              2.5078981630793185
+            ]
+          },
+          {
+            "archive_xy": [
+              515,
+              366
+            ],
+            "sampling_singular_values": [
+              2.7031053640730778,
+              2.563163717228522
+            ]
+          },
+          {
+            "archive_xy": [
+              335,
+              264
+            ],
+            "sampling_singular_values": [
+              2.6445245167917446,
+              2.600971525869241
+            ]
+          }
+        ]
+      },
+      "book_source": {
+        "book_number": "64797",
+        "caption_year": 1964,
+        "hkh_ident": "10905",
+        "original_file": "boekfotos/originelen/1964-64797.jpeg",
+        "original_sha256": "a6ce52f493f1d7c0b2049513c406cbb28c7ff2c477dc1f3255da0facfd62a107",
+        "processing": "Deterministic RGB-to-grayscale conversion and geometric projection of supplied pixels. No synthesis, retouching or inpainting.",
+        "registration": {
+          "inliers": 541,
+          "rmse_book_px": 1.477439522743225,
+          "held_out_matches": 109,
+          "held_out_rmse_book_px": 1.5652550510761083,
+          "held_out_median_book_px": 0.937344505185483,
+          "local_sampling": [
+            {
+              "archive_xy": [
+                211,
+                300
+              ],
+              "sampling_singular_values": [
+                2.7498494232527526,
+                2.6483391103117
+              ]
+            },
+            {
+              "archive_xy": [
+                378,
+                229
+              ],
+              "sampling_singular_values": [
+                2.5954396822601864,
+                2.5654613547534924
+              ]
+            },
+            {
+              "archive_xy": [
+                555,
+                308
+              ],
+              "sampling_singular_values": [
+                2.641396001643903,
+                2.5078981630793185
+              ]
+            },
+            {
+              "archive_xy": [
+                515,
+                366
+              ],
+              "sampling_singular_values": [
+                2.7031053640730778,
+                2.563163717228522
+              ]
+            },
+            {
+              "archive_xy": [
+                335,
+                264
+              ],
+              "sampling_singular_values": [
+                2.6445245167917446,
+                2.600971525869241
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source_id": "12309",
+      "source_file": "fotos/1962-1964/12309.jpg",
+      "source_pixels": [
+        691,
+        500
+      ],
+      "reference_file": "referentie/kaarten/heemskerk-2026-orthoHR.jpg",
+      "reference_pixels": [
+        2000,
+        1792
+      ],
+      "reference_crs": "EPSG:28992",
+      "reference_bbox_rd": [
+        104500,
+        500200,
+        109300,
+        504500
+      ],
+      "pixel_convention": "x right, y down, original image coordinates; reference zero-based continuous pixels",
+      "method": "Handmatige visuele terreinherkenning en least-squares homografie; extra openbare PDOK-detailbeelden voor herkenning, coördinaten teruggezet naar hoofdreferentie.",
+      "status": "usable_conservative_ground_only_approximate",
+      "points": [
+        {
+          "id": "outer_moat_nw",
+          "source_xy": [
+            255,
+            299
+          ],
+          "reference_xy": [
+            1209.6,
+            1145.8
+          ],
+          "confidence": "medium",
+          "description_nl": "Noordwesthoek van de buitenste rechthoekige gracht-/greppelstructuur van Oud Haerlem; in oude foto licht spoor, in nieuwe foto laagte.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 1.4916336995557875
+        },
+        {
+          "id": "western_ditch_elbow",
+          "source_xy": [
+            245,
+            356
+          ],
+          "reference_xy": [
+            1215.6,
+            1177.8
+          ],
+          "confidence": "high",
+          "description_nl": "Duidelijke slootknik: vanuit westen naar zuiden langs westkant Oud Haerlem. Zelfde knik en aansluitende sloot in beide beelden.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 1.159769442932268
+        },
+        {
+          "id": "southwest_ditch_turn",
+          "source_xy": [
+            253,
+            445
+          ],
+          "reference_xy": [
+            1234.0,
+            1216.6
+          ],
+          "confidence": "high",
+          "description_nl": "Zuidwestelijke einde/bocht van westelijke sloot, direct ten westen van kleine dam/doorgang.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 1.6677975993252403
+        },
+        {
+          "id": "inner_moat_dead_end",
+          "source_xy": [
+            323,
+            365
+          ],
+          "reference_xy": [
+            1234.8,
+            1176.8
+          ],
+          "confidence": "medium",
+          "description_nl": "Blind zuidelijk einde van de westarm van de binnenste gracht. Oude foto toont rond uiteinde; modern beeld toont verbrede donkere waterkop. Centrum/uiteinde is benaderd.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 1.78924783063533
+        },
+        {
+          "id": "southern_dam_east_end",
+          "source_xy": [
+            280,
+            447
+          ],
+          "reference_xy": [
+            1239.0,
+            1214.8
+          ],
+          "confidence": "high",
+          "description_nl": "Oostkant van kleine doorgang/dam bij de zuidwesthoek; oostwaartse sloot gaat hier via korte knik verder.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 0.9032772760211097
+        },
+        {
+          "id": "inner_moat_nw",
+          "source_xy": [
+            326,
+            319
+          ],
+          "reference_xy": [
+            1228.0,
+            1149.6
+          ],
+          "confidence": "medium",
+          "description_nl": "Noordwesthoek van binnenste rechthoekige gracht. Oude foto laag contrast; koppeling wordt ondersteund door volledige L-vorm.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 2.953702247663784
+        },
+        {
+          "id": "road_ditch_crossing",
+          "source_xy": [
+            607,
+            254
+          ],
+          "reference_xy": [
+            1286.4,
+            1096.6
+          ],
+          "confidence": "high",
+          "description_nl": "Zuidermaatweg kruist noord-zuidwatergang direct na duidelijke bocht. Moderne oversteek op dezelfde watergang.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 0.5533796939120129
+        },
+        {
+          "id": "farm_driveway_road",
+          "source_xy": [
+            510,
+            205
+          ],
+          "reference_xy": [
+            1260.6,
+            1067.2
+          ],
+          "confidence": "medium",
+          "description_nl": "Aansluiting erfpad op Zuidermaatweg nabij de boerderij, bij begin westelijke wegbocht; weg en aansluiting enigszins heringericht.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 1.3875621984707451
+        },
+        {
+          "id": "eastern_moat_junction",
+          "source_xy": [
+            644,
+            351
+          ],
+          "reference_xy": [
+            1300.0,
+            1148.4
+          ],
+          "confidence": "high",
+          "description_nl": "Aansluiting binnenste oostelijke grachtstructuur op noord-zuidwatergang, ter hoogte van noordelijke hoek Oud Haerlem. In beide beelden samenhangende kenmerkende driehoek.",
+          "accepted": true,
+          "surface": "ground_or_water",
+          "coordinate_precision_note": "Handmatig geschat op oorspronkelijke pixels; geen landmeetkundige controle.",
+          "fitted_residual_reference_px": 0.321220464419409
+        }
+      ],
+      "suggested_source_polygon": [
+        [
+          510,
+          205
+        ],
+        [
+          607,
+          254
+        ],
+        [
+          644,
+          351
+        ],
+        [
+          280,
+          447
+        ],
+        [
+          253,
+          445
+        ],
+        [
+          245,
+          356
+        ],
+        [
+          255,
+          299
+        ]
+      ],
+      "mask_rationale_nl": "Beperk tot convex gebied binnen de grondpunten: weide en slootstructuur Oud Haerlem plus Zuidermaatweg. Geen extrapolatie naar slot Assumburg of nieuw ingerichte tuinen. Logo linksonder valt erbuiten. Buiten dit masker wit houden.",
+      "diagnostic_homography_source_to_reference": [
+        [
+          1.9775303303456901,
+          5.380320619066297,
+          885.004907401275
+        ],
+        [
+          1.0675638591671817,
+          6.110538233854856,
+          741.8886456468779
+        ],
+        [
+          0.0010863472742559306,
+          0.004027309059551875,
+          1.0
+        ]
+      ],
+      "diagnostic_fit_rmse_reference_pixels": 1.5430129335675031,
+      "diagnostic_fit_rmse_m_approx": 3.7032310405620072,
+      "limitations_nl": [
+        "Geen onafhankelijke metrische grondcontrole: residuen zijn trainingsresiduen, geen bewezen nauwkeurigheid.",
+        "Rechte transformatie corrigeert een grondvlak; hoge objecten en reliëf vallen buiten de claim.",
+        "Handmatig aangewezen punten en gewijzigde slootbreedtes geven meerdere meters onzekerheid; presenteren als benadering, niet exacte historische orthofoto.",
+        "De ronde laagte noordwestelijk in het weiland en de L-vormige drain zijn niet gebruikt: hun voorlopige koppeling gaf 20–30 m afwijking."
+      ],
+      "rejected_candidates": [
+        {
+          "source_xy": [
+            293,
+            269
+          ],
+          "reference_xy": [
+            1209.6,
+            1115.0
+          ],
+          "reason": "Ronde afwateringskop lijkt gelijk maar past niet in overige terreinkoppelingen; mogelijke latere verplaatsing of misidentificatie."
+        },
+        {
+          "source_xy": [
+            342,
+            238
+          ],
+          "reference_xy": [
+            1227.2,
+            1111.2
+          ],
+          "reason": "L-vormige drain niet eenduidig; sterke residuen."
+        },
+        {
+          "name": "Slot Assumburg dak en torens",
+          "reason": "Hoge objecten, sterk perspectief en relief displacement; geen grond-GCPs."
+        }
+      ]
+    },
+    {
+      "source_id": "boek-67781",
+      "source_file": "boekfotos/uitbreiding-67781/bron-67781-grijs.png",
+      "source_pixels": [
+        1536,
+        2040
+      ],
+      "reference_file": "referentie/kaarten/heemskerk-2026-orthoHR.jpg",
+      "reference_pixels": [
+        2000,
+        1792
+      ],
+      "reference_bbox_rd": [
+        104500,
+        500200,
+        109300,
+        504500
+      ],
+      "reference_crs": "EPSG:28992",
+      "status": "approved_indicative_ground_polygon_after_visual_review",
+      "points": [
+        {
+          "id": "B0",
+          "description_nl": "Poelenburglaan Zaalberg west",
+          "source_xy": [
+            727,
+            1287
+          ],
+          "reference_xy": [
+            817.333333,
+            786.813023
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Westelijke rijbaan bij kruising over Zaalbergvijver; huidige herinrichting en beperkte bronresolutie geven enkele meters onzekerheid.",
+          "fit_residual_m": 8.486804343588844,
+          "leave_one_out_error_m": 14.627234947607633
+        },
+        {
+          "id": "B1",
+          "description_nl": "Poelenburglaan Zaalberg east",
+          "source_xy": [
+            707,
+            1272
+          ],
+          "reference_xy": [
+            825.833333,
+            782.478884
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Oostelijke rijbaan bij dezelfde vijverkruising; gekoppeld aan het vorige punt, dus geen statistisch onafhankelijke locatie.",
+          "fit_residual_m": 6.756637627514248,
+          "leave_one_out_error_m": 15.249673030634698
+        },
+        {
+          "id": "B2",
+          "description_nl": "Dorpskerk southwest perimeter",
+          "source_xy": [
+            597,
+            1367
+          ],
+          "reference_xy": [
+            794.5,
+            738.97079
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Benaderde zuidwestelijke kerkhofomtrek naast Dorpskerk, bij kop van vijver. Historische en huidige bestrating/terreinomtrek zijn veranderd.",
+          "fit_residual_m": 1.6625368958585605,
+          "leave_one_out_error_m": 2.513303166110842
+        },
+        {
+          "id": "B3",
+          "description_nl": "Dorpskerk southeast perimeter",
+          "source_xy": [
+            541,
+            1349
+          ],
+          "reference_xy": [
+            812.166667,
+            732.96967
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Benaderde zuidoostelijke kerkhofomtrek naast Dorpskerk; dezelfde terreinlocatie als vorig punt, geen tweede onafhankelijk landmeetpunt.",
+          "fit_residual_m": 0.9784499474896664,
+          "leave_one_out_error_m": 2.154726508537668
+        },
+        {
+          "id": "B4",
+          "description_nl": "Carel van Manderstraat Ruysdaelstraat",
+          "source_xy": [
+            951,
+            1500
+          ],
+          "reference_xy": [
+            695.125,
+            765.406372
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Zichtbare kruising op maaiveld bij Carel van Manderstraat/Ruysdaelstraat, tegenwoordig rotonde. Wegas kan door herinrichting verschoven zijn.",
+          "fit_residual_m": 6.410615675538703,
+          "leave_one_out_error_m": 9.83243127748814
+        },
+        {
+          "id": "B5",
+          "description_nl": "Mariakerk front ground corner",
+          "source_xy": [
+            928,
+            1744
+          ],
+          "reference_xy": [
+            635.3472,
+            722.702
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Zichtbare voet onder de dichtstbijzijnde hoek van de Mariakerk, niet de toren of het dak. Moderne voet onder dakrand visueel benaderd.",
+          "fit_residual_m": 3.228817147261983,
+          "leave_one_out_error_m": 17.132348271299815
+        },
+        {
+          "id": "B6",
+          "description_nl": "Carel van Manderstraat Zeelaan",
+          "source_xy": [
+            866,
+            1585
+          ],
+          "reference_xy": [
+            676,
+            742
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Straataansluiting achter de eerste flat, Carel van Manderstraat/Zeelaan. Geen gebouw- of dakpunt.",
+          "fit_residual_m": 8.0796423938029,
+          "leave_one_out_error_m": 12.652185833596635
+        },
+        {
+          "id": "B7",
+          "description_nl": "Schuitemakerstraat Zeelaan",
+          "source_xy": [
+            1075,
+            1625
+          ],
+          "reference_xy": [
+            645,
+            760
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "T-aansluiting achter flat aan de Schuitemakerstraat/Zeelaan. Geen eerdere verkeerd gekoppelde T-knoop bij bron1120,1733.",
+          "fit_residual_m": 2.4274496587403083,
+          "leave_one_out_error_m": 12.842086969760572
+        }
+      ],
+      "homography_source_to_reference": [
+        [
+          0.08782082714097458,
+          -0.6406035900933187,
+          -275.8416270544927
+        ],
+        [
+          -0.36305796996200923,
+          -0.9343048084811226,
+          470.33854612661503
+        ],
+        [
+          -0.0001591457861800672,
+          -0.001674566706120318,
+          1.0
+        ]
+      ],
+      "diagnostics": {
+        "control_residual_pixels": [
+          3.5361684764953516,
+          2.815265678130937,
+          0.6927237066077335,
+          0.40768747812069434,
+          2.671089864807793,
+          1.3453404780258262,
+          3.3665176640845416,
+          1.011437357808462
+        ],
+        "control_rmse_pixels": 2.3015590456577404,
+        "leave_one_out_pixels": [
+          6.094681228169847,
+          6.354030429431124,
+          1.0472096525461843,
+          0.8978027118906952,
+          4.096846365620059,
+          7.138478446374924,
+          5.271744097331931,
+          5.350869570733572
+        ],
+        "leave_one_out_rmse_pixels": 5.044633973350011
+      },
+      "diagnostics_m": {
+        "control_rmse": 5.523741709578577,
+        "leave_one_out_rmse": 12.107121536040028,
+        "max_leave_one_out": 17.132348271299815
+      },
+      "conservative_source_mask": {
+        "polygon_source_pixels": [
+          [
+            541,
+            1349
+          ],
+          [
+            707,
+            1272
+          ],
+          [
+            727,
+            1287
+          ],
+          [
+            951,
+            1500
+          ],
+          [
+            1075,
+            1625
+          ],
+          [
+            928,
+            1744
+          ]
+        ],
+        "raster_path": "boekfotos/uitbreiding-67781/mask-source.png",
+        "erosion_source_pixels": 3,
+        "rationale": "Alleen convexe grondpuntomtrek, 3bronpixels binnenmarge. Geen extrapolatie naar de rest van Kerkbeek, zuidelijke horizon of boekrand."
+      },
+      "ground_check_not_fitted": {
+        "name": "Carel van Manderstraat, tegenoverliggende kant vijverovergang bij Jacob Marisstraat",
+        "source_xy": [
+          988.0,
+          1460.0
+        ],
+        "reference_xy": [
+          701.65271,
+          777.21411
+        ],
+        "predicted_reference_xy": [
+          701.7998163842195,
+          781.7521184576244
+        ],
+        "difference_m": 10.89694120597856,
+        "confidence": "medium-low",
+        "interpretation": "Zelfde kruising als B4, dus beperkte onafhankelijkheid. Bronas en huidige wandelpadaansluiting zijn gewijzigd."
+      },
+      "approx_ground_hull_area_km2": 0.04232236607142857,
+      "uncertainty_m_approx": [
+        15,
+        30
+      ],
+      "limitations_nl": [
+        "Grove grondvlakbenadering; geen exacte historische orthofoto.",
+        "Interne RMS en leave-one-out zijn consistentiematen, geen landmeetkundige nauwkeurigheid.",
+        "Vier centrumankers liggen per paar bij dezelfde kruising/kerkhofrand; er zijn minder dan acht onafhankelijke locaties.",
+        "Historische bestrating en aansluitingen zijn veranderd; huidige bomen en dakranden beperken identificatie.",
+        "Gebouwen houden perspectivische hoogteverschuivingen. De boekpagina heeft bolling, drukraster en plaatselijk glans.",
+        "Eerdere Kerkbeek-only trialsets zijn verworpen; hun lage fitfout was niet voldoende en hun extrapolatie/LOO instabiel."
+      ],
+      "book_source": {
+        "book_number": "67781",
+        "caption_year": 1965,
+        "original_file": "boekfotos/originelen/1965-67781.jpeg",
+        "original_sha256": "57a0ff1d72c282d3d48ac533a5effb6c3c6260bc689721ca810290715a1ea4f1",
+        "processing": "Deterministische RGB-naar-grijsconversie en geometrische projectie. Geen synthese, retouche of verzonnen pixels."
+      },
+      "preview_files": [
+        "boekfotos/uitbreiding-67781/preview-historisch.png",
+        "boekfotos/uitbreiding-67781/preview-overlay.jpg",
+        "boekfotos/uitbreiding-67781/points-source-8.jpg",
+        "boekfotos/uitbreiding-67781/points-reference-8.jpg"
+      ],
+      "mask_id": 60001,
+      "independent_review": {
+        "reviewed_by": "root",
+        "review_files": [
+          "boekfotos/uitbreiding-67781/points-source-8.jpg",
+          "boekfotos/uitbreiding-67781/points-reference-8.jpg",
+          "boekfotos/uitbreiding-67781/brt-kerkbeek-review.jpg"
+        ],
+        "conclusion_nl": "Herkenbare vijveras, Dorpskerk, straatverbindingen en Mariakerk vormen een consistent grondvlak. Alleen de conservatieve omtrek met drie bronpixels binnenmarge is bruikbaar voor een grove visuele vergelijking. Geen extra terrein buiten de controlepunten.",
+        "accuracy_claim": "Indicatieve ligging, ongeveer 15–30 m; geen landmeetkundige nauwkeurigheid. De controle bij B4 is slechts beperkt onafhankelijk."
+      }
+    },
+    {
+      "source_id": "10904",
+      "source_file": "boekfotos/uitbreiding-62058/bron-boek-62058-grijs.png",
+      "source_pixels": [
+        1536,
+        2040
+      ],
+      "reference_crs": "EPSG:28992",
+      "reference_file": "referentie/kaarten/heemskerk-2026-orthoHR.jpg",
+      "reference_pixels": [
+        2000,
+        1792
+      ],
+      "reference_bbox_rd": [
+        104500,
+        500200,
+        109300,
+        504500
+      ],
+      "status": "approved_indicative_ground_polygon_after_independent_visual_review",
+      "points": [
+        {
+          "id": "K1",
+          "source_xy": [
+            327.13832184630274,
+            960.3753660993193
+          ],
+          "archive_source_xy": [
+            121.09909750924591,
+            78.63763947323213
+          ],
+          "reference_xy": [
+            695.125,
+            765.4063720703125
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        },
+        {
+          "id": "K3",
+          "source_xy": [
+            267.4508998027105,
+            983.1408093021231
+          ],
+          "archive_source_xy": [
+            93.266204951477,
+            89.63083748574138
+          ],
+          "reference_xy": [
+            701.6527099609375,
+            777.214111328125
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        },
+        {
+          "id": "Zaalberg-west",
+          "source_xy": [
+            109.20961037892833,
+            1320.750765614498
+          ],
+          "archive_source_xy": [
+            25.0,
+            247.0
+          ],
+          "reference_xy": [
+            817.3333333333358,
+            786.8130232558138
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        },
+        {
+          "id": "Zaalberg-east",
+          "source_xy": [
+            168.9040179288319,
+            1379.5775958177896
+          ],
+          "archive_source_xy": [
+            53.0,
+            274.0
+          ],
+          "reference_xy": [
+            825.8333333333334,
+            782.4788837209205
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        },
+        {
+          "id": "Kerkhof-SW",
+          "source_xy": [
+            571.7004360884293,
+            1198.3160645380258
+          ],
+          "archive_source_xy": [
+            238.0,
+            192.0
+          ],
+          "reference_xy": [
+            794.5000000000013,
+            738.9707906976793
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        },
+        {
+          "id": "Kerkhof-SE",
+          "source_xy": [
+            711.1336815481758,
+            1265.5973074614872
+          ],
+          "archive_source_xy": [
+            304.0,
+            224.0
+          ],
+          "reference_xy": [
+            812.1666666666655,
+            732.9696744185998
+          ],
+          "accepted": true,
+          "surface": "ground",
+          "confidence": "medium"
+        }
+      ],
+      "suggested_source_polygon": [
+        [
+          109.20961037892833,
+          1320.750765614498
+        ],
+        [
+          267.4508998027105,
+          983.1408093021231
+        ],
+        [
+          327.13832184630274,
+          960.3753660993193
+        ],
+        [
+          711.1336815481758,
+          1265.5973074614872
+        ],
+        [
+          168.9040179288319,
+          1379.5775958177896
+        ]
+      ],
+      "uncertainty_m_approx": [
+        10,
+        30
+      ],
+      "internal_diagnostics_reference_pixels": {
+        "control_residual_pixels": [
+          0.8274148501512837,
+          1.0465374129698253,
+          2.235783998423433,
+          2.234234853583004,
+          2.3057204450581983,
+          1.7256401176403473
+        ],
+        "control_rmse_pixels": 1.82868677589215,
+        "leave_one_out_pixels": [
+          11.425864860973133,
+          6.902338417102125,
+          5.647439560052437,
+          5.378975472168183,
+          4.873084041686365,
+          4.946024356346769
+        ],
+        "leave_one_out_rmse_pixels": 6.918931988524559
+      },
+      "validation": {
+        "holdout": "Dorpskerk nave ground gable K5 from prior10292 independently placed ground point, transferred through10904 frame correspondence",
+        "source_archive_xy": [
+          307.65183621,
+          200.23433051
+        ],
+        "reference_xy": [
+          803.4583129882812,
+          728.4550170898438
+        ],
+        "difference_m": 4.55,
+        "fit_use": false,
+        "caveat": "Not surveyed. Ground point visibility and cross-photo transfer limit accuracy; two pond/churchyard controls are shared with10903 and are not independent of that layer."
+      },
+      "limitations_nl": [
+        "Alleen conservatieve convexe omtrek tussen Ruysdaelstraat, Dorpskerk en Poelenburg/Zaalbergkruising.",
+        "Ruysdaelpunten overgezet vanuit10292 via visueel bevestigde gelijkende opname; daarom aanvullende onzekerheid.",
+        "Veranderde bestrating en kerkhofomtrek beperken precieze grondcoördinaten.",
+        "Geen extrapolatie naar het grotere zichtveld op de boekfoto.",
+        "Geen inpainting, gegenereerde inhoud of moderne vervanging."
+      ],
+      "book_source": {
+        "book_number": "62058",
+        "caption_year": 1963,
+        "catalog_year": "1962",
+        "date_conflict": true,
+        "hkh_ident": "10904",
+        "original_file": "boekfotos/originelen/1963-62058.jpeg",
+        "original_sha256": "decba2f8c4c82fdc8c4fd45b109793c3578cc4011adff4bc802837ebb987d57c",
+        "processing": "Deterministic grayscale conversion and projective resampling of supplied source pixels.",
+        "registration": {
+          "book_number": "62058",
+          "caption_year": 1963,
+          "hkh_id": "10904",
+          "catalog_year": "1962",
+          "ratio_matches": 1755,
+          "inliers": 1539,
+          "median_inlier_book_pixel_error": 1.2377628087997437,
+          "archive_to_book_matrix": [
+            [
+              2.13761948467244,
+              -0.09117996791906682,
+              74.64141934696224
+            ],
+            [
+              0.07485555287964035,
+              1.9350837917443595,
+              796.7817988664979
+            ],
+            [
+              7.232308252983346e-05,
+              -0.00014260046873750174,
+              1.0
+            ]
+          ],
+          "geographic_reference": false
+        }
+      },
+      "independent_review": {
+        "reviewed_at": "2026-10-03T19:20:15.409538+00:00",
+        "proposal": "boekfotos/uitbreiding-62058/gcp-62058-proposal.json",
+        "accepted": true,
+        "rejected": false,
+        "decision": "accepted_for_indicative_comparison_with_conservative_hull_only",
+        "conclusion_nl": "De zes aangewezen grondpuntidentiteiten passen bij het zichtbare straat- en vijverpatroon. Geen verwisselde vijveroever, grove rotatie of verkeerde kerkhoek aangetroffen. Verantwoord als grove vergelijking binnen uitsluitend de voorgestelde convexe omtrek, met circa 10–30 meter onzekerheid. Geen exacte orthofoto of bewijs van landmeetkundige nauwkeurigheid.",
+        "point_reviews": [
+          {
+            "id": "K1",
+            "identity_accepted": true,
+            "identity": "Kruising Ruysdaelstraat/Carel van Manderstraat, zijde bij flats; tegenwoordig rotonde",
+            "finding": "Overgezet punt ligt op de zichtbare historische grondas links vóór de eerste L-flat. Ligging ten opzichte van flat en vijverovergang klopt met de moderne kruising. Exact profiel is veranderd; dit is het zwakste leave-one-out-punt.",
+            "leave_one_out_m": 27.42
+          },
+          {
+            "id": "K3",
+            "identity_accepted": true,
+            "identity": "Overzijde van dezelfde vijverovergang, bij aansluiting aan Jacob Marisstraat",
+            "finding": "Punt ligt aan de zichtbare grondzijde over de vijver, onder/links van K1. Geen dakpunt. Correcte volgorde en afstand ten opzichte van K1; modern pad en straatwerk zijn gewijzigd.",
+            "leave_one_out_m": 16.57
+          },
+          {
+            "id": "Zaalberg-west",
+            "identity_accepted": true,
+            "identity": "Westelijke rijbaan Zaalberglaan bij Poelenburglaan",
+            "finding": "Historische kruising bij de overgang tussen de twee langgerekte vijverdelen herkenbaar. Punt is aan de westelijke rijbaan gekozen; niet verwisseld met de andere oever. De straathoek is afgerond/heringericht.",
+            "leave_one_out_m": 13.55
+          },
+          {
+            "id": "Zaalberg-east",
+            "identity_accepted": true,
+            "identity": "Oostelijke rijbaan Zaalberglaan bij dezelfde Poelenburgkruising",
+            "finding": "Tegenoverliggende rijbaan is in bron en referentie consistent. Gekoppeld aan Zaalberg-west, dus geen tweede statistisch onafhankelijke locatie.",
+            "leave_one_out_m": 12.91
+          },
+          {
+            "id": "Kerkhof-SW",
+            "identity_accepted": true,
+            "identity": "Zuidwestelijke kerkhofomtrek Dorpskerk bij kop van Zaalbergvijver",
+            "finding": "Bronpunt ligt bij de overgang kerkhof/straatrand naast het vijveruiteinde, niet op de toren. De moderne omtrek en bestrating verschillen; alleen benaderd dezelfde terreinrand.",
+            "leave_one_out_m": 11.7
+          },
+          {
+            "id": "Kerkhof-SE",
+            "identity_accepted": true,
+            "identity": "Zuidoostelijke kerkhofomtrek Dorpskerk",
+            "finding": "Onderste/rechtse hoek in deze opname correspondeert met de juiste andere zijde van de huidige kerkhofrand. Geen verwisseling met een dak- of gevelhoek. Niet exact onveranderd: bomen en herbestrating beperken precisie.",
+            "leave_one_out_m": 11.87
+          }
+        ],
+        "diagnostics_checked": {
+          "independently_recomputed_control_rmse_m": 4.38885,
+          "independently_recomputed_leave_one_out_rmse_m": 16.60544,
+          "max_leave_one_out_m": 27.42208,
+          "homography_denominator_constant_sign_inside_hull": true,
+          "source_registration_10292_to_10904": {
+            "ratio_matches": 45,
+            "inliers": 29,
+            "median_inlier_target_pixel_error": 0.5493,
+            "max_inlier_target_pixel_error": 1.70866,
+            "K1_inside_inlier_convex_hull": true,
+            "K3_inside_inlier_convex_hull": true,
+            "K5_holdout_inside_inlier_convex_hull": true,
+            "interpretation": "De overgezette controlepunten vallen binnen de spreiding van de gevalideerde foto-correspondenties. Dit ondersteunt de beeldoverdracht, niet de geografische nauwkeurigheid of perfecte grondvlakidentiteit."
+          },
+          "holdout_note": "K5 is visueel een grondvoet van de Dorpskerk en geen torenspits. De genoemde 4,55 meter afwijking is een nuttige zachte controle, maar deelt de foto-overdracht met K1/K3 en ligt direct naast de twee kerkhofankers. Niet als onafhankelijke ingemeten geografische toets presenteren."
+        },
+        "mask_review": {
+          "accepted": "Exact de voorgestelde suggested_source_polygon, bij voorkeur met een kleine binnenmarge.",
+          "scope_nl": "Beperkte driehoek/strook tussen de Ruysdael-vijverovergang, Dorpskerk en Poelenburg/Zaalbergkruising.",
+          "important": "trial-overlay.jpg toont de geometrische projectie over een groter beeldvlak en is geen toegestane dekkingsmasker. Gebruik uitsluitend de voorgestelde hull, geen zichtbare achtergrond of volledige boekpagina.",
+          "extrapolation_accepted": false,
+          "outside_mask": "wit"
+        },
+        "concrete_errors": [],
+        "limitations_to_keep": [
+          "Alleen grove visuele vergelijking met circa 10–30 meter plaatsingsonzekerheid.",
+          "Gebouwen houden perspectivische hoogteverschuivingen; de projectie corrigeert een benaderd grondvlak.",
+          "Meerdere grondpunten delen dezelfde locatie en vier centrumreferenties zijn ook gebruikt bij 10903. Overeenkomst tussen die lagen is geen onafhankelijke validatie.",
+          "De overgezette punten K1/K3 voegen onzekerheid toe, ook al vallen ze binnen de spreiding van de fotomatches.",
+          "Historische bestrating en kerkhofranden zijn gewijzigd; geen harde onveranderde landmeetpunten.",
+          "Boekcaption 1963 en HKH-datering 1962 blijven beide bewaard als dateringsverschil."
+        ],
+        "edits": "Alleen dit review.json geschreven. Geen GCPs, bronbeelden, pipeline of app gewijzigd."
+      }
+    },
+    {
+      "source_id": "10903",
+      "source_file": "boekfotos/analyse-10903/bron-boek-62057-grijs.png",
+      "source_pixels": [
+        1536,
+        2040
+      ],
+      "reference_file": "referentie/kaarten/heemskerk-2026-orthoHR.jpg",
+      "reference_pixels": [
+        2000,
+        1792
+      ],
+      "reference_bbox_rd": [
+        104500,
+        500200,
+        109300,
+        504500
+      ],
+      "reference_crs": "EPSG:28992",
+      "points": [
+        {
+          "id": "zaalberg_0",
+          "description_nl": "Kerkhof Dorpskerk, zuidwestelijke omtrek bij vijver",
+          "source_xy": [
+            830.0578346288845,
+            1199.992927958728
+          ],
+          "archive_source_xy": [
+            350.0,
+            183.0
+          ],
+          "reference_xy": [
+            794.5000000000013,
+            738.9707906976793
+          ],
+          "detail_reference_xy": [
+            1267.0,
+            683.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_1",
+          "description_nl": "Kerkhof Dorpskerk, zuidoostelijke omtrek bij vijver",
+          "source_xy": [
+            995.3911763820931,
+            1209.3448522359663
+          ],
+          "archive_source_xy": [
+            434.0,
+            186.0
+          ],
+          "reference_xy": [
+            812.1666666666655,
+            732.9696744185998
+          ],
+          "detail_reference_xy": [
+            1373.0,
+            647.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_2",
+          "description_nl": "Poelenburglaan / westzijde Zaalberglaan",
+          "source_xy": [
+            811.4128923418696,
+            1429.4419893299728
+          ],
+          "archive_source_xy": [
+            342.0,
+            294.0
+          ],
+          "reference_xy": [
+            817.3333333333358,
+            786.8130232558138
+          ],
+          "detail_reference_xy": [
+            1404.0,
+            970.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_3",
+          "description_nl": "Poelenburglaan / oostzijde Zaalberglaan",
+          "source_xy": [
+            940.7617417458745,
+            1434.349508930668
+          ],
+          "archive_source_xy": [
+            406.0,
+            296.0
+          ],
+          "reference_xy": [
+            825.8333333333334,
+            782.4788837209205
+          ],
+          "detail_reference_xy": [
+            1455.0,
+            944.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_4",
+          "description_nl": "Bonckenburchstraat / Zaalberglaan",
+          "source_xy": [
+            813.5952004020575,
+            1594.9436964176073
+          ],
+          "archive_source_xy": [
+            344.0,
+            371.0
+          ],
+          "reference_xy": [
+            832.5,
+            822.4863255813856
+          ],
+          "detail_reference_xy": [
+            1495.0,
+            1184.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_5",
+          "description_nl": "Poelenburglaan / Maerten van Heemskerckstraat",
+          "source_xy": [
+            279.52528715359836,
+            1439.6780875979116
+          ],
+          "archive_source_xy": [
+            90.0,
+            300.0
+          ],
+          "reference_xy": [
+            771.6666666666667,
+            804.6496744185997
+          ],
+          "detail_reference_xy": [
+            1130.0,
+            1077.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        },
+        {
+          "id": "zaalberg_6",
+          "description_nl": "Bonckenburchstraat / De Wildtstraat",
+          "source_xy": [
+            496.25963767190046,
+            1612.1899811875926
+          ],
+          "archive_source_xy": [
+            194.0,
+            378.0
+          ],
+          "reference_xy": [
+            798.3333333333334,
+            836.8223255813953
+          ],
+          "detail_reference_xy": [
+            1290.0,
+            1270.0
+          ],
+          "accepted": true,
+          "confidence": "medium",
+          "surface": "ground",
+          "note": "Visually estimated ground boundary or road intersection; streets and boundaries changed since the exposure."
+        }
+      ],
+      "status": "approved_indicative_ground_polygon",
+      "uncertainty_m_approx": [
+        10,
+        25
+      ],
+      "mask_rationale_nl": "Alleen convexe omtrek van de zeven herkende grondpunten, geen extrapolatie naar de rest van het boekbeeld.",
+      "limitations_nl": [
+        "Plaatsing is een indicatieve grondvlakbenadering, geen nauwkeurige historische orthofoto.",
+        "Wegknooppunten en begraafplaatsomtrek zijn visueel benaderd; renovatie en bomen beperken precisie.",
+        "Fitfout en leave-one-out zijn interne consistentie, geen ingemeten nauwkeurigheid.",
+        "Gebouwen blijven perspectivische hoogteverschuivingen vertonen.",
+        "De boekpagina heeft lichte bolling en een drukraster."
+      ],
+      "book_source": {
+        "book_number": "62057",
+        "caption_year": 1963,
+        "catalog_year": "1962",
+        "date_conflict": true,
+        "hkh_ident": "10903",
+        "original_file": "boekfotos/originelen/1963-62057.jpeg",
+        "original_sha256": "a94542fa40e0595b6eb64238c229dbc661423ca0a36e0e7bd36586c9abce98fe",
+        "processing": "Deterministic RGB-to-grayscale conversion and geometric projection. No generated or retouched content.",
+        "registration": {
+          "book_number": "62057",
+          "caption_year": 1963,
+          "hkh_id": "10903",
+          "catalog_year": "1962",
+          "ratio_matches": 1663,
+          "inliers": 1546,
+          "median_inlier_book_pixel_error": 1.2535130977630615,
+          "archive_to_book_matrix": [
+            [
+              2.1134165103009344,
+              -0.1858029128667862,
+              131.64858994965385
+            ],
+            [
+              0.1952620276704051,
+              1.8021734795452022,
+              812.3846287018971
+            ],
+            [
+              0.00012890701253968963,
+              -0.0001985870947984479,
+              1.0
+            ]
+          ],
+          "geographic_reference": false
+        }
+      },
+      "independent_review": {
+        "status": "independent_visual_review_only_no_pipeline_change",
+        "conclusion_nl": "De zeven aangegeven object- en kruispuntidentiteiten passen bij hetzelfde straatnet. Geen grove rotatie, straatverwisseling of verwisselde pondzijde vastgesteld. De convex hull is verantwoord als expliciet grove indicatieve vergelijking, niet als exacte orthofoto.",
+        "reviewed_points": [
+          {
+            "index": 0,
+            "identity": "Dorpskerk/kerkhof zuidwestelijke straat-/terreinhoek",
+            "identity_plausible": true,
+            "note": "Kerkhofomtrek en aangrenzend straatwerk zijn heringericht; bronpunt is eerder curb/overgang dan scherp onveranderd muurhoekpunt."
+          },
+          {
+            "index": 1,
+            "identity": "Dorpskerk/kerkhof zuidoostelijke straat-/terreinhoek",
+            "identity_plausible": true,
+            "note": "Zelfde terreinrand, maar moderne bomen en gewijzigde bestrating maken exacte positie onzeker."
+          },
+          {
+            "index": 2,
+            "identity": "Poelenburglaan/Zaalberglaan westelijke rijbaan",
+            "identity_plausible": true,
+            "note": "Kruising en karakteristieke dubbele vijveras bevestigen identiteit."
+          },
+          {
+            "index": 3,
+            "identity": "Poelenburglaan/Zaalberglaan oostelijke rijbaan",
+            "identity_plausible": true,
+            "note": "Correcte overzijde van dezelfde vijverkruising; geen wisseling met andere zijstraat."
+          },
+          {
+            "index": 4,
+            "identity": "Bonckenburchstraat/Zaalberglaan westelijke rijbaan",
+            "identity_plausible": true,
+            "note": "T-aansluiting en opeenvolgende woonblokken passen."
+          },
+          {
+            "index": 5,
+            "identity": "Maerten van Heemskerckstraat/Poelenburglaan",
+            "identity_plausible": true,
+            "note": "Identiteit goed, maar bocht en aansluiting heringericht; centrum van oude en nieuwe straat is niet noodzakelijk hetzelfde grondpunt."
+          },
+          {
+            "index": 6,
+            "identity": "Bonckenburchstraat/De Wildtstraat",
+            "identity_plausible": true,
+            "note": "T-knoop met karakteristieke woningblokken herkenbaar; huidige boomkroon en verharding beperken exacte plaatsing."
+          }
+        ],
+        "independent_checks": [
+          {
+            "source_archive_xy": [
+              377,
+              169
+            ],
+            "reference_detail_xy": [
+              1268,
+              613
+            ],
+            "predicted_reference_detail_xy": [
+              1290.630474117608,
+              640.2003927322913
+            ],
+            "difference_m": 14.153443247937147,
+            "name": "Dorpskerk, zuidwestelijk uiteinde voet van schip naast toren",
+            "confidence": "low-to-medium",
+            "fit_use": false,
+            "note": "Oude gebouwvoet zichtbaar; moderne voet benaderd onder dakrand. Geen torenspits. Boom/dakprojectie geeft enkele meters extra onzekerheid. Check ligt net buiten noordelijke hullgrens."
+          },
+          {
+            "source_archive_xy": [
+              407,
+              172
+            ],
+            "reference_detail_xy": [
+              1320,
+              602
+            ],
+            "predicted_reference_detail_xy": [
+              1325.451067799201,
+              630.052598051421
+            ],
+            "difference_m": 11.430922255608772,
+            "name": "Dorpskerk, zuidoostelijk uiteinde voet van schip",
+            "confidence": "low-to-medium",
+            "fit_use": false,
+            "note": "Zelfde gebouw als eerste check: geen statistisch onafhankelijke tweede terreinvalidatie. Moderne bomen/dakrand verhinderen exact ground survey."
+          }
+        ],
+        "high_confidence_independent_ground_holdout_found": false,
+        "interpretation_nl": "De twee grove gebouwvoetchecks ondersteunen de orde van10–25m en spreken de plaatsing niet tegen. Ze bewijzen geen metrische nauwkeurigheid en mogen niet worden voorgesteld als twee harde landmeetkundige controlepunten. Een geschikt extra hoogzekere onafhankelijk grondkruispunt is niet vastgesteld.",
+        "recommendation_nl": "Alleen conservatieve convex hull van bestaande grondpunten gebruiken, liefst zeer kleine binnenmarge. Buiten hull wit. Kerk/achtergrond boven de kerkhofhoekpunten niet toevoegen op basis van de zachte checks. Beeld benoemen als benadering met grofweg10–25m onzekerheid; 5.1m interne fit is geen nauwkeurigheidsclaim.",
+        "edits": "Alleen review-independent bestanden gemaakt; geen punten, accept-status, pipeline of app gewijzigd."
+      }
+    }
+  ],
   "historical_sources": [
     {
       "collection": "beeldbank",
@@ -210,6 +2094,224 @@
         "Fotonummer in het album": "1"
       },
       "documentText": null
+    },
+    {
+      "source_id": "boek-67781",
+      "book_source": {
+        "book_number": "67781",
+        "caption_year": 1965,
+        "original_file": "boekfotos/originelen/1965-67781.jpeg",
+        "original_sha256": "57a0ff1d72c282d3d48ac533a5effb6c3c6260bc689721ca810290715a1ea4f1",
+        "processing": "Deterministische RGB-naar-grijsconversie en geometrische projectie. Geen synthese, retouche of verzonnen pixels."
+      },
+      "catalog_match": "not_found"
+    },
+    {
+      "collection": "beeldbank",
+      "ident": "10904",
+      "title": "Vergezichten en overzichten",
+      "description": "Midden op de foto is het oude dorpshart zichtbaar rechts naast de dorpskerk. Daaronder het Sint Agnesplantsoen en het Arfa-atelier aan de Maerelaan. Schuin daartegenover begint bij de boerderij van Seignette de Cornelis Groenlandstraat, waar het eerste bedrijventerrein zou worden gerealiseerd. Helemaal bovenin de foto zie je de bouwwerkzaamheden aan Kerkbeek langs de Ruysdaelstraat.",
+      "year": null,
+      "imageUrl": "https://hkh.vdzonsoftware.nl/api/collection-media/aHR0cHM6Ly93d3cuaGlzdG9yaXNjaGVrcmluZ2hlZW1za2Vyay5ubC9iZWVsZGJhbmsvbGFyZ2UvMTA5MDQuanBn",
+      "pdfUrl": null,
+      "detailUrl": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10904",
+      "fields": {
+        "Thema": "Straten dorp; Luchtfoto's",
+        "Titel": "Vergezichten en overzichten",
+        "Object nr.": "10904",
+        "Straatnaam": "Maerelaan",
+        "Plaats/dorp": "Heemskerk",
+        "Beschrijving": "Midden op de foto is het oude dorpshart zichtbaar rechts naast de dorpskerk. Daaronder het Sint Agnesplantsoen en het Arfa-atelier aan de Maerelaan. Schuin daartegenover begint bij de boerderij van Seignette de Cornelis Groenlandstraat, waar het eerste bedrijventerrein zou worden gerealiseerd. Helemaal bovenin de foto zie je de bouwwerkzaamheden aan Kerkbeek langs de Ruysdaelstraat.",
+        "Datum opname": "1962",
+        "Bijzonderheden": "",
+        "Uit Map of Album": "2a Kerkplein",
+        "Wijk in Heemskerk": "Centrum",
+        "Fotonummer in het album": "73"
+      },
+      "documentText": null
+    },
+    {
+      "collection": "beeldbank",
+      "ident": "10903",
+      "title": "Straten Centrum",
+      "description": "Markant is de Zaalberglaan met de vijver. Dwars daar over heen loopt de Poelenburglaan en links daaronder de Bonckenburchstraat en de De Wildtstraat. Linksboven zie je de eerste flats van de Ruysdaelstraat en de Carel van Manderstraat. De Jan van Scorelstraat daarnaast loopt nog dood op de oude Spoellaan. Midden boven is de uitbreiding van het Sint Joseph verpleeghuis gereed; goed te zien is de lichtere kleur van de dakbedekking links. Maar het noodziekenhuis Sint Jozef is daarachter nog niet gebouwd.",
+      "year": null,
+      "imageUrl": "https://hkh.vdzonsoftware.nl/api/collection-media/aHR0cHM6Ly93d3cuaGlzdG9yaXNjaGVrcmluZ2hlZW1za2Vyay5ubC9iZWVsZGJhbmsvbGFyZ2UvMTA5MDMuanBn",
+      "pdfUrl": null,
+      "detailUrl": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10903",
+      "fields": {
+        "Thema": "Straten dorp; Luchtfoto's",
+        "Titel": "Straten Centrum",
+        "Object nr.": "10903",
+        "Straatnaam": "Zaalberglaan",
+        "Plaats/dorp": "Heemskerk",
+        "Beschrijving": "Markant is de Zaalberglaan met de vijver. Dwars daar over heen loopt de Poelenburglaan en links daaronder de Bonckenburchstraat en de De Wildtstraat. Linksboven zie je de eerste flats van de Ruysdaelstraat en de Carel van Manderstraat. De Jan van Scorelstraat daarnaast loopt nog dood op de oude Spoellaan. Midden boven is de uitbreiding van het Sint Joseph verpleeghuis gereed; goed te zien is de lichtere kleur van de dakbedekking links. Maar het noodziekenhuis Sint Jozef is daarachter nog niet gebouwd.",
+        "Datum opname": "1962",
+        "Bijzonderheden": "",
+        "Uit Map of Album": "Geen",
+        "Wijk in Heemskerk": "Centrum",
+        "Fotonummer in het album": ""
+      },
+      "documentText": null
     }
-  ]
+  ],
+  "book_photo_inventory": [
+    {
+      "book_number": "62057",
+      "book_caption_year": 1963,
+      "candidate_hkh_ident": "10903",
+      "original_filename": "bd9d53d6-6e6c-44de-b5ab-604b248330ae.jpeg",
+      "file": "originelen/1963-62057.jpeg",
+      "sha256": "a94542fa40e0595b6eb64238c229dbc661423ca0a36e0e7bd36586c9abce98fe",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "hkh_ident": "10903",
+      "match_status": "confirmed_same_exposure",
+      "catalog_date": "1962",
+      "image_registration_inliers": 1546,
+      "catalog_url": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10903",
+      "in_1962_1964_period": true,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "partially_placed_indicative",
+      "mask_id": 10903,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1963-62057.jpeg"
+    },
+    {
+      "book_number": "62058",
+      "book_caption_year": 1963,
+      "candidate_hkh_ident": "10904",
+      "original_filename": "83bbae0e-b93a-47a1-8cf7-ac2a531998d0.jpeg",
+      "file": "originelen/1963-62058.jpeg",
+      "sha256": "decba2f8c4c82fdc8c4fd45b109793c3578cc4011adff4bc802837ebb987d57c",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "hkh_ident": "10904",
+      "match_status": "confirmed_same_exposure",
+      "catalog_date": "1962",
+      "image_registration_inliers": 1539,
+      "catalog_url": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10904",
+      "in_1962_1964_period": true,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "partially_placed_indicative",
+      "mask_id": 10904,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1963-62058.jpeg"
+    },
+    {
+      "book_number": "62059",
+      "book_caption_year": 1963,
+      "candidate_hkh_ident": "10902",
+      "original_filename": "8feca94f-c726-4596-a68d-14591135d692.jpeg",
+      "file": "originelen/1963-62059.jpeg",
+      "sha256": "9b865ff3a516f44a1264ea8123514aad4902aa6be98a765a5889c9d79ff353d2",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "hkh_ident": "10902",
+      "match_status": "confirmed_same_exposure",
+      "catalog_date": "1962",
+      "image_registration_inliers": 912,
+      "catalog_url": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10902",
+      "in_1962_1964_period": true,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "not_reliably_georeferenced",
+      "mask_id": null,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1963-62059.jpeg"
+    },
+    {
+      "book_number": "64797",
+      "book_caption_year": 1964,
+      "candidate_hkh_ident": "10905",
+      "original_filename": "3246b64a-ca1a-4f3f-a580-5b109f831858.jpeg",
+      "file": "originelen/1964-64797.jpeg",
+      "sha256": "a6ce52f493f1d7c0b2049513c406cbb28c7ff2c477dc1f3255da0facfd62a107",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "hkh_ident": "10905",
+      "match_status": "confirmed_same_exposure",
+      "catalog_date": "ca. 1964",
+      "image_registration_inliers": 761,
+      "catalog_url": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10905",
+      "in_1962_1964_period": true,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "partially_placed_indicative",
+      "mask_id": 10905,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1964-64797.jpeg"
+    },
+    {
+      "book_number": "67781",
+      "book_caption_year": 1965,
+      "candidate_hkh_ident": null,
+      "original_filename": "566c6722-dd5a-4de4-888f-821bd4d37957.jpeg",
+      "file": "originelen/1965-67781.jpeg",
+      "sha256": "57a0ff1d72c282d3d48ac533a5effb6c3c6260bc689721ca810290715a1ea4f1",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "match_status": "not_found_in_reviewed_collection_records",
+      "in_1962_1964_period": false,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "partially_placed_indicative",
+      "mask_id": 60001,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1965-67781.jpeg"
+    },
+    {
+      "book_number": "67782",
+      "book_caption_year": 1965,
+      "candidate_hkh_ident": null,
+      "original_filename": "a70d9389-00bb-4557-8916-3284bfc1e2e0.jpeg",
+      "file": "originelen/1965-67782.jpeg",
+      "sha256": "f71111c157a38709479f01d5b8cc84163a5e7eb8dfdda03ca2fa675b0f74e7fc",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "match_status": "overlap_only_no_confirmed_identical_exposure",
+      "in_1962_1964_period": false,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "not_reliably_georeferenced",
+      "mask_id": null,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1965-67782.jpeg"
+    },
+    {
+      "book_number": "67783",
+      "book_caption_year": 1965,
+      "candidate_hkh_ident": null,
+      "original_filename": "f9c0f7a9-c643-4934-bfe6-7426c0c2b87b.jpeg",
+      "file": "originelen/1965-67783.jpeg",
+      "sha256": "099692071de1143a18a09f2474a0d9af718732518e057414d9afd00f317d8d30",
+      "processing": "Unchanged copy of user supplied photograph of book page",
+      "hkh_ident": "10941",
+      "match_status": "confirmed_same_exposure_cropped_archive",
+      "catalog_date": "ca. 1965",
+      "image_registration_inliers": 830,
+      "catalog_url": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10941",
+      "in_1962_1964_period": false,
+      "authorized_period": "1962–1965; 1965 explicitly accepted by user",
+      "mosaic_status": "not_reliably_georeferenced",
+      "mask_id": null,
+      "in_app_source_viewer": true,
+      "app_asset": "assets/aerial/book/1965-67783.jpeg"
+    }
+  ],
+  "mask_id_legend": {
+    "10905": "10905",
+    "12309": "12309",
+    "60001": "boek-67781",
+    "10904": "10904",
+    "10903": "10903"
+  },
+  "historical_bounds_pixels": [
+    1285,
+    399,
+    1604,
+    804
+  ],
+  "historical_area_km2": 0.44725,
+  "bundled_files": {
+    "heemskerk-2026.jpg": "543fc0c62e4c335a78213b54f920e13a9066939d25fee2c7f05bbb78d1070e91",
+    "heemskerk-1962-1965.png": "6509870bce28b2ce1e076b03ad35ac65a403faf39db7c8aee07bf85bde5e28b8",
+    "book/1963-62057.jpeg": "a94542fa40e0595b6eb64238c229dbc661423ca0a36e0e7bd36586c9abce98fe",
+    "book/1963-62058.jpeg": "decba2f8c4c82fdc8c4fd45b109793c3578cc4011adff4bc802837ebb987d57c",
+    "book/1963-62059.jpeg": "9b865ff3a516f44a1264ea8123514aad4902aa6be98a765a5889c9d79ff353d2",
+    "book/1964-64797.jpeg": "a6ce52f493f1d7c0b2049513c406cbb28c7ff2c477dc1f3255da0facfd62a107",
+    "book/1965-67781.jpeg": "57a0ff1d72c282d3d48ac533a5effb6c3c6260bc689721ca810290715a1ea4f1",
+    "book/1965-67782.jpeg": "f71111c157a38709479f01d5b8cc84163a5e7eb8dfdda03ca2fa675b0f74e7fc",
+    "book/1965-67783.jpeg": "099692071de1143a18a09f2474a0d9af718732518e057414d9afd00f317d8d30"
+  }
 }

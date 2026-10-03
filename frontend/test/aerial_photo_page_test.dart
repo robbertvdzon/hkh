@@ -179,10 +179,10 @@ void main() {
       final historicalLayer = find.byKey(const Key('aerial-historical-layer'));
       expect(tester.widget<Opacity>(historicalLayer).opacity, 0);
       await _tap(tester, 'aerial-historic-area');
-      // Both separated historical photo areas must be visible, including the
+      // All historical fragments must be visible, including the
       // Oud Haerlem fragment to the south of the old village center.
       final viewport = tester.getSize(_viewerFinder);
-      for (final point in [const Offset(1323, 398), const Offset(1604, 804)]) {
+      for (final point in [const Offset(1285, 399), const Offset(1604, 804)]) {
         final visible = MatrixUtils.transformPoint(
           _controller(tester).value,
           point,

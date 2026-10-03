@@ -68,8 +68,9 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/aerial/book/
     - assets/aerial/heemskerk-2026.jpg
-    - assets/aerial/heemskerk-1962-1964.png
+    - assets/aerial/heemskerk-1962-1965.png
     - assets/branding/hkh-logo.png
     - assets/fonts/OFL.txt
 

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../theme/app_style.dart';
+import 'aerial_book_photo_dialog.dart';
 
 /// Both dates share one image plane and one transformation, including white
 /// pixels in the historical image. Changing the date never changes the view.
@@ -17,9 +18,9 @@ class AerialPhotoPage extends StatefulWidget {
 class _AerialPhotoPageState extends State<AerialPhotoPage> {
   static const _imageSize = Size(2040, 1120);
   // Bounds of all non-white historical pixels, including Oud Haerlem.
-  static const _historicArea = Rect.fromLTRB(1323, 398, 1604, 804);
+  static const _historicArea = Rect.fromLTRB(1285, 399, 1604, 804);
   static const _currentAsset = 'assets/aerial/heemskerk-2026.jpg';
-  static const _historicalAsset = 'assets/aerial/heemskerk-1962-1964.png';
+  static const _historicalAsset = 'assets/aerial/heemskerk-1962-1965.png';
 
   final _transformation = TransformationController();
   AssetBundle? _bundle;
@@ -285,13 +286,13 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
                                   setState(() => _historicalOpacity = value),
                       ),
                       const Text(
-                        'Historisch beeld: 1962–1964. Wit: nog geen '
+                        'Historisch beeld: 1962–1965. Wit: nog geen '
                         'betrouwbaar geplaatst beeld. Ligging bij benadering.',
                         style: TextStyle(color: appMutedText),
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Bronnen: historische foto’s HKH · '
+                        'Bronnen: HKH en aangeleverde boekfoto’s · '
                         'luchtfoto 2026 PDOK / Beeldmateriaal (CC BY 4.0).',
                         style: TextStyle(color: appMutedText, fontSize: 12),
                       ),
@@ -409,6 +410,12 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        OutlinedButton.icon(
+          key: const Key('aerial-book-photos'),
+          onPressed: () => showAerialBookPhotos(context),
+          icon: const Icon(Icons.photo_library_outlined),
+          label: const Text('Bronfoto’s (7)'),
+        ),
         control('aerial-zoom-in', 'Inzoomen', Icons.add, () => _zoom(1.5)),
         control(
           'aerial-zoom-out',
