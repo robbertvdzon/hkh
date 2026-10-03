@@ -9,6 +9,7 @@ class AppNavigationScope extends InheritedWidget {
   const AppNavigationScope({
     required this.onOpenHome,
     required this.onOpenSearch,
+    required this.onOpenAerial,
     required this.onOpenQuestions,
     required this.onOpenDossiers,
     required this.location,
@@ -19,6 +20,7 @@ class AppNavigationScope extends InheritedWidget {
 
   final VoidCallback onOpenHome;
   final VoidCallback onOpenSearch;
+  final VoidCallback onOpenAerial;
   final VoidCallback? onOpenQuestions;
   final VoidCallback? onOpenDossiers;
   final String location;
@@ -32,6 +34,7 @@ class AppNavigationScope extends InheritedWidget {
       location != oldWidget.location ||
       onOpenHome != oldWidget.onOpenHome ||
       onOpenSearch != oldWidget.onOpenSearch ||
+      onOpenAerial != oldWidget.onOpenAerial ||
       onOpenQuestions != oldWidget.onOpenQuestions ||
       onOpenDossiers != oldWidget.onOpenDossiers ||
       accountBuilder != oldWidget.accountBuilder;
@@ -168,6 +171,12 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                             navigation?.onOpenSearch,
                             path.startsWith('/zoeken') ||
                                 path.startsWith('/objecten'),
+                          ),
+                          navigationButton(
+                            'Luchtfoto',
+                            'aerial-action',
+                            navigation?.onOpenAerial,
+                            path.startsWith('/luchtfoto'),
                           ),
                           navigationButton(
                             'Mijn dossiers',
@@ -354,7 +363,12 @@ class _HeaderLayout {
     final menuWidth = width - 2 * (horizontal - menuPadding);
     var rows = 1;
     var used = 0.0;
-    for (final label in ['Vraag het archief', 'Zoeken', 'Mijn dossiers']) {
+    for (final label in [
+      'Vraag het archief',
+      'Zoeken',
+      'Luchtfoto',
+      'Mijn dossiers',
+    ]) {
       final itemWidth =
           measure(label, menuStyle, double.infinity).width + 2 * menuPadding;
       if (used > 0 && used + itemWidth > menuWidth) {

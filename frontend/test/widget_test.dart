@@ -256,6 +256,22 @@ Future<void> _pumpHome(
 }
 
 void main() {
+  testWidgets('public aerial menu opens the viewer and keeps home reachable', (
+    tester,
+  ) async {
+    await _pumpHome(tester, size: const Size(1100, 900));
+    await tester.tap(find.byKey(const Key('aerial-action')));
+    await tester.pump();
+    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+    expect(router.routeInformationProvider.value.uri.path, '/luchtfoto');
+    expect(find.text('Luchtfoto'), findsAtLeastNWidgets(1));
+    await tester.tap(find.byKey(const Key('hkh-home')));
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/');
+    expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'login links browser history from home and reloads history on account changes',
     (tester) async {

@@ -152,6 +152,7 @@ class _HkhAppState extends State<HkhApp> {
       builder: (context, _) => AppNavigationScope(
         onOpenHome: () => _router.go('/'),
         onOpenSearch: () => _router.go('/zoeken'),
+        onOpenAerial: () => _router.go('/luchtfoto'),
         onOpenQuestions: widget.aiSearchSource == null
             ? null
             : () => _router.go('/vragen'),

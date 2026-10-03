@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'theme/app_style.dart';
+import 'aerial/aerial_photo_page.dart';
 import 'ai_search/ai_search.dart';
 import 'ai_search/ai_search_page.dart';
 import 'ai_search/answer_sharing.dart';
@@ -148,6 +149,10 @@ GoRouter createAppRouter({
           googleButtonBuilder: googleButtonBuilder,
         ),
         routes: [
+          instantRoute(
+            path: 'luchtfoto',
+            builder: (_, __) => const AerialPhotoPage(),
+          ),
           instantRoute(
             path: 'zoeken',
             builder: (_, state) {

@@ -11,6 +11,13 @@ De Flutter-app voor bezoekers (web en Android).
   rolchipkleuren, thema's en bouwstenen (`AppDialog`, `AppCard`) die de homepage
   en de dossierschermen en -dialogen samen gebruiken. Nieuwe schermen halen deze
   waarden hier op in plaats van ze opnieuw te definiëren.
+- Publieke luchtfotopagina (`/#/luchtfoto`, `lib/aerial/`) via **Luchtfoto** in
+  het vaste menu. De actuele foto uit 2026 en de gedeeltelijke historische
+  versie rond 1963 delen één zoom- en verplaatsingstransformatie. De schuifbalk
+  laat de beelden overvloeien; de knoppen ondersteunen in-/uitzoomen,
+  verplaatsen, het hele gebied en direct het beschikbare historische gebied.
+  Onbekende historische delen blijven wit. De gebundelde beelden en hun
+  herkomst staan in `assets/aerial/`; deze pagina vraagt geen login of backend.
 - AI-archiefonderzoek met een overzicht van eerdere vragen, voortgang,
   antwoorden, bronnen en vervolgvragen (`lib/ai_search/`). Zodra een antwoord
   geladen is, staat naast het geschiedenis-icoon de appbalkactie **Exporteer als

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hkh_app/aerial/aerial_photo_page.dart';
 import 'package:hkh_app/collection/collection_search.dart';
 import 'package:hkh_app/navigation.dart';
 
@@ -92,6 +93,28 @@ class RecordingSource implements CollectionSearchSource {
 }
 
 void main() {
+  testWidgets(
+    'aerial photo deep link works without an account or backend call',
+    (tester) async {
+      final source = RecordingSource();
+      final router = createAppRouter(
+        searchSource: source,
+        initialLocation: '/luchtfoto',
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pump();
+      expect(find.byType(AerialPhotoPage), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/luchtfoto');
+      expect(source.requests, isEmpty);
+      expect(source.details, isEmpty);
+      await tester.pageBack();
+      await tester.pump();
+      expect(router.routeInformationProvider.value.uri.path, '/');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'home search opens all collection results and stores the query in the URL',
     (tester) async {

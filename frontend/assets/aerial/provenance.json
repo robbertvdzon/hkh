@@ -1,0 +1,215 @@
+{
+  "bbox": [
+    99600,
+    500000,
+    109800,
+    505600
+  ],
+  "size": [
+    2040,
+    1120
+  ],
+  "url": "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=2026_orthoHR&STYLES=&CRS=EPSG%3A28992&BBOX=99600%2C500000%2C109800%2C505600&WIDTH=2040&HEIGHT=1120&FORMAT=image%2Fjpeg",
+  "source_file": "heemskerk-2026.jpg",
+  "sha256": "543fc0c62e4c335a78213b54f920e13a9066939d25fee2c7f05bbb78d1070e91",
+  "crs": "EPSG:28992",
+  "date_label": "PDOK luchtfotolaag 2026; exacte lokale vluchtdag niet vastgesteld",
+  "attribution": "PDOK / Beeldmateriaal, CC BY 4.0",
+  "historical_file": "heemskerk-1962-1964.png",
+  "current_file": "heemskerk-2026.jpg",
+  "layers": [
+    {
+      "id": "10905",
+      "source_file": "fotos/1962-1964/10905.jpg",
+      "source_sha256": "0487723a0f48c989bb886e0935ce615b23700544b81af825a1495444247405fb",
+      "source_to_output_pixel_matrix": [
+        [
+          -1.1105433964535643,
+          4.302945728516095,
+          1452.5076054131532
+        ],
+        [
+          -0.3266381512470968,
+          -0.5950923867639742,
+          1097.603932961034
+        ],
+        [
+          -0.0002318427230449246,
+          0.002475668570529078,
+          1.0
+        ]
+      ],
+      "source_mask_polygon": [
+        [
+          211,
+          300
+        ],
+        [
+          378,
+          229
+        ],
+        [
+          555,
+          308
+        ],
+        [
+          515,
+          366
+        ]
+      ],
+      "fit_diagnostics": {
+        "control_residual_pixels": [
+          5.684341886080802e-14,
+          1.7053025658242404e-13,
+          0.0,
+          1.6077746776921858e-13
+        ],
+        "control_rmse_pixels": 1.2058310082691391e-13,
+        "leave_one_out_pixels": [],
+        "leave_one_out_rmse_pixels": null
+      },
+      "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
+    },
+    {
+      "id": "12309",
+      "source_file": "fotos/1962-1964/12309.jpg",
+      "source_sha256": "84f037ed3c01632e8a330b5ba2eba5ea618b374c6e6fd31b84021559c84202c2",
+      "source_to_output_pixel_matrix": [
+        [
+          2.0135004490594595,
+          6.528162473042643,
+          1404.544559361358
+        ],
+        [
+          0.7510268302559854,
+          3.8174134820173387,
+          575.7826418279152
+        ],
+        [
+          0.0010863167554689022,
+          0.0040272425546959085,
+          1.0
+        ]
+      ],
+      "source_mask_polygon": [
+        [
+          510,
+          205
+        ],
+        [
+          607,
+          254
+        ],
+        [
+          644,
+          351
+        ],
+        [
+          280,
+          447
+        ],
+        [
+          253,
+          445
+        ],
+        [
+          245,
+          356
+        ],
+        [
+          255,
+          299
+        ]
+      ],
+      "fit_diagnostics": {
+        "control_residual_pixels": [
+          1.4915964641322337,
+          1.1597891408659167,
+          1.667812026902607,
+          1.7892336319142972,
+          0.9032980776694434,
+          2.953700614832893,
+          0.5533659012912944,
+          1.3875872082735101,
+          0.32119866387386753
+        ],
+        "control_rmse_pixels": 1.5430129333321498,
+        "leave_one_out_pixels": [
+          4.135607814236114,
+          1.6146714685608197,
+          2.535345431967091,
+          2.202733406591578,
+          1.4914059036279357,
+          3.6287161633099414,
+          0.9839659851813359,
+          3.795584256327212,
+          1.575178189094299
+        ],
+        "leave_one_out_rmse_pixels": 2.671623199105335
+      },
+      "caveat": "Residual and leave-one-out errors measure internal consistency, not independently surveyed accuracy."
+    }
+  ],
+  "historical_filled_pixels": 15568,
+  "grid_pixels": 2284800,
+  "north_up": true,
+  "alignment": "Identical raster grid; historical ground-plane placement approximate.",
+  "unknown_historical_pixels": "pure RGB white 255,255,255; alpha 0 in transparent version",
+  "synthesis": false,
+  "resampling": "Historical source pixels: bilinear. Current image: unmodified downloaded WMS JPEG.",
+  "original_export_historical_file": "gemeente-1962-1964.png",
+  "bundled_files": {
+    "heemskerk-2026.jpg": "543fc0c62e4c335a78213b54f920e13a9066939d25fee2c7f05bbb78d1070e91",
+    "heemskerk-1962-1964.png": "f31e01aa5ad5e9e6986278cd90f125956d4bf83e385448032def31a3497c9939"
+  },
+  "historical_sources": [
+    {
+      "collection": "beeldbank",
+      "ident": "10905",
+      "title": "Vergezichten en overzichten",
+      "description": "Deze foto toont in één beeld het hele dorp Heemskerk van 1963-1964. Dwars over het beeld loopt de Neksloot zijn oude route met iets links van het midden openlucht zwembad De Knip en de boerderij van Seignette. De loop van de Neksloot bepaalt ongeveer waar nu de Baandert is. De landerijen op de voorgrond zullen later worden bebouwd met links De Die en rechts De Maer. Schuin rechtsboven De Knip is de pas afgebouwde Dr. Prinsenhal (geopend aug 1963) te zien met rechts daarvan de wijk Oosterzij. Aan de andere kant van links naar rechts Assumburg (in aanbouw), Poelenburg en Neksloot. Centraal in beeld staat de Dorpskerk van waaruit je recht naar boven de Maerten van Heemskerckstraat ziet lopen richting Beverwijk. Onderweg komt hij samen bij de Jan van Kuikweg en gaat dan rechtsaf door naar de Rijksstraatweg. Het punt waar hij afbuigt ligt onder de bebouwing van de wijk Meerestein in Beverwijk waar vooral het Stadskantoor goed zichtbaar is. De rechterbovenhoek van de foto toont nog veel tuinderijen met daaronder de wijk Kerkbeek aan weerskanten van de Ruysdaelstraat die nog doodloopt waar later de Jan Ligthartstraat zal komen.",
+      "year": null,
+      "imageUrl": "https://hkh.vdzonsoftware.nl/api/collection-media/aHR0cHM6Ly93d3cuaGlzdG9yaXNjaGVrcmluZ2hlZW1za2Vyay5ubC9iZWVsZGJhbmsvbGFyZ2UvMTA5MDUuanBn",
+      "pdfUrl": null,
+      "detailUrl": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10905",
+      "fields": {
+        "Thema": "Luchtfoto's",
+        "Titel": "Vergezichten en overzichten",
+        "Object nr.": "10905",
+        "Straatnaam": "",
+        "Plaats/dorp": "Heemskerk",
+        "Beschrijving": "Deze foto toont in één beeld het hele dorp Heemskerk van 1963-1964. Dwars over het beeld loopt de Neksloot zijn oude route met iets links van het midden openlucht zwembad De Knip en de boerderij van Seignette. De loop van de Neksloot bepaalt ongeveer waar nu de Baandert is. De landerijen op de voorgrond zullen later worden bebouwd met links De Die en rechts De Maer. Schuin rechtsboven De Knip is de pas afgebouwde Dr. Prinsenhal (geopend aug 1963) te zien met rechts daarvan de wijk Oosterzij. Aan de andere kant van links naar rechts Assumburg (in aanbouw), Poelenburg en Neksloot. Centraal in beeld staat de Dorpskerk van waaruit je recht naar boven de Maerten van Heemskerckstraat ziet lopen richting Beverwijk. Onderweg komt hij samen bij de Jan van Kuikweg en gaat dan rechtsaf door naar de Rijksstraatweg. Het punt waar hij afbuigt ligt onder de bebouwing van de wijk Meerestein in Beverwijk waar vooral het Stadskantoor goed zichtbaar is. De rechterbovenhoek van de foto toont nog veel tuinderijen met daaronder de wijk Kerkbeek aan weerskanten van de Ruysdaelstraat die nog doodloopt waar later de Jan Ligthartstraat zal komen.",
+        "Datum opname": "ca. 1964",
+        "Bijzonderheden": "",
+        "Uit Map of Album": "Geen",
+        "Wijk in Heemskerk": "Totaal",
+        "Fotonummer in het album": ""
+      },
+      "documentText": null
+    },
+    {
+      "collection": "beeldbank",
+      "ident": "12309",
+      "title": "Monumenten & Kunstwerken",
+      "description": "Zuidermaatweg is een verbindingsweg van Hoflaan naar de Communicatieweg en ligt op een dijk tegen overstromingen door het IJ. Rechts de boerderij van de familie Schoehuijs. Op de achtergrond kasteel Assumburg aan de Tolweg. Links daarvan de woningen \"de acht zaligheden\". De lijnen in het weiland onder duiden op de contouren van Kasteel Oud Haarlem dat daar in de dertiende eeuw heeft gestaan. De grond is een beschermd archeologisch monument (45437). Onder knop 2. Luchtfoto van de contouren van het Kasteel Oud Haerlem in het weiland aan de Hoflaan",
+      "year": null,
+      "imageUrl": "https://hkh.vdzonsoftware.nl/api/collection-media/aHR0cHM6Ly93d3cuaGlzdG9yaXNjaGVrcmluZ2hlZW1za2Vyay5ubC9iZWVsZGJhbmsvbGFyZ2UvMTIzMDkuanBn",
+      "pdfUrl": null,
+      "detailUrl": "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/12309",
+      "fields": {
+        "Thema": "Archeologie; Kasteel Assumburg; Kasteel Oud Haerlem; Monumenten (gebouwen etc)",
+        "Titel": "Monumenten & Kunstwerken",
+        "Object nr.": "12309",
+        "Straatnaam": "Zuidermaatweg",
+        "Plaats/dorp": "Heemskerk",
+        "Beschrijving": "Zuidermaatweg is een verbindingsweg van Hoflaan naar de Communicatieweg en ligt op een dijk tegen overstromingen door het IJ. Rechts de boerderij van de familie Schoehuijs. Op de achtergrond kasteel Assumburg aan de Tolweg. Links daarvan de woningen \"de acht zaligheden\". De lijnen in het weiland onder duiden op de contouren van Kasteel Oud Haarlem dat daar in de dertiende eeuw heeft gestaan. De grond is een beschermd archeologisch monument (45437). Onder knop 2. Luchtfoto van de contouren van het Kasteel Oud Haerlem in het weiland aan de Hoflaan",
+        "Datum opname": "1963",
+        "Bijzonderheden": "",
+        "Uit Map of Album": "10b Hoflaan Zuidermaatweg",
+        "Wijk in Heemskerk": "Oud Haerlem",
+        "Fotonummer in het album": "1"
+      },
+      "documentText": null
+    }
+  ]
+}
