@@ -3,14 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_app/ai_search/answer_source_dialog.dart';
 import 'package:hkh_app/collection/collection_search.dart';
+// Tests inspect browser window options that the MethodChannel does not expose.
+// ignore: depend_on_referenced_packages
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 const _url = 'https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/42';
+const _pdfUrl = 'https://hkh.vdzonsoftware.nl/api/media/document.pdf';
+const _thumbnailUrl = 'https://hkh.vdzonsoftware.nl/api/media/first-page.jpg';
 const _dialog = Key('answer-source-dialog');
 
 class _Source extends Fake implements CollectionSearchSource {
   int calls = 0;
   bool fail = false;
   String? collection, ident;
+  String? pdfUrl, thumbnailUrl;
 
   @override
   Future<CollectionItemDetail> loadDetail(
@@ -28,12 +34,70 @@ class _Source extends Fake implements CollectionSearchSource {
       description: 'De touwslagerij aan de Oosterweg.',
       year: 1920,
       imageUrl: null,
-      pdfUrl: null,
+      pdfUrl: pdfUrl,
+      thumbnailUrl: thumbnailUrl,
       detailUrl: _url,
       fields: const {'Fotograaf': 'Onbekend'},
       documentText: 'De oorspronkelijke tekst uit het archief.',
     );
   }
+}
+
+class _Launcher extends UrlLauncherPlatform {
+  final calls = <({String url, LaunchOptions options})>[];
+
+  @override
+  Null get linkDelegate => null;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    calls.add((url: url, options: options));
+    return true;
+  }
+}
+
+_Launcher _captureLaunches() {
+  final original = UrlLauncherPlatform.instance;
+  final launcher = _Launcher();
+  UrlLauncherPlatform.instance = launcher;
+  addTearDown(() => UrlLauncherPlatform.instance = original);
+  return launcher;
+}
+
+Future<void> _cacheThumbnail(WidgetTester tester) async {
+  final image = await tester.runAsync(
+    () => createTestImage(width: 40, height: 60),
+  );
+  const provider = NetworkImage(_thumbnailUrl);
+  PaintingBinding.instance.imageCache.putIfAbsent(
+    provider,
+    () => OneFrameImageStreamCompleter(Future.value(ImageInfo(image: image!))),
+  );
+  addTearDown(() => provider.evict());
+}
+
+Future<void> _showPdfControl(WidgetTester tester, String key) async {
+  await tester.scrollUntilVisible(
+    find.byKey(Key(key)),
+    150,
+    scrollable: find.descendant(
+      of: find.byKey(const Key('answer-source-content')),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.pumpAndSettle();
+  expect(find.byKey(Key(key)).hitTestable(), findsOneWidget);
+}
+
+void _expectPdfLaunch(_Launcher launcher) {
+  expect(launcher.calls, hasLength(1));
+  expect(launcher.calls.single.url, _pdfUrl);
+  expect(
+    launcher.calls.single.options.mode,
+    PreferredLaunchMode.externalApplication,
+  );
+  expect(launcher.calls.single.options.webOnlyWindowName, '_blank');
+  expect(find.byKey(_dialog), findsOneWidget);
 }
 
 Future<void> _setup(
@@ -229,6 +293,112 @@ void main() {
     expect(find.byKey(_dialog), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final control in ['source-pdf-preview', 'source-pdf-open']) {
+    testWidgets(
+      '$control opens the PDF in a new tab and keeps the source popup open',
+      (tester) async {
+        final launcher = _captureLaunches();
+        await _cacheThumbnail(tester);
+        await _setup(
+          tester,
+          _Source()
+            ..pdfUrl = _pdfUrl
+            ..thumbnailUrl = _thumbnailUrl,
+        );
+        await _showPdfControl(tester, control);
+
+        final thumbnail = find.byKey(const Key('source-pdf-thumbnail'));
+        expect(
+          (tester.widget<Image>(thumbnail).image as NetworkImage).url,
+          _thumbnailUrl,
+        );
+        final image = tester.widget<RawImage>(
+          find.descendant(of: thumbnail, matching: find.byType(RawImage)),
+        );
+        expect(image.image, isNotNull);
+        expect(find.byType(HtmlElementView), findsNothing);
+        expect(launcher.calls, isEmpty);
+
+        await tester.tap(find.byKey(Key(control)));
+        await tester.pumpAndSettle();
+
+        _expectPdfLaunch(launcher);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final brokenThumbnail in [false, true]) {
+    testWidgets(
+      '${brokenThumbnail ? 'failed' : 'missing'} PDF thumbnail still offers a working PDF link',
+      (tester) async {
+        final launcher = _captureLaunches();
+        await _setup(
+          tester,
+          _Source()
+            ..pdfUrl = _pdfUrl
+            ..thumbnailUrl = brokenThumbnail
+                ? 'https://images.example.test/missing-first-page.jpg'
+                : null,
+        );
+        await _showPdfControl(tester, 'source-pdf-open');
+        expect(
+          find.text(
+            'Voorbeeld niet beschikbaar.\nDe volledige PDF kunt u wel openen.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('PDF openen'), findsOneWidget);
+        expect(launcher.calls, isEmpty);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.byKey(const Key('source-pdf-open')));
+        await tester.pumpAndSettle();
+        _expectPdfLaunch(launcher);
+
+        await tester.tap(find.byKey(const Key('answer-source-close')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(_dialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'PDF preview and link remain usable on a 320px phone at 200 percent',
+    (tester) async {
+      final launcher = _captureLaunches();
+      await _cacheThumbnail(tester);
+      await _setup(
+        tester,
+        _Source()
+          ..pdfUrl = _pdfUrl
+          ..thumbnailUrl = _thumbnailUrl,
+        size: const Size(320, 800),
+        textScale: 2,
+      );
+      await _showPdfControl(tester, 'source-pdf-preview');
+      final image = tester.getRect(
+        find.byKey(const Key('source-pdf-thumbnail')),
+      );
+      expect(image.width, greaterThan(0));
+      expect(image.left, greaterThanOrEqualTo(0));
+      expect(image.right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+
+      await _showPdfControl(tester, 'source-pdf-open');
+      await tester.tap(find.byKey(const Key('source-pdf-open')));
+      await tester.pumpAndSettle();
+      _expectPdfLaunch(launcher);
+      expect(tester.takeException(), isNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(_dialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('mobile at 200 percent keeps content and close controls usable', (
     tester,

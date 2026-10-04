@@ -28,7 +28,7 @@ object CollectionLinks {
         else source
     }
 
-    /** A lightweight JPEG of the first page when an archival scan has no separate image. */
+    /** A lightweight JPEG of the first page of an archival PDF scan. */
     fun thumbnail(value: String?): String? = value?.let {
         val source = directPdf(it)
         if (isImportUrl(source)) "$PUBLIC_ORIGIN/api/collection-thumbnail/${Base64.getUrlEncoder().withoutPadding().encodeToString(source.toByteArray(UTF_8))}"

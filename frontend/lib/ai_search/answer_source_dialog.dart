@@ -5,9 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../collection/collection_config.dart';
 import '../collection/collection_search.dart';
 import '../collection/img_embed/img_embed.dart';
-import '../collection/pdf_embed/pdf_embed.dart';
 import '../theme/app_style.dart';
 import 'answer_image_dialog.dart';
+import 'pdf_source_preview.dart';
 import 'source_preview/source_preview.dart';
 
 /// Makes the existing collection client available in answers and source lists.
@@ -372,13 +372,7 @@ class _SourceContent extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Document', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            if (supportsEmbeddedPdf)
-              SizedBox(height: 540, child: buildEmbeddedPdf(pdfUrl))
-            else
-              const Text(
-                'Bekijk het document via ‘Open volledige pagina’.',
-                style: TextStyle(color: appMutedText),
-              ),
+            PdfSourcePreview(pdfUrl: pdfUrl, thumbnailUrl: detail.thumbnailUrl),
           ],
           if (documentText.isNotEmpty) ...[
             const SizedBox(height: 24),

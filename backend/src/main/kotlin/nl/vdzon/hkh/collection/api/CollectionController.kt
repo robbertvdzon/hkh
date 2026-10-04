@@ -48,6 +48,8 @@ data class CollectionItemDetail(
     val fields: Map<String, String>,
     /** Tekstlaag uit de PDF, automatisch herkend; null als er geen PDF is of de tekst nog niet is opgehaald. */
     val documentText: String? = null,
+    /** Afbeelding van de eerste PDF-pagina, ook als het object een aparte foto heeft. */
+    val thumbnailUrl: String? = null,
 )
 
 data class SearchResponse(
@@ -120,6 +122,7 @@ private fun CollectionItem.toDetail() = CollectionItemDetail(
     year = year,
     imageUrl = CollectionLinks.media(imageUrl),
     pdfUrl = CollectionLinks.media(pdfUrl),
+    thumbnailUrl = CollectionLinks.thumbnail(pdfUrl),
     detailUrl = CollectionLinks.detail(collection, ident),
     fields = fields,
     documentText = documentText?.takeIf(String::isNotBlank),

@@ -79,6 +79,7 @@ class CollectionItemDetail {
     required this.pdfUrl,
     required this.detailUrl,
     required this.fields,
+    this.thumbnailUrl,
     this.documentText,
   });
 
@@ -91,6 +92,7 @@ class CollectionItemDetail {
         year: json['year'] as int?,
         imageUrl: json['imageUrl'] as String?,
         pdfUrl: json['pdfUrl'] as String?,
+        thumbnailUrl: json['thumbnailUrl'] as String?,
         detailUrl: json['detailUrl'] as String? ?? '',
         fields: (json['fields'] as Map<String, dynamic>? ?? const {}).map(
           (key, value) => MapEntry(key, value?.toString() ?? ''),
@@ -105,6 +107,9 @@ class CollectionItemDetail {
   final int? year;
   final String? imageUrl;
   final String? pdfUrl;
+
+  /// Afbeelding van de eerste PDF-pagina, indien een voorbeeld beschikbaar is.
+  final String? thumbnailUrl;
   final String detailUrl;
   final Map<String, String> fields;
 

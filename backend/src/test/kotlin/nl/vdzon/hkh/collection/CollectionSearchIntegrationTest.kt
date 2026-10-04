@@ -92,11 +92,32 @@ class CollectionSearchIntegrationTest(
             jsonPath("$.detailUrl") { value(CollectionLinks.detail("artikelen", "local-links")) }
             jsonPath("$.imageUrl") { value(CollectionLinks.media("$origin/objecten/foto.jpg")) }
             jsonPath("$.pdfUrl") { value(CollectionLinks.media("$origin/objecten/artikel.pdf")) }
+            jsonPath("$.thumbnailUrl") { value(CollectionLinks.thumbnail("$origin/objecten/artikel.pdf")) }
         }.andReturn().response.contentAsString
         assertFalse(detail.contains("historischekringheemskerk", true))
         val result = mockMvc.get("/api/collections/search?q=Unieke%20linkcontrole")
             .andExpect { status { isOk() } }.andReturn().response.contentAsString
         assertFalse(result.contains("historischekringheemskerk", true))
+    }
+
+    @Test
+    fun `detail provides a first page preview for legacy PDF viewer links but not for records without a PDF`() {
+        val origin = "https://www.historischekringheemskerk.nl"
+        val pdf = "$origin/archief/pdf/detail-preview.pdf"
+        store.upsert(fullRecord("detail-preview").copy(
+            pdfUrl = "$origin/pdfjs3/web/viewer.html?file=/archief/pdf/detail-preview.pdf",
+        ))
+        mockMvc.get("/api/collections/artikelen/detail-preview").andExpect {
+            status { isOk() }
+            jsonPath("$.thumbnailUrl") { value(CollectionLinks.thumbnail(pdf)) }
+            jsonPath("$.pdfUrl") { value(CollectionLinks.media(pdf)) }
+        }
+        store.upsert(fullRecord("detail-no-pdf").copy(imageUrl = "$origin/objecten/foto.jpg"))
+        mockMvc.get("/api/collections/artikelen/detail-no-pdf").andExpect {
+            status { isOk() }
+            jsonPath("$.thumbnailUrl") { doesNotExist() }
+            jsonPath("$.pdfUrl") { doesNotExist() }
+        }
     }
 
     @Test

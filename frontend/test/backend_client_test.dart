@@ -85,6 +85,43 @@ void main() {
     await client.search(query: 'kroniek', year: 1954);
   });
 
+  for (final includesThumbnail in [false, true]) {
+    test(
+      'loads PDF detail ${includesThumbnail ? 'with a first-page thumbnail' : 'from a response without thumbnailUrl'}',
+      () async {
+        const pdfUrl = 'https://example.test/api/media/document.pdf';
+        const thumbnailUrl = 'https://example.test/api/media/first-page.jpg';
+        final client = BackendClient(
+          'https://example.test',
+          client: MockClient((request) async {
+            expect(request.method, 'GET');
+            expect(request.url.path, '/api/collections/artikelen/42');
+            return http.Response(
+              jsonEncode({
+                'collection': 'artikelen',
+                'ident': '42',
+                'title': 'De geschiedenis van de Kerklaan',
+                'pdfUrl': pdfUrl,
+                'detailUrl': 'https://example.test/#/objecten/artikelen/42',
+                if (includesThumbnail) 'thumbnailUrl': thumbnailUrl,
+                'fields': {'Aantal paginas': '10'},
+              }),
+              200,
+            );
+          }),
+        );
+
+        final detail = await client.loadDetail('artikelen', '42');
+
+        expect(detail.collection, 'artikelen');
+        expect(detail.ident, '42');
+        expect(detail.pdfUrl, pdfUrl);
+        expect(detail.thumbnailUrl, includesThumbnail ? thumbnailUrl : isNull);
+        expect(detail.fields['Aantal paginas'], '10');
+      },
+    );
+  }
+
   test('starts an AI search without exposing runtime details', () async {
     final client = BackendClient(
       'https://example.test',

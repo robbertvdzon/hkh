@@ -181,7 +181,11 @@ dubbelklikken, het muiswiel of de zoomknoppen en de foto verslepen. **Hele foto*
 de volledige afbeelding. Escape of het sluitkruisje sluit de weergave en behoudt de
 leespositie in het antwoord. Een bronlink om een foto opent bij deze klik de foto;
 tekstlinks naar bronnen openen een popup met de collectiegegevens, afbeelding,
-beschikbare scan en documenttekst. **Open volledige pagina** opent de bron in een
+beschikbare scan en documenttekst. Bij een PDF toont de popup een afbeelding van
+de eerste pagina, zonder ingesloten PDF-viewer. Aanklikken van het voorbeeld of
+**PDF openen** opent de volledige PDF in een nieuw tabblad en laat de bronpopup
+staan. Als geen voorbeeld beschikbaar is, blijft **PDF openen** bruikbaar.
+**Open volledige pagina** opent de bron in een
 nieuw tabblad. De bronpopup sluit via Escape, het kruisje of **Sluiten** zonder
 de leespositie van het antwoord te veranderen. Externe bronnen krijgen waar
 mogelijk een ingesloten voorbeeld met dezelfde knop naar de volledige pagina.
