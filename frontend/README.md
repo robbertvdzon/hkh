@@ -22,7 +22,10 @@ De Flutter-app voor bezoekers (web en Android).
   afzonderlijk beschikbaar. De gebundelde beelden en hun herkomst staan in
   `assets/aerial/`; deze pagina vraagt geen login of backend.
 - AI-archiefonderzoek met een overzicht van eerdere vragen, voortgang,
-  antwoorden, bronnen en vervolgvragen (`lib/ai_search/`). Zodra een antwoord
+  antwoorden en bronnen (`lib/ai_search/`). Nieuwe vragen starten vanuit het
+  overzicht een aparte zoekopdracht; bij een antwoord staan geen vervolgvraagveld
+  of suggestieknoppen. Foto's openen schermvullend met zoomknoppen,
+  tweevingerzoomen en sluiten via Escape of het kruisje. Zodra een antwoord
   geladen is, staat naast het geschiedenis-icoon de appbalkactie **Exporteer als
   PDF**: op web start een directe download van `antwoord-<id>.pdf`, op Android
   opent een deel-/opslagdialoog voor hetzelfde bestand

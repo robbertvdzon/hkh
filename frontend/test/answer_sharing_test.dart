@@ -115,6 +115,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Wat is de geschiedenis van de Kerklaan?'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('De Kerklaan'), findsOneWidget);
       expect(
         find.text('Wat is de geschiedenis van de Kerklaan?'),

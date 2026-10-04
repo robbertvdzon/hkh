@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_style.dart';
+import 'ai_disclaimer.dart';
 import 'answer_html.dart';
 import 'answer_sharing.dart';
 import 'answer_sources_page.dart';
@@ -82,6 +83,8 @@ class _SharedAnswerPageState extends State<SharedAnswerPage> {
                     ),
                   )
                 else ...[
+                  const AiDisclaimer(),
+                  const SizedBox(height: 20),
                   const Text(
                     'GEDEELD UIT HET HKH-ARCHIEF',
                     style: TextStyle(

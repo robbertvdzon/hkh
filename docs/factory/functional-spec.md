@@ -134,7 +134,7 @@ blijven ongewijzigd.
 
 ## AI-onderzoek: diepte en bronnen
 
-Bij elke vraag en vervolgvraag kiest de gebruiker de onderzoeksdiepte. Een zoekronde is:
+Bij elke nieuwe vraag kiest de gebruiker de onderzoeksdiepte. Een zoekronde is:
 zoektermen bepalen, alle resultaatpagina's ophalen, samenvattingen beoordelen en de details
 van relevante treffers lezen; ronde 1 komt uit de vraag, elke volgende ronde uit
 aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
@@ -148,10 +148,11 @@ aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
 Het maximum is een plafond, geen doel: de vraag bepaalt hoe ver de onderzoeker gaat. Een
 afgebakende vraag is na één ronde klaar; een vraag naar verbanden, familie of "alles" gaat door tot
 de sporen op zijn. Sporen die de onderzoeker in een rondemelding opgeeft zijn bindend: hij stopt
-niet zolang die lijst gevuld is. Niet-gevolgde sporen komen terug als voorgestelde vervolgvragen. De vraagkaart toont de
-keuze als stappenbalk met uitleg; de vervolgvraagbalk als pil **Snel · ca. 2 min** naast de
-verzendknop die een menu met de drie opties en hun consequentie opent, zodat de balk één
-regel hoog blijft (op smalle schermen zonder duur). Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de
+niet zolang die lijst gevuld is. De vraagkaart toont de keuze als stappenbalk met uitleg;
+het invoerveld voor een nieuwe dossierzoekopdracht gebruikt een compact keuzemenu.
+Een bestaande zoekopdracht toont geen vervolgvraagveld of voorgestelde vervolgvragen.
+Een nieuwe vraag begint vanuit het overzicht een aparte zoekopdracht; eerder opgeslagen
+antwoorden blijven leesbaar. Het antwoord vermeldt de gebruikte diepte naast de doorlooptijd, en de
 voortgangsmelding toont **Spoor wordt gevolgd: …** zodra de onderzoeker een aanknopingspunt
 oppakt. De API neemt `depth` (`FAST`, `EXTENDED`, `THOROUGH`) mee in het vraagverzoek;
 ontbrekend of onbekend betekent `FAST`.
@@ -173,6 +174,13 @@ De bronnenlijst met beschrijvingen en beelden staat niet meer onder de antwoordt
 achter de knop **Alle bronnen (N)**, die een aparte pagina **Bronnen en afbeeldingen** opent.
 Dit geldt ook voor gedeelde antwoorden. Antwoorden van vóór deze scheiding houden de lijst
 in de tekst en tonen geen knop. De PDF-export bevat de bronnenlijst nog steeds na de tekst.
+
+Foto's in antwoorden, gedeelde antwoorden en de bronnenpagina openen bij aanklikken in
+een schermvullende fotoweergave. Daar kan de gebruiker zoomen met twee vingers,
+dubbelklikken, het muiswiel of de zoomknoppen en de foto verslepen. **Hele foto** herstelt
+de volledige afbeelding. Escape of het sluitkruisje sluit de weergave en behoudt de
+leespositie in het antwoord. Een bronlink om een foto opent bij deze klik de foto;
+gewone tekstlinks naar bronnen blijven afzonderlijk beschikbaar.
 
 ## Beheer: model van de AI-onderzoeker
 

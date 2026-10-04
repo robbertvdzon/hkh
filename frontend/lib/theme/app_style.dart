@@ -15,6 +15,11 @@ const appMutedText = Color(0xFF5A6A5C);
 const appErrorBackground = Color(0xFFFBE9E7);
 const appErrorForeground = Color(0xFF9F201B);
 
+/// Warme, gedempte roodtinten voor de toelichting bij AI-antwoorden.
+const appDisclaimerBackground = Color(0xFFF5E8E2);
+const appDisclaimerForeground = Color(0xFF8A4038);
+const appDisclaimerBorder = Color(0xFFE4C8BD);
+
 /// Kaarten zijn 16px afgerond, velden en knoppen 10px.
 const appCardRadius = 16.0;
 const appControlRadius = 10.0;

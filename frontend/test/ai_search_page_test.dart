@@ -10,6 +10,7 @@ import 'package:hkh_app/ai_search/answer_html.dart';
 class _AiSource implements AiSearchSource {
   AiSearchSession? session;
   final List<AiSearchSummary> searches = [];
+  final List<String> startedQuestions = [];
   final List<AiResearchDepth> startedDepths = [];
   final List<AiResearchDepth> followUpDepths = [];
   final List<(String, bool?, String?)> steerings = [];
@@ -22,6 +23,7 @@ class _AiSource implements AiSearchSource {
     String question, {
     AiResearchDepth depth = AiResearchDepth.fast,
   }) async {
+    startedQuestions.add(question);
     startedDepths.add(depth);
     session = AiSearchSession(
       id: 'session-1',
@@ -81,26 +83,30 @@ class _AiSource implements AiSearchSource {
   }
 }
 
-AiSearchTurn _answeredTurn({String id = 'turn-1', String? sourcesHtml}) =>
-    AiSearchTurn(
-      id: id,
-      turnNumber: 1,
-      question: 'Wie was Jan Klaasz. Beemster?',
-      status: 'SUCCEEDED',
-      progressPercent: 100,
-      progressMessage: 'Onderzoek afgerond',
-      title: 'Jan Klaasz. Beemster',
-      answerHtml: '<p>Hij was schepen en molenaar in Heemskerk.</p>',
-      sources: const [],
-      suggestedFollowUps: const [],
-      errorMessage: null,
-      createdAt: DateTime(2026),
-      updatedAt: DateTime(2026),
-      completedAt: DateTime(2026),
-      durationSeconds: 60,
-      depth: AiResearchDepth.extended,
-      sourcesHtml: sourcesHtml,
-    );
+AiSearchTurn _answeredTurn({
+  String id = 'turn-1',
+  String? sourcesHtml,
+  List<String> suggestedFollowUps = const [],
+  String status = 'SUCCEEDED',
+}) => AiSearchTurn(
+  id: id,
+  turnNumber: 1,
+  question: 'Wie was Jan Klaasz. Beemster?',
+  status: status,
+  progressPercent: 100,
+  progressMessage: 'Onderzoek afgerond',
+  title: 'Jan Klaasz. Beemster',
+  answerHtml: '<p>Hij was schepen en molenaar in Heemskerk.</p>',
+  sources: const [],
+  suggestedFollowUps: suggestedFollowUps,
+  errorMessage: null,
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
+  completedAt: DateTime(2026),
+  durationSeconds: 60,
+  depth: AiResearchDepth.extended,
+  sourcesHtml: sourcesHtml,
+);
 
 /// Levert het geladen antwoord; de exportactie hoort daarna zichtbaar te zijn.
 class _AnsweredSource extends _AiSource {
@@ -261,8 +267,11 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AiSearchPage(source: source)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('De geschiedenis van de Kerklaan'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('Mijn zoekopdrachten'), findsOneWidget);
     expect(find.text('De geschiedenis van de Kerklaan'), findsOneWidget);
@@ -290,6 +299,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final action = find.byKey(const ValueKey('answer-pdf-turn-1'));
+    await tester.scrollUntilVisible(
+      action,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(action, findsOneWidget);
     expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
     expect(tester.widget<OutlinedButton>(action).onPressed, isNotNull);
@@ -299,6 +313,7 @@ void main() {
       findsNothing,
     );
     await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
     await tester.tap(action);
     await tester.pumpAndSettle();
 
@@ -359,7 +374,12 @@ void main() {
     await tester.pumpAndSettle();
     final pushesBefore = routes.pushes;
 
-    await tester.ensureVisible(find.byKey(const ValueKey('answer-pdf-turn-1')));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('answer-pdf-turn-1')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('answer-pdf-turn-1')));
     await tester.pumpAndSettle();
 
@@ -403,7 +423,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('answer-pdf-turn-1')));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('answer-pdf-turn-1')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('answer-pdf-turn-1')));
     await tester.pump();
 
@@ -446,33 +471,102 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(source.startedDepths, [AiResearchDepth.thorough]);
-    // De keuze blijft staan voor de vervolgvraag, via het compacte menu.
-    expect(find.byKey(const Key('research-depth-menu')), findsOneWidget);
-    expect(find.textContaining('Uitgebreid · 5 tot 10 min'), findsOneWidget);
+    expect(find.byKey(const Key('research-depth-menu')), findsNothing);
+    expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('a follow-up question uses the depth picked in the menu', (
-    tester,
-  ) async {
-    final source = _AnsweredSource();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
-      ),
+  for (final embedded in [false, true]) {
+    for (final status in ['RUNNING', 'SUCCEEDED']) {
+      testWidgets(
+        '$status search has no follow-up input or suggestions (embedded: $embedded)',
+        (tester) async {
+          final source = _AiSource()
+            ..session = AiSearchSession(
+              id: 'session-1',
+              turns: [
+                _answeredTurn(
+                  status: status,
+                  suggestedFollowUps: const ['En zijn zoon?'],
+                ),
+              ],
+            );
+          await tester.binding.setSurfaceSize(const Size(800, 1400));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: AiSearchPage(
+                  source: source,
+                  initialSessionId: 'session-1',
+                  embedded: embedded,
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+
+          expect(find.byType(TextField), findsNothing);
+          expect(find.text('Stel een vervolgvraag'), findsNothing);
+          expect(find.text('Misschien wil je ook weten:'), findsNothing);
+          expect(find.text('En zijn zoon?'), findsNothing);
+          expect(find.byKey(const Key('research-depth-menu')), findsNothing);
+          expect(source.followUpDepths, isEmpty);
+          expect(find.text('Wie was Jan Klaasz. Beemster?'), findsOneWidget);
+          if (status == 'SUCCEEDED') {
+            expect(find.text('Jan Klaasz. Beemster'), findsOneWidget);
+            expect(find.byType(AnswerHtml), findsOneWidget);
+          }
+        },
+      );
+    }
+
+    testWidgets(
+      'returning to overview can start a separate question (embedded: $embedded)',
+      (tester) async {
+        final source = _AnsweredSource();
+        await tester.binding.setSurfaceSize(const Size(800, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AiSearchPage(
+                source: source,
+                initialSessionId: 'session-1',
+                embedded: embedded,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          embedded
+              ? find.widgetWithText(TextButton, 'Mijn zoekopdrachten')
+              : find.byTooltip('Terug naar Vraag het archief'),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField),
+          'Alles over Slot Assumburg',
+        );
+        await tester.pumpAndSettle();
+        final submit = embedded
+            ? find.byTooltip('Vraag stellen')
+            : find.byKey(const Key('ai-question-button'));
+        await tester.ensureVisible(submit);
+        await tester.pumpAndSettle();
+        await tester.tap(submit);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(source.startedQuestions, ['Alles over Slot Assumburg']);
+        expect(source.followUpDepths, isEmpty);
+        expect(find.byType(TextField), findsNothing);
+        expect(find.text('Alles over Slot Assumburg'), findsOneWidget);
+      },
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('research-depth-menu')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Doorzoeken').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'En zijn zoon?');
-    await tester.tap(find.byTooltip('Vraag stellen'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(source.followUpDepths, [AiResearchDepth.extended]);
-  });
+  }
 
   testWidgets('an answer shows its depth and opens all sources on a page', (
     tester,
@@ -494,10 +588,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final button = find.byKey(const Key('answer-sources-button'));
+    await tester.scrollUntilVisible(
+      button,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Doorzoeken'), findsOneWidget);
     expect(find.text('Notulen van de schepenbank.'), findsNothing);
-    final button = find.byKey(const Key('answer-sources-button'));
-    await tester.ensureVisible(button);
     await tester.pumpAndSettle();
     await tester.tap(button);
     await tester.pumpAndSettle();
@@ -517,6 +615,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Jan Klaasz. Beemster'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.byKey(const Key('answer-sources-button')), findsNothing);
   });

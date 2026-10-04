@@ -213,6 +213,16 @@ void main() {
       expect(find.text('Vragen'), findsOneWidget);
       expect(find.text('Feitenlijst'), findsOneWidget);
       expect(find.text('Artikelen'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Vragen in dit dossier'),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('Vragen in dit dossier'), findsOneWidget);
       final firstTab = tester.getRect(find.text('Vragen'));
       final lastTab = tester.getRect(find.text('Artikelen'));

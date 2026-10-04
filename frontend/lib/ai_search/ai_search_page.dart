@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'answer_html.dart';
 import 'answer_share_dialog.dart';
 import 'answer_sharing.dart';
+import 'ai_disclaimer.dart';
 import 'ai_search.dart';
 import 'ai_question_card.dart';
 import 'answer_pdf_saver.dart';
@@ -145,21 +146,23 @@ class _AiSearchPageState extends State<AiSearchPage> {
     super.dispose();
   }
 
-  Future<void> _submit([String? proposedQuestion]) async {
-    final question = (proposedQuestion ?? _questionController.text).trim();
-    if (question.length < 3 || _submitting) return;
+  Future<void> _submit() async {
+    final question = _questionController.text.trim();
+    if (!widget.canAsk ||
+        _session != null ||
+        question.length < 3 ||
+        _submitting) {
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
-      final session = _session == null
-          ? await widget.source.startAiSearch(question, depth: _depth)
-          : await widget.source.askFollowUp(
-              _session!.id,
-              question,
-              depth: _depth,
-            );
+      final session = await widget.source.startAiSearch(
+        question,
+        depth: _depth,
+      );
       if (!mounted) return;
       setState(() {
         _session = session;
@@ -402,6 +405,8 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   children: [
+                    const AiDisclaimer(),
+                    const SizedBox(height: 16),
                     if (session == null) ...[
                       if (widget.embedded)
                         widget.introduction ?? const _Introduction()
@@ -499,7 +504,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
                               ? ({bool? stop, String? hint}) =>
                                     _steer(turn.id, stop: stop, hint: hint)
                               : null,
-                          onSuggestedQuestion: widget.canAsk ? _submit : null,
                         ),
                         const SizedBox(height: 20),
                       ],
@@ -516,15 +520,11 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   ],
                 ),
               ),
-              if (widget.canAsk && (session != null || widget.embedded))
+              if (widget.canAsk && widget.embedded && session == null)
                 _QuestionComposer(
                   controller: _questionController,
-                  enabled:
-                      !_submitting &&
-                      !(session?.turns.lastOrNull?.isActive ?? false),
-                  label: session == null
-                      ? 'Start een nieuwe zoekopdracht'
-                      : 'Stel een vervolgvraag',
+                  enabled: !_submitting,
+                  label: 'Start een nieuwe zoekopdracht',
                   onSubmit: _submit,
                   depth: _depth,
                   onDepthChanged: (depth) => setState(() => _depth = depth),
@@ -773,7 +773,6 @@ class _TurnCard extends StatelessWidget {
     required this.turn,
     required this.elapsed,
     required this.onCancel,
-    required this.onSuggestedQuestion,
     this.onSteer,
     this.onShare,
     this.showPdf = false,
@@ -785,7 +784,6 @@ class _TurnCard extends StatelessWidget {
   final String? elapsed;
   final VoidCallback? onCancel;
   final SteerHandler? onSteer;
-  final ValueChanged<String>? onSuggestedQuestion;
   final VoidCallback? onShare;
   final bool showPdf;
   final VoidCallback? onPdf;
@@ -947,26 +945,6 @@ class _TurnCard extends StatelessWidget {
                   sourcesHtml: turn.sourcesHtml,
                   sourceCount: turn.sources.length,
                   title: turn.title,
-                ),
-              ],
-              if (turn.suggestedFollowUps.isNotEmpty &&
-                  onSuggestedQuestion != null) ...[
-                const SizedBox(height: 18),
-                Text(
-                  'Misschien wil je ook weten:',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final question in turn.suggestedFollowUps)
-                      ActionChip(
-                        label: Text(question),
-                        onPressed: () => onSuggestedQuestion!(question),
-                      ),
-                  ],
                 ),
               ],
             ],
