@@ -77,6 +77,9 @@ De zoekpagina biedt:
 - Verwijderbare filterchips, lege resultaten met herstelactie en een herhaalactie bij fouten.
 - URL-behoud van alle zoekinstellingen en paginanummer, ook via details en na verversen.
 - Collectie-eigen detailvelden, alle bronvelden, beschikbaar beeld/PDF en vorige/volgende resultaten.
+- PDF's op de volledige objectpagina tonen de eerste pagina als afbeelding. Klikken op
+  het voorbeeld of **PDF openen** opent de volledige PDF in een nieuw tabblad. Ook bij
+  een ontbrekend of mislukt voorbeeld blijft de PDF te openen.
 
 De laatste zoekactie wint bij overlappende netwerkverzoeken; een oudere respons mag de nieuwe
 resultaten niet overschrijven. Op kleine schermen zijn minder gebruikte filters bereikbaar

@@ -27,7 +27,7 @@ De Flutter-app voor bezoekers (web en Android).
   of suggestieknoppen. Foto's openen schermvullend met zoomknoppen,
   tweevingerzoomen en sluiten via Escape of het kruisje. Bronlinks openen een
   popup met collectiegegevens; **Open volledige pagina** opent desgewenst een
-  nieuw tabblad. PDF's in deze popup tonen de eerste pagina als afbeelding;
+  nieuw tabblad. PDF's in deze popup en op de volledige objectpagina tonen de eerste pagina als afbeelding;
   aanklikken of **PDF openen** opent de volledige PDF in een nieuw tabblad.
   Sluiten behoudt de leespositie in het antwoord. Zodra een antwoord
   geladen is, staat naast het geschiedenis-icoon de appbalkactie **Exporteer als

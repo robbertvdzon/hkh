@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_style.dart';
 
-/// A first-page image works on mobile browsers without an embedded PDF viewer.
+/// Shared PDF preview for collection details and answer source popups.
 class PdfSourcePreview extends StatefulWidget {
   const PdfSourcePreview({required this.pdfUrl, this.thumbnailUrl, super.key});
 

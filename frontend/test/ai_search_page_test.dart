@@ -542,7 +542,7 @@ void main() {
 
         await tester.tap(
           embedded
-              ? find.widgetWithText(TextButton, 'Mijn zoekopdrachten')
+              ? find.text('Mijn zoekopdrachten')
               : find.byTooltip('Terug naar Vraag het archief'),
         );
         await tester.pumpAndSettle();

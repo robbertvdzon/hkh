@@ -5,7 +5,7 @@ import '../theme/app_style.dart';
 import 'collection_config.dart';
 import 'collection_search.dart';
 import 'img_embed/img_embed.dart';
-import 'pdf_embed/pdf_embed.dart';
+import 'pdf_source_preview.dart';
 
 class CollectionResultContext {
   const CollectionResultContext({
@@ -337,7 +337,10 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
                   ],
                   if (detail.pdfUrl != null) ...[
                     const SizedBox(height: 16),
-                    _PdfBlock(url: detail.pdfUrl!),
+                    PdfSourcePreview(
+                      pdfUrl: detail.pdfUrl!,
+                      thumbnailUrl: detail.thumbnailUrl,
+                    ),
                   ],
                   if (detail.imageUrl == null && detail.pdfUrl == null)
                     Container(
@@ -493,61 +496,6 @@ class _FieldsTable extends StatelessWidget {
       ],
     ),
   );
-}
-
-/// Toont de PDF ingesloten in de pagina (op web), met daaronder knoppen om 'm
-/// in een nieuw tabblad te openen of te downloaden. Op platforms zonder
-/// ingesloten weergave (nog) blijven alleen de knoppen over.
-class _PdfBlock extends StatelessWidget {
-  const _PdfBlock({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (supportsEmbeddedPdf)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: 600,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              child: buildEmbeddedPdf(url),
-            ),
-          ),
-        SizedBox(height: supportsEmbeddedPdf ? 8 : 0),
-        SelectionContainer.disabled(
-          child: Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Open in nieuwe pagina'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('Download'),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 /// Klikbare bron-URL. Selectie staat hier bewust uit (SelectionContainer.disabled)

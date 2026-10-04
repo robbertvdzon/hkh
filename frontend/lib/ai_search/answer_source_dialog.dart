@@ -5,9 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../collection/collection_config.dart';
 import '../collection/collection_search.dart';
 import '../collection/img_embed/img_embed.dart';
+import '../collection/pdf_source_preview.dart';
 import '../theme/app_style.dart';
 import 'answer_image_dialog.dart';
-import 'pdf_source_preview.dart';
 import 'source_preview/source_preview.dart';
 
 /// Makes the existing collection client available in answers and source lists.
