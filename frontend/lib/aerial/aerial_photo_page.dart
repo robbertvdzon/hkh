@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_style.dart';
 import 'aerial_book_photo_dialog.dart';
+import 'aerial_photo_alignment.dart';
 
-/// Both dates share one image plane and one transformation, including white
-/// pixels in the historical image. Changing the date never changes the view.
+/// The photos are registered on the church before sharing one pan/zoom plane.
+/// Changing the date never changes the view or the registration.
 class AerialPhotoPage extends StatefulWidget {
   const AerialPhotoPage({super.key});
 
@@ -16,11 +17,10 @@ class AerialPhotoPage extends StatefulWidget {
 }
 
 class _AerialPhotoPageState extends State<AerialPhotoPage> {
-  static const _imageSize = Size(2040, 1120);
-  // Bounds of all non-white historical pixels, including Oud Haerlem.
-  static const _historicArea = Rect.fromLTRB(1285, 399, 1604, 804);
-  static const _currentAsset = 'assets/aerial/heemskerk-2026.jpg';
-  static const _historicalAsset = 'assets/aerial/heemskerk-1962-1965.png';
+  static final _imageSize = AerialPhotoAlignment.sceneSize;
+  static final _churchArea = AerialPhotoAlignment.churchBounds;
+  static const _currentAsset = 'assets/aerial/heemskerk-62057-nu-ai.png';
+  static const _historicalAsset = 'assets/aerial/heemskerk-62057-toen.png';
 
   final _transformation = TransformationController();
   AssetBundle? _bundle;
@@ -51,7 +51,11 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
     }
   }
 
-  Future<ui.Image> _decode(AssetBundle bundle, String path) async {
+  Future<ui.Image> _decode(
+    AssetBundle bundle,
+    String path,
+    Size expectedSize,
+  ) async {
     final data = await bundle.load(path);
     final codec = await ui.instantiateImageCodec(
       data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
@@ -59,10 +63,10 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
     try {
       final frame = await codec.getNextFrame();
       final image = frame.image;
-      if (image.width != _imageSize.width ||
-          image.height != _imageSize.height) {
+      if (image.width != expectedSize.width ||
+          image.height != expectedSize.height) {
         image.dispose();
-        throw StateError('The aerial image does not match the shared grid.');
+        throw StateError('The aerial photo does not match its registration.');
       }
       return image;
     } finally {
@@ -79,8 +83,16 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
     });
     ui.Image? current, historical;
     try {
-      current = await _decode(bundle, _currentAsset);
-      historical = await _decode(bundle, _historicalAsset);
+      current = await _decode(
+        bundle,
+        _currentAsset,
+        AerialPhotoAlignment.currentSize,
+      );
+      historical = await _decode(
+        bundle,
+        _historicalAsset,
+        AerialPhotoAlignment.historicalSize,
+      );
       if (!mounted || request != _loadRequest) {
         current.dispose();
         historical.dispose();
@@ -207,13 +219,13 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
 
   void _reset() => _setView(_minScale, _imageSize.center(Offset.zero));
 
-  void _showHistoricArea() => _setView(
+  void _showChurch() => _setView(
     math.min(
-          _viewport.width / _historicArea.width,
-          _viewport.height / _historicArea.height,
+          _viewport.width / _churchArea.width,
+          _viewport.height / _churchArea.height,
         ) *
         0.88,
-    _historicArea.center,
+    _churchArea.center,
   );
 
   @override
@@ -267,7 +279,7 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(child: Text('Nu (2026)')),
+                          const Expanded(child: Text('Nu · AI-bewerking')),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text('Rond 1963', textAlign: TextAlign.end),
@@ -286,14 +298,15 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
                                   setState(() => _historicalOpacity = value),
                       ),
                       const Text(
-                        'Historisch beeld: 1962–1965. Wit: nog geen '
-                        'betrouwbaar geplaatst beeld. Ligging bij benadering.',
+                        'De foto’s zijn uitgelijnd op de Dorpskerk. '
+                        'De moderne foto is met AI aangepast aan de oude '
+                        'kijkhoek; details in de omgeving kunnen afwijken.',
                         style: TextStyle(color: appMutedText),
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Bronnen: HKH en aangeleverde boekfoto’s · '
-                        'luchtfoto 2026 PDOK / Beeldmateriaal (CC BY 4.0).',
+                        'Bronnen: aangeleverde historische foto (rond 1963) '
+                        'en AI-bewerking van een Google Earth-opname.',
                         style: TextStyle(color: appMutedText, fontSize: 12),
                       ),
                     ],
@@ -365,20 +378,40 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
                 width: _imageSize.width,
                 height: _imageSize.height,
                 child: Stack(
-                  fit: StackFit.expand,
+                  clipBehavior: Clip.hardEdge,
                   children: [
-                    RawImage(
-                      image: _currentImage,
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.medium,
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: AerialPhotoAlignment.currentSize.width,
+                      height: AerialPhotoAlignment.currentSize.height,
+                      child: Transform(
+                        alignment: Alignment.topLeft,
+                        transform: AerialPhotoAlignment.currentToScene,
+                        child: RawImage(
+                          image: _currentImage,
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                      ),
                     ),
-                    Opacity(
-                      key: const Key('aerial-historical-layer'),
-                      opacity: _historicalOpacity,
-                      child: RawImage(
-                        image: _historicalImage,
-                        fit: BoxFit.fill,
-                        filterQuality: FilterQuality.medium,
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: AerialPhotoAlignment.historicalSize.width,
+                      height: AerialPhotoAlignment.historicalSize.height,
+                      child: Opacity(
+                        key: const Key('aerial-historical-layer'),
+                        opacity: _historicalOpacity,
+                        child: Transform(
+                          alignment: Alignment.topLeft,
+                          transform: AerialPhotoAlignment.historicalToScene,
+                          child: RawImage(
+                            image: _historicalImage,
+                            fit: BoxFit.fill,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -439,13 +472,13 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
           key: const Key('aerial-reset'),
           onPressed: enabled ? _reset : null,
           icon: const Icon(Icons.fit_screen),
-          label: const Text('Heel Heemskerk'),
+          label: const Text('Hele foto'),
         ),
         OutlinedButton.icon(
-          key: const Key('aerial-historic-area'),
-          onPressed: enabled ? _showHistoricArea : null,
-          icon: const Icon(Icons.history),
-          label: const Text('Historisch gebied'),
+          key: const Key('aerial-church'),
+          onPressed: enabled ? _showChurch : null,
+          icon: const Icon(Icons.church_outlined),
+          label: const Text('Dorpskerk'),
         ),
       ],
     );

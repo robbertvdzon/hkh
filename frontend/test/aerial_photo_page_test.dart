@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hkh_app/aerial/aerial_photo_alignment.dart';
 import 'package:hkh_app/aerial/aerial_photo_page.dart';
 
-const _imageSize = Size(2040, 1120);
+final _imageSize = AerialPhotoAlignment.sceneSize;
 final _viewerFinder = find.byKey(const Key('aerial-viewer'));
 
 Future<void> _pumpPage(
@@ -16,7 +17,7 @@ Future<void> _pumpPage(
   addTearDown(tester.view.resetDevicePixelRatio);
 
   // Real image decoding must finish outside the widget test's fake clock.
-  // Loading the actual assets also checks that both use the same image grid.
+  // Loading the actual assets also checks that the two photographs decode.
   await tester.runAsync(() async {
     await tester.pumpWidget(
       MaterialApp(
@@ -56,6 +57,56 @@ Future<void> _tap(WidgetTester tester, String key) async {
 void _expectSamePoint(Offset actual, Offset expected) {
   expect(actual.dx, closeTo(expected.dx, 0.001));
   expect(actual.dy, closeTo(expected.dy, 0.001));
+}
+
+Offset _sourcePointOnScreen(
+  WidgetTester tester,
+  Finder imageFinder,
+  Offset sourcePoint,
+) {
+  final image = tester.widget<RawImage>(imageFinder).image!;
+  final box = tester.renderObject<RenderBox>(imageFinder);
+  return box.localToGlobal(
+    Offset(
+      sourcePoint.dx * box.size.width / image.width,
+      sourcePoint.dy * box.size.height / image.height,
+    ),
+  );
+}
+
+List<Offset> _expectChurchAligned(WidgetTester tester) {
+  final photos = find.descendant(
+    of: _viewerFinder,
+    matching: find.byType(RawImage),
+  );
+  expect(photos, findsNWidgets(2));
+  final current = tester.widget<RawImage>(photos.first).image!;
+  final historical = tester.widget<RawImage>(photos.last).image!;
+  expect(
+    Size(current.width.toDouble(), current.height.toDouble()),
+    const Size(1390, 1132),
+  );
+  expect(
+    Size(historical.width.toDouble(), historical.height.toDouble()),
+    const Size(1370, 1116),
+  );
+
+  final screenPoints = <Offset>[];
+  for (final anchor in AerialPhotoAlignment.churchAnchors) {
+    final currentPoint = _sourcePointOnScreen(
+      tester,
+      photos.first,
+      anchor.current,
+    );
+    final historicalPoint = _sourcePointOnScreen(
+      tester,
+      photos.last,
+      anchor.historical,
+    );
+    _expectSamePoint(currentPoint, historicalPoint);
+    screenPoints.add(currentPoint);
+  }
+  return screenPoints;
 }
 
 void _expectBounded(WidgetTester tester) {
@@ -121,7 +172,7 @@ void main() {
   });
 
   testWidgets(
-    'pan controls and dragging stay inside the map; reset restores fit',
+    'pan controls and dragging stay inside the photo; reset restores fit',
     (tester) async {
       await _pumpPage(tester);
       final controller = _controller(tester);
@@ -173,16 +224,26 @@ void main() {
   );
 
   testWidgets(
-    'slider fades aligned images without changing the selected view',
+    'actual photos keep the church aligned while zooming, panning and fading',
     (tester) async {
       await _pumpPage(tester);
       final historicalLayer = find.byKey(const Key('aerial-historical-layer'));
       expect(tester.widget<Opacity>(historicalLayer).opacity, 0);
-      await _tap(tester, 'aerial-historic-area');
-      // All historical fragments must be visible, including the
-      // Oud Haerlem fragment to the south of the old village center.
+      expect(find.text('Nu · AI-bewerking'), findsOneWidget);
+      expect(find.text('Rond 1963'), findsOneWidget);
+      expect(find.text('Hele foto'), findsOneWidget);
+      expect(find.text('Dorpskerk'), findsOneWidget);
+      _expectChurchAligned(tester);
+
+      await _tap(tester, 'aerial-zoom-in');
+      _expectChurchAligned(tester);
+      await _tap(tester, 'aerial-church');
+      // The church focus must show the full registered church area.
       final viewport = tester.getSize(_viewerFinder);
-      for (final point in [const Offset(1285, 399), const Offset(1604, 804)]) {
+      for (final point in [
+        AerialPhotoAlignment.churchBounds.topLeft,
+        AerialPhotoAlignment.churchBounds.bottomRight,
+      ]) {
         final visible = MatrixUtils.transformPoint(
           _controller(tester).value,
           point,
@@ -190,18 +251,15 @@ void main() {
         expect(visible.dx, inInclusiveRange(0, viewport.width));
         expect(visible.dy, inInclusiveRange(0, viewport.height));
       }
+      _expectChurchAligned(tester);
       await _tap(tester, 'aerial-pan-left');
       final controller = _controller(tester);
       final transform = controller.value.clone();
-      final images = find.descendant(
-        of: _viewerFinder,
-        matching: find.byType(RawImage),
-      );
-      expect(images, findsNWidgets(2));
 
       final slider = find.byKey(const Key('aerial-slider'));
       await tester.ensureVisible(slider);
       final rect = tester.getRect(slider);
+      final churchBeforeFading = _expectChurchAligned(tester);
       for (final value in [1.0, 0.5, 0.0]) {
         await tester.tapAt(
           Offset(rect.left + 1 + (rect.width - 2) * value, rect.center.dy),
@@ -212,7 +270,10 @@ void main() {
           closeTo(value, 0.01),
         );
         expect(controller.value.storage, orderedEquals(transform.storage));
-        expect(tester.getRect(images.first), tester.getRect(images.last));
+        final churchAfterFading = _expectChurchAligned(tester);
+        for (var i = 0; i < churchBeforeFading.length; i++) {
+          _expectSamePoint(churchAfterFading[i], churchBeforeFading[i]);
+        }
       }
     },
   );
@@ -230,7 +291,7 @@ void main() {
       'aerial-pan-up',
       'aerial-pan-down',
       'aerial-zoom-out',
-      'aerial-historic-area',
+      'aerial-church',
       'aerial-reset',
     ]) {
       final control = find.byKey(Key(key));

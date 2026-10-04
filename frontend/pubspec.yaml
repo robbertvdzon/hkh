@@ -69,8 +69,8 @@ flutter:
 
   assets:
     - assets/aerial/book/
-    - assets/aerial/heemskerk-2026.jpg
-    - assets/aerial/heemskerk-1962-1965.png
+    - assets/aerial/heemskerk-62057-nu-ai.png
+    - assets/aerial/heemskerk-62057-toen.png
     - assets/branding/hkh-logo.png
     - assets/fonts/OFL.txt
 

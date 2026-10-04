@@ -8,39 +8,28 @@ Future<void> showAerialBookPhotos(BuildContext context) => showDialog<void>(
 );
 
 class _BookPhoto {
-  const _BookPhoto(this.number, this.year, this.area, this.partlyOnMap);
+  const _BookPhoto(this.number, this.year, this.area);
 
   final String number;
   final int year;
   final String area;
-  final bool partlyOnMap;
+  bool get inComparison => number == '62057';
 
   String get asset => 'assets/aerial/book/$year-$number.jpeg';
 }
 
 const _photos = [
-  _BookPhoto('62057', 1963, 'Dorpskerk, Zaalberglaan en Poelenburg', true),
+  _BookPhoto('62057', 1963, 'Dorpskerk, Zaalberglaan en Poelenburg'),
   _BookPhoto(
     '62058',
     1963,
     'Dorpskerk, Ruysdaelstraat en Cornelis Groenlandstraat',
-    true,
   ),
-  _BookPhoto(
-    '62059',
-    1963,
-    'Maerelaan, Laurentiuskerk en Dr. Prinsensporthal',
-    false,
-  ),
-  _BookPhoto('64797', 1964, 'Dorpskern, Neksloot en omgeving', true),
-  _BookPhoto('67781', 1965, 'Kerkbeek, Mariakerk en Jhr. Geverslaan', true),
-  _BookPhoto('67782', 1965, 'Kasteel Assumburg, Tolweg en Hoflaan', false),
-  _BookPhoto(
-    '67783',
-    1965,
-    'Wijk Assumburg en Gerrit van Assendelftstraat',
-    false,
-  ),
+  _BookPhoto('62059', 1963, 'Maerelaan, Laurentiuskerk en Dr. Prinsensporthal'),
+  _BookPhoto('64797', 1964, 'Dorpskern, Neksloot en omgeving'),
+  _BookPhoto('67781', 1965, 'Kerkbeek, Mariakerk en Jhr. Geverslaan'),
+  _BookPhoto('67782', 1965, 'Kasteel Assumburg, Tolweg en Hoflaan'),
+  _BookPhoto('67783', 1965, 'Wijk Assumburg en Gerrit van Assendelftstraat'),
 ];
 
 /// Shows the supplied book pages intact; this viewer does not georeference them.
@@ -173,17 +162,17 @@ class _AerialBookPhotoDialogState extends State<AerialBookPhotoDialog> {
                         Text(_photo.area, key: const Key('aerial-book-area')),
                         const SizedBox(height: 8),
                         Text(
-                          _photo.partlyOnMap
-                              ? 'Deels op de kaart'
-                              : 'Nog niet betrouwbaar uitgelijnd',
+                          _photo.inComparison
+                              ? 'In de vergelijking'
+                              : 'Extra bronfoto',
                           key: const Key('aerial-book-status'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _photo.partlyOnMap
-                              ? 'Alleen het geplaatste deel is opgenomen in de kaart.'
-                              : 'Deze foto staat nog niet op de kaart. Je kunt het origineel hier bekijken en inzoomen.',
+                          _photo.inComparison
+                              ? 'Deze foto vormt de historische laag in de vergelijking met nu.'
+                              : 'Bekijk het origineel en zoom in op de details.',
                           style: const TextStyle(color: appMutedText),
                         ),
                         const SizedBox(height: 16),

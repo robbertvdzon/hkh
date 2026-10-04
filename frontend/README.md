@@ -12,12 +12,15 @@ De Flutter-app voor bezoekers (web en Android).
   en de dossierschermen en -dialogen samen gebruiken. Nieuwe schermen halen deze
   waarden hier op in plaats van ze opnieuw te definiëren.
 - Publieke luchtfotopagina (`/#/luchtfoto`, `lib/aerial/`) via **Luchtfoto** in
-  het vaste menu. De actuele foto uit 2026 en de gedeeltelijke historische
-  versie rond 1963 delen één zoom- en verplaatsingstransformatie. De schuifbalk
-  laat de beelden overvloeien; de knoppen ondersteunen in-/uitzoomen,
-  verplaatsen, het hele gebied en direct het beschikbare historische gebied.
-  Onbekende historische delen blijven wit. De gebundelde beelden en hun
-  herkomst staan in `assets/aerial/`; deze pagina vraagt geen login of backend.
+  het vaste menu. De aangeleverde historische opname rond 1963 en de moderne
+  AI-bewerking vanuit dezelfde kijkhoek zijn uitgelijnd op de Dorpskerk.
+  De vergelijking toont hun gezamenlijke uitsnede; beide foto's delen één
+  zoom- en verplaatsingstransformatie. De schuifbalk laat de beelden overvloeien.
+  Knoppen ondersteunen in-/uitzoomen, verplaatsen, de hele foto en direct de
+  Dorpskerk. De moderne opname is herkenbaar als AI-bewerking; de omgeving is
+  geen exact gereconstrueerde landkaart. De zeven originele boekfoto's blijven
+  afzonderlijk beschikbaar. De gebundelde beelden en hun herkomst staan in
+  `assets/aerial/`; deze pagina vraagt geen login of backend.
 - AI-archiefonderzoek met een overzicht van eerdere vragen, voortgang,
   antwoorden, bronnen en vervolgvragen (`lib/ai_search/`). Zodra een antwoord
   geladen is, staat naast het geschiedenis-icoon de appbalkactie **Exporteer als

@@ -55,23 +55,31 @@ void main() {
   ) async {
     await _open(tester);
     const photos = [
-      ('62057', 1963, true),
-      ('62058', 1963, true),
-      ('62059', 1963, false),
-      ('64797', 1964, true),
-      ('67781', 1965, true),
-      ('67782', 1965, false),
-      ('67783', 1965, false),
+      ('62057', 1963),
+      ('62058', 1963),
+      ('62059', 1963),
+      ('64797', 1964),
+      ('67781', 1965),
+      ('67782', 1965),
+      ('67783', 1965),
     ];
     for (var i = 0; i < photos.length; i++) {
-      final (number, year, partlyOnMap) = photos[i];
+      final (number, year) = photos[i];
       expect(find.text('$year · Boekfoto $number'), findsOneWidget);
       final status = tester.widget<Text>(
         find.byKey(const Key('aerial-book-status')),
       );
       expect(
         status.data,
-        partlyOnMap ? 'Deels op de kaart' : 'Nog niet betrouwbaar uitgelijnd',
+        number == '62057' ? 'In de vergelijking' : 'Extra bronfoto',
+      );
+      expect(
+        find.text(
+          number == '62057'
+              ? 'Deze foto vormt de historische laag in de vergelijking met nu.'
+              : 'Bekijk het origineel en zoom in op de details.',
+        ),
+        findsOneWidget,
       );
       final image = tester.widget<Image>(find.byType(Image));
       expect(
@@ -110,7 +118,7 @@ void main() {
       await tester.tap(option);
       await tester.pumpAndSettle();
       expect(find.text('1965 · Boekfoto 67782'), findsOneWidget);
-      expect(find.text('Nog niet betrouwbaar uitgelijnd'), findsOneWidget);
+      expect(find.text('Extra bronfoto'), findsOneWidget);
       expect(tester.takeException(), isNull);
       for (final key in [
         'aerial-book-next',
