@@ -180,7 +180,11 @@ een schermvullende fotoweergave. Daar kan de gebruiker zoomen met twee vingers,
 dubbelklikken, het muiswiel of de zoomknoppen en de foto verslepen. **Hele foto** herstelt
 de volledige afbeelding. Escape of het sluitkruisje sluit de weergave en behoudt de
 leespositie in het antwoord. Een bronlink om een foto opent bij deze klik de foto;
-gewone tekstlinks naar bronnen blijven afzonderlijk beschikbaar.
+tekstlinks naar bronnen openen een popup met de collectiegegevens, afbeelding,
+beschikbare scan en documenttekst. **Open volledige pagina** opent de bron in een
+nieuw tabblad. De bronpopup sluit via Escape, het kruisje of **Sluiten** zonder
+de leespositie van het antwoord te veranderen. Externe bronnen krijgen waar
+mogelijk een ingesloten voorbeeld met dezelfde knop naar de volledige pagina.
 
 ## Beheer: model van de AI-onderzoeker
 

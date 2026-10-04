@@ -25,7 +25,9 @@ De Flutter-app voor bezoekers (web en Android).
   antwoorden en bronnen (`lib/ai_search/`). Nieuwe vragen starten vanuit het
   overzicht een aparte zoekopdracht; bij een antwoord staan geen vervolgvraagveld
   of suggestieknoppen. Foto's openen schermvullend met zoomknoppen,
-  tweevingerzoomen en sluiten via Escape of het kruisje. Zodra een antwoord
+  tweevingerzoomen en sluiten via Escape of het kruisje. Bronlinks openen een
+  popup met collectiegegevens; **Open volledige pagina** opent desgewenst een
+  nieuw tabblad. Sluiten behoudt de leespositie in het antwoord. Zodra een antwoord
   geladen is, staat naast het geschiedenis-icoon de appbalkactie **Exporteer als
   PDF**: op web start een directe download van `antwoord-<id>.pdf`, op Android
   opent een deel-/opslagdialoog voor hetzelfde bestand
@@ -73,6 +75,10 @@ flutter analyze
 flutter test
 flutter run -d chrome
 ```
+
+Controleer fotoklikken en zoomgebaren ook in de gewone browsermodus, zonder
+**Enable accessibility** in te schakelen. De HTML-platformviews en hun
+eventafhandeling worden niet volledig nagebootst door Flutter-widgettests.
 
 Zie `docs/factory/development.md` voor het volledige vangnet en
 `docs/factory/functional-spec.md` voor het functionele gedrag.

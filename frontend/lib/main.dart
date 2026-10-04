@@ -13,6 +13,7 @@ import 'backend/backend_client.dart';
 import 'ai_search/ai_search.dart';
 import 'ai_search/ai_question_card.dart';
 import 'ai_search/ai_search_page.dart';
+import 'ai_search/answer_source_dialog.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
 import 'navigation.dart';
@@ -164,7 +165,7 @@ class _HkhAppState extends State<HkhApp> {
           session: widget.session ?? DisabledUserSession(),
           googleButtonBuilder: widget.googleButtonBuilder,
         ),
-        child: child!,
+        child: AnswerSourceScope(source: widget.searchSource, child: child!),
       ),
     ),
     routerConfig: _router,

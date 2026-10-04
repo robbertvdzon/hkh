@@ -1,6 +1,7 @@
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:web/web.dart' as web;
 
 final Set<String> _registeredViewTypes = {};
@@ -45,5 +46,12 @@ Widget buildNetworkImage(
       return link;
     });
   }
-  return HtmlElementView(viewType: viewType);
+  return HtmlElementView(
+    viewType: viewType,
+    // CSS pointer-events alleen is niet genoeg: ook Flutter moet de tik en
+    // zoomgebaren doorgeven aan de InkWell/InteractiveViewer rond de foto.
+    hitTestBehavior: linkUrl == null
+        ? PlatformViewHitTestBehavior.transparent
+        : PlatformViewHitTestBehavior.opaque,
+  );
 }
