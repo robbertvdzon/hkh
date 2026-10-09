@@ -43,15 +43,6 @@ class DiscoverPage extends StatelessWidget {
                 label: const Text('Luchtfoto toen en nu'),
                 onPressed: () => navigateTo(context, '/luchtfoto'),
               ),
-              ActionChip(
-                key: const Key('discover-geheugen'),
-                avatar: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('Het Geheugen van Heemskerk'),
-                onPressed: () => launchUrl(
-                  Uri.parse(memoryOfHeemskerkUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
-              ),
             ],
           ),
         for (final c in categories) ...[
@@ -79,14 +70,11 @@ class DiscoverPage extends StatelessWidget {
         if (category == null || category!.slug == 'verhalen') ...[
           const SizedBox(height: 32),
           CallToActionBand(
-            title: 'Het Geheugen van Heemskerk',
+            title: 'Op zoek naar persoonlijke herinneringen?',
             text:
-                'Honderden herinneringen van Heemskerkers, verzameld tussen 2005 en 2010 door meer dan twintig verhalenverzamelaars en sinds 2012 ondergebracht bij de HKH. De verhalen staan nog op de oude site.',
-            actionLabel: 'Lees de verhalen',
-            onAction: () => launchUrl(
-              Uri.parse(memoryOfHeemskerkUrl),
-              mode: LaunchMode.externalApplication,
-            ),
+                'De verhalen van Heemskerkers zelf, opgetekend tussen 2005 en 2010, staan in het Geheugen van Heemskerk.',
+            actionLabel: 'Naar het Geheugen van Heemskerk',
+            onAction: () => navigateTo(context, '/geheugen'),
           ),
         ],
       ],

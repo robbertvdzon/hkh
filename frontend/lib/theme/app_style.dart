@@ -248,6 +248,9 @@ const appHeaderBackground = Color(0xFF16302A);
 const appMenuBackground = Color(0xFF23443A);
 const appHeaderForeground = Color(0xFFFFFAF1);
 const appHeaderAccent = Color(0xFFFFFAF1);
+
+/// Lichte submenubalk onder het hoofdmenu.
+const appSubMenuBackground = Color(0xFFEDE6D8);
 const appHeaderTheme = AppBarTheme(
   backgroundColor: appHeaderBackground,
   foregroundColor: appHeaderForeground,

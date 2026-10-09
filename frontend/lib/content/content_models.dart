@@ -297,3 +297,49 @@ class StoryCategory {
   final String description;
   final List<String> pageSlugs;
 }
+
+/// Een verhaal uit het Geheugen van Heemskerk (2005-2010, sinds 2012 bij de HKH).
+class MemoryStory {
+  const MemoryStory({
+    required this.slug,
+    required this.title,
+    required this.narrator,
+    required this.author,
+    required this.theme,
+    required this.neighbourhood,
+    required this.intro,
+    required this.body,
+    this.period = '',
+    this.figures = const [],
+    this.relatedSlugs = const [],
+  });
+
+  final String slug;
+  final String title;
+
+  /// Degene die het verhaal vertelt ("Aan het woord").
+  final String narrator;
+
+  /// De verhalenverzamelaar die het optekende.
+  final String author;
+  final String theme;
+  final String neighbourhood;
+  final String period;
+  final List<String> intro;
+  final List<String> body;
+  final List<MemoryFigure> figures;
+  final List<String> relatedSlugs;
+
+  String get summary => intro.isNotEmpty
+      ? intro.first
+      : (body.isNotEmpty ? body.first : '');
+
+  String? get image => figures.isEmpty ? null : figures.first.src;
+}
+
+class MemoryFigure {
+  const MemoryFigure(this.src, {this.caption = '', this.alt = ''});
+  final String src;
+  final String caption;
+  final String alt;
+}

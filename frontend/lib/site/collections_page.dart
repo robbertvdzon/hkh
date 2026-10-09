@@ -7,7 +7,7 @@ import '../collection/collection_config.dart';
 import '../theme/app_style.dart';
 import 'site_widgets.dart';
 
-/// Collecties: ingang naar zoeken en naar 'Vraag het archief'.
+/// Collecties: ingang naar zoeken en naar Onderzoek.
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({this.questionsEnabled = true, super.key});
   final bool questionsEnabled;
@@ -62,7 +62,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
       const PageHeading(
         title: 'Collecties',
         intro:
-            'Ruim 18.000 foto’s, archiefstukken, boeken, bidprentjes, Heemskring-artikelen en voorwerpen, verzameld en beschreven door de werkgroepen van de HKH. Zoek zelf, of stel een vraag aan het archief.',
+            'Ruim 18.000 foto’s, archiefstukken, boeken, bidprentjes, Heemskring-artikelen en voorwerpen, verzameld en beschreven door de werkgroepen van de HKH. Zoek zelf, of laat de digitale onderzoeker een onderzoeksvraag beantwoorden.',
       ),
       AppCard(
         key: const Key('collection-search-section'),

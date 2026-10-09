@@ -97,7 +97,24 @@ flowchart TB
 ```
 
 Zes inhoudelijke hoofdingangen plus een opvallende knop "Lid worden". Het menu is altijd
-zichtbaar op desktop; op mobiel een hamburgermenu met dezelfde zes items.
+zichtbaar op desktop; op mobiel een hamburgermenu met dezelfde items.
+
+**Aanvulling 9 oktober 2026 (besluit Robbert):** het Geheugen van Heemskerk wordt een zevende
+hoofdingang (zie 3.8), en onderdelen met meerdere ingangen krijgen een **submenubalk** onder het
+hoofdmenu. Die balk is geen uitklapmenu: hij staat onder het hoofdmenu en blijft staan zolang de
+bezoeker binnen dat onderdeel is, met het actieve subitem gemarkeerd. Alleen waar nodig:
+
+| Hoofditem | Submenubalk |
+|---|---|
+| Nieuws | Berichten · Nieuwsbrieven · Heemskring |
+| Ontdek Heemskerk | Kastelen · Gebouwen en monumenten · Personen · Verhalen · Exposities |
+| Geheugen van Heemskerk | Alle verhalen · Thema's · Buurten · Over het project |
+| Collecties | Overzicht · Zoeken in de collecties · Onderzoek |
+| Vereniging | Over de HKH · Bestuur · Werkgroepen · Historisch Huis · Uitgaven · ANBI · Contact |
+
+Agenda en Educatie hebben geen submenubalk. De ondertitel in de kop is "Vereniging voor de
+geschiedenis van Heemskerk sinds 1988", zodat de naam Geheugen van Heemskerk alleen nog de
+verhalen aanduidt.
 
 ## 3. Per hoofdonderdeel
 
@@ -188,6 +205,22 @@ Alles over de organisatie, nu verspreid over "Informatie" en "Activiteiten + Nie
 | Contact | formulier met keuze ontvanger, telefoon, adres, kaart, socials |
 | Links | partnerorganisaties |
 
+### 3.8 Geheugen van Heemskerk
+
+Eigen hoofdingang met de 174 herinneringen die tussen 2005 en 2010 door verhalenverzamelaars
+van Welschap Welzijn zijn opgetekend en sinds 2012 bij de HKH liggen.
+
+| Onderdeel | Inhoud |
+|---|---|
+| Alle verhalen | kaarten met foto, thema, buurt en verteller; zoeken op titel of verteller; filter op verhalenverzamelaar; thema-chips |
+| Thema's | twaalf thema's met aantallen (straat en buurt, school, werk, verdwenen plekken, …) |
+| Buurten | vijf buurten met aantallen |
+| Verhaal | verteller ("Aan het woord"), periode, inleiding, foto's met bijschrift, tekst, verhalenverzamelaar, bijpassende verhalen |
+| Over het project | ontstaan, Welschap, overdracht aan de HKH, zelf een verhaal aanleveren |
+
+De rubriek Verhalen onder Ontdek Heemskerk houdt de HKH-verhalen (Heemskerker ezels, Over
+Heemskerk) en verwijst naar het Geheugen.
+
 ### 3.7 Lid worden (knop, altijd zichtbaar)
 
 Eén pagina: waarom lid, wat je krijgt (Heemskring, nieuwsbrief, ledenprijs, ledenvergadering),
@@ -226,9 +259,9 @@ maar de homepage vult zich verder automatisch uit agenda, nieuws en verhalen.
 | Publicaties → Heemskring (leeg) | Nieuws → Heemskring + Vereniging → Uitgaven |
 | Publicaties → Wetenswaardigheden | Ontdek Heemskerk → Gebouwen / Personen / Verhalen |
 | Publicaties → Kastelen | Ontdek Heemskerk → Kastelen |
-| Collecties → Beeldbanken (ZCBS) | Collecties → Zoeken (nieuwe zoekpagina) |
+| Collecties → Beeldbanken (ZCBS) | Collecties → Zoeken in de collecties (nieuwe zoekpagina); de AI-vraag heet Onderzoek |
 | Collecties → Exposities | Ontdek Heemskerk → Exposities |
-| Collecties → Geheugen van Heemskerk | Ontdek Heemskerk → Verhalen en herinneringen |
+| Collecties → Geheugen van Heemskerk | Geheugen van Heemskerk (eigen hoofdingang, alle 174 verhalen overgenomen) |
 | Webshop | Vereniging → Uitgaven en winkel (en homepage-spotlight) |
 | Links | Vereniging → Links (en voet) |
 | nav-* stubpagina's en de 16 niet-bereikbare pagina's (hoofdstuk 6 van de inventarisatie) | vervallen |

@@ -743,9 +743,9 @@ class SiteFooter extends StatelessWidget {
       ]),
       column('Ontdekken', const [
         ('Kastelen', '/ontdek/kastelen'),
-        ('Gebouwen en monumenten', '/ontdek/gebouwen'),
+        ('Geheugen van Heemskerk', '/geheugen'),
         ('Zoeken in de collecties', '/zoeken'),
-        ('Vraag het archief', '/vragen'),
+        ('Onderzoek', '/vragen'),
       ]),
       column('Vereniging', const [
         ('Over de HKH', '/vereniging/over-de-hkh'),

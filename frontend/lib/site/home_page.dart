@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../ai_search/ai_search.dart';
+import '../content/generated_memory.dart';
 import '../content/site_structure.dart';
 import '../theme/app_style.dart';
 import 'activity_widgets.dart';
@@ -13,7 +14,7 @@ import 'site_widgets.dart';
 class HomePage extends StatelessWidget {
   const HomePage({this.questionsEnabled = true, this.now, super.key});
 
-  /// Zonder AI-bron ontbreekt het blok 'Vraag het archief'.
+  /// Zonder AI-bron ontbreekt het blok 'Onderzoek'.
   final bool questionsEnabled;
 
   /// Peilmoment voor 'komende' activiteiten; standaard nu.
@@ -126,6 +127,14 @@ class HomePage extends StatelessWidget {
                 ),
                 boxed([
                   const SizedBox(height: 44),
+                  CallToActionBand(
+                    title: 'Geheugen van Heemskerk',
+                    text:
+                        '${generatedMemoryStories.length} herinneringen van Heemskerkers over school, werk, straat en buurt, verdwenen plekken en feesten, opgetekend door verhalenverzamelaars.',
+                    actionLabel: 'Lees de verhalen',
+                    onAction: () => navigateTo(context, '/geheugen'),
+                  ),
+                  const SizedBox(height: 24),
                   CallToActionBand(
                     title: 'Voor basisscholen',
                     text:
@@ -291,7 +300,7 @@ class _HeroButton extends StatelessWidget {
   );
 }
 
-/// De twee blokken 'Zoek in de collecties' en 'Vraag het archief'.
+/// De twee blokken 'Zoek in de collecties' en 'Onderzoek'.
 class _SearchAndAsk extends StatefulWidget {
   const _SearchAndAsk({required this.questionsEnabled});
   final bool questionsEnabled;
@@ -356,9 +365,9 @@ class _SearchAndAskState extends State<_SearchAndAsk> {
     );
     if (!widget.questionsEnabled) return search;
     final ask = _Box(
-      title: 'Vraag het archief',
+      title: 'Onderzoek',
       text:
-          'Stel een vraag in gewone taal. De digitale onderzoeker zoekt de bronnen erbij en schrijft een antwoord met bronvermelding.',
+          'Stel een onderzoeksvraag in gewone taal. Een digitale onderzoeker zoekt de bronnen in de collecties erbij en schrijft een antwoord met bronvermelding.',
       field: TextField(
         key: const Key('home-question-field'),
         controller: _question,

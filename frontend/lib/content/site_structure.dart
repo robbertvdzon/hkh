@@ -7,9 +7,10 @@ library;
 
 import 'content_models.dart';
 import 'generated_content.dart';
+import 'generated_memory.dart';
 
 const siteName = 'Historische Kring Heemskerk';
-const siteTagline = 'Het geheugen van Heemskerk';
+const siteTagline = 'Vereniging voor de geschiedenis van Heemskerk sinds 1988';
 
 /// Praktische gegevens; in fase 2 beheerbaar.
 const practicalInfo = (
@@ -30,15 +31,100 @@ const socialLinks = [
   PartnerLink('Facebook', 'https://www.facebook.com/groups/historischekringheemskerk'),
 ];
 
-/// Hoofdmenu: label, route en de routes die als 'actief' tellen.
+/// Hoofdmenu: label en route.
 const mainMenu = [
   (label: 'Agenda', path: '/agenda'),
   (label: 'Nieuws', path: '/nieuws'),
   (label: 'Ontdek Heemskerk', path: '/ontdek'),
+  (label: 'Geheugen van Heemskerk', path: '/geheugen'),
   (label: 'Collecties', path: '/collecties'),
   (label: 'Educatie', path: '/educatie'),
   (label: 'Vereniging', path: '/vereniging'),
 ];
+
+/// Submenubalk per hoofditem: alleen voor onderdelen met meerdere ingangen.
+/// De balk blijft staan zolang de bezoeker binnen dat onderdeel is.
+const subMenus = <String, List<({String label, String path})>>{
+  '/nieuws': [
+    (label: 'Berichten', path: '/nieuws'),
+    (label: 'Nieuwsbrieven', path: '/nieuws/nieuwsbrieven'),
+    (label: 'Heemskring', path: '/nieuws/heemskring'),
+  ],
+  '/ontdek': [
+    (label: 'Kastelen', path: '/ontdek/kastelen'),
+    (label: 'Gebouwen en monumenten', path: '/ontdek/gebouwen'),
+    (label: 'Personen', path: '/ontdek/personen'),
+    (label: 'Verhalen', path: '/ontdek/verhalen'),
+    (label: 'Exposities', path: '/ontdek/exposities'),
+  ],
+  '/geheugen': [
+    (label: 'Alle verhalen', path: '/geheugen'),
+    (label: 'Thema’s', path: '/geheugen/themas'),
+    (label: 'Buurten', path: '/geheugen/buurten'),
+    (label: 'Over het project', path: '/geheugen/over'),
+  ],
+  '/collecties': [
+    (label: 'Overzicht', path: '/collecties'),
+    (label: 'Zoeken in de collecties', path: '/zoeken'),
+    (label: 'Onderzoek', path: '/vragen'),
+  ],
+  '/vereniging': [
+    (label: 'Over de HKH', path: '/vereniging/over-de-hkh'),
+    (label: 'Bestuur', path: '/vereniging/bestuur'),
+    (label: 'Werkgroepen', path: '/vereniging/werkgroepen'),
+    (label: 'Historisch Huis', path: '/vereniging/historisch-huis'),
+    (label: 'Uitgaven', path: '/vereniging/uitgaven'),
+    (label: 'ANBI', path: '/vereniging/anbi'),
+    (label: 'Contact', path: '/vereniging/contact'),
+  ],
+};
+
+/// Hoofditem waar een route onder valt, of null.
+String? mainMenuPathFor(String location) {
+  for (final item in mainMenu) {
+    if (isMainMenuPathActive(item.path, location)) return item.path;
+  }
+  return null;
+}
+
+/// Of een hoofdingang als actief telt voor de huidige route.
+bool isMainMenuPathActive(String menuPath, String currentPath) {
+  if (menuPath == '/collecties') {
+    return currentPath.startsWith('/collecties') ||
+        currentPath.startsWith('/zoeken') ||
+        currentPath.startsWith('/objecten') ||
+        currentPath.startsWith('/vragen') ||
+        currentPath.startsWith('/gedeeld');
+  }
+  if (menuPath == '/ontdek') {
+    return currentPath.startsWith('/ontdek') ||
+        currentPath.startsWith('/luchtfoto');
+  }
+  return currentPath == menuPath || currentPath.startsWith('$menuPath/');
+}
+
+/// Subitems van de hoofdingang waar [location] onder valt; leeg als er geen
+/// submenubalk hoort.
+List<({String label, String path})> subMenuFor(String location) =>
+    subMenus[mainMenuPathFor(location) ?? ''] ?? const [];
+
+/// Actieve subitem-route voor [location]: het subitem met het langste pad
+/// dat een voorvoegsel van de route is.
+String? activeSubMenuPath(String location) {
+  final normalized = location.startsWith('/objecten') ||
+          location.startsWith('/gedeeld')
+      ? '/zoeken'
+      : location;
+  String? best;
+  for (final item in subMenuFor(location)) {
+    final matches =
+        normalized == item.path || normalized.startsWith('${item.path}/');
+    if (matches && (best == null || item.path.length > best.length)) {
+      best = item.path;
+    }
+  }
+  return best;
+}
 
 // ---------------------------------------------------------------------------
 // Ontdek Heemskerk
@@ -84,9 +170,9 @@ const storyCategories = [
   ),
   StoryCategory(
     slug: 'verhalen',
-    title: 'Verhalen en herinneringen',
+    title: 'Verhalen',
     description:
-        'Bijnamen, anekdotes en de herinneringen van Heemskerkers zelf.',
+        'Hoe het dorp ontstond en hoe Heemskerkers aan hun bijnaam kwamen. Persoonlijke herinneringen staan in het Geheugen van Heemskerk.',
     pageSlugs: ['heemskerker-ezels', 'over-heemskerk'],
   ),
   StoryCategory(
@@ -105,9 +191,61 @@ const storyCategories = [
 const castleMapUrl =
     'https://www.google.com/maps/d/viewer?mid=1wK6MtL019sdSv1KXr0noGkSMfwtJ2XRu';
 
-/// Het Geheugen van Heemskerk blijft in fase 1 op de oude site staan.
-const memoryOfHeemskerkUrl =
-    'https://www.historischekringheemskerk.nl/Geheugen/geheugen_index.html';
+// ---------------------------------------------------------------------------
+// Geheugen van Heemskerk
+// ---------------------------------------------------------------------------
+
+const memoryIntro =
+    'In 2005 initieerde Welschap Welzijn het Geheugen van Heemskerk als interactief project om gewone, alledaagse en bijzondere herinneringen en verhalen samen te laten komen. Meer dan twintig verhalenverzamelaars tekenden verhalen van Heemskerkers op. In 2010 stopte het project; sinds 2012 bewaart de Historische Kring Heemskerk de verhalen.';
+
+/// Thema's met het aantal verhalen, meest voorkomende eerst.
+List<({String name, int count})> memoryThemes() => _countBy((s) => s.theme);
+
+/// Buurten met het aantal verhalen, meest voorkomende eerst.
+List<({String name, int count})> memoryNeighbourhoods() =>
+    _countBy((s) => s.neighbourhood);
+
+/// Verhalenverzamelaars met het aantal verhalen, alfabetisch.
+List<({String name, int count})> memoryAuthors() {
+  final list = _countBy((s) => s.author);
+  list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  return list;
+}
+
+List<({String name, int count})> _countBy(String Function(MemoryStory) key) {
+  final counts = <String, int>{};
+  for (final story in generatedMemoryStories) {
+    final k = key(story).trim();
+    if (k.isEmpty || k == '.') continue;
+    counts[k] = (counts[k] ?? 0) + 1;
+  }
+  final list = [
+    for (final entry in counts.entries) (name: entry.key, count: entry.value),
+  ]..sort((a, b) => b.count.compareTo(a.count));
+  return list;
+}
+
+MemoryStory? memoryStoryBySlug(String slug) {
+  for (final story in generatedMemoryStories) {
+    if (story.slug == slug) return story;
+  }
+  return null;
+}
+
+/// Verhalen op alfabet, optioneel beperkt tot thema, buurt of auteur.
+List<MemoryStory> memoryStories({
+  String? theme,
+  String? neighbourhood,
+  String? author,
+}) {
+  final list = generatedMemoryStories
+      .where((s) => theme == null || s.theme == theme)
+      .where((s) => neighbourhood == null || s.neighbourhood == neighbourhood)
+      .where((s) => author == null || s.author == author)
+      .toList();
+  list.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  return list;
+}
 
 // ---------------------------------------------------------------------------
 // Vereniging
@@ -492,6 +630,7 @@ String? internalRouteFor(String href) {
       },
     ).toString();
   }
+  if (uri.path.startsWith('/Geheugen')) return '/geheugen';
   final slug = uri.path.replaceAll(RegExp(r'^/|/$'), '');
   if (slug.isEmpty) return '/';
   if (slug == 'evenementen') return '/agenda';

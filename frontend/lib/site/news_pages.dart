@@ -21,24 +21,6 @@ class NewsPage extends StatelessWidget {
         intro:
             'Berichten van de Historische Kring Heemskerk. Aankondigingen van activiteiten vindt u ook in de agenda.',
       ),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          OutlinedButton.icon(
-            key: const Key('news-newsletters'),
-            onPressed: () => navigateTo(context, '/nieuws/nieuwsbrieven'),
-            icon: const Icon(Icons.mail_outline, size: 18),
-            label: const Text('Nieuwsbrieven'),
-          ),
-          OutlinedButton.icon(
-            key: const Key('news-heemskring'),
-            onPressed: () => navigateTo(context, '/nieuws/heemskring'),
-            icon: const Icon(Icons.menu_book_outlined, size: 18),
-            label: const Text('Heemskring magazine'),
-          ),
-        ],
-      ),
       const SizedBox(height: 24),
       CardGrid(
         children: [

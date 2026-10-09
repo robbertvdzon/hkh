@@ -19,6 +19,7 @@ import 'site/discover_pages.dart';
 import 'site/education_pages.dart';
 import 'site/home_page.dart';
 import 'site/membership_page.dart';
+import 'site/memory_pages.dart';
 import 'site/news_pages.dart';
 import 'site/site_widgets.dart';
 
@@ -218,6 +219,51 @@ GoRouter createAppRouter({
           instantRoute(
             path: 'luchtfoto',
             builder: (_, __) => const AerialPhotoPage(),
+          ),
+          // ---- Geheugen van Heemskerk ----
+          instantRoute(
+            path: 'geheugen',
+            builder: (_, __) => const MemoryOverviewPage(),
+            routes: [
+              instantRoute(
+                path: 'themas',
+                builder: (_, __) => const MemoryGroupsPage(byNeighbourhood: false),
+              ),
+              instantRoute(
+                path: 'buurten',
+                builder: (_, __) => const MemoryGroupsPage(byNeighbourhood: true),
+              ),
+              instantRoute(
+                path: 'over',
+                builder: (_, __) => const MemoryAboutPage(),
+              ),
+              instantRoute(
+                path: 'thema/:name',
+                builder: (_, state) => MemoryOverviewPage(
+                  key: ValueKey('thema:${state.pathParameters['name']}'),
+                  theme: state.pathParameters['name'],
+                ),
+              ),
+              instantRoute(
+                path: 'buurt/:name',
+                builder: (_, state) => MemoryOverviewPage(
+                  key: ValueKey('buurt:${state.pathParameters['name']}'),
+                  neighbourhood: state.pathParameters['name'],
+                ),
+              ),
+              instantRoute(
+                path: 'verhaal/:slug',
+                builder: (_, state) {
+                  final story = memoryStoryBySlug(state.pathParameters['slug']!);
+                  return story == null
+                      ? notFound()
+                      : MemoryStoryPage(
+                          key: ValueKey(story.slug),
+                          story: story,
+                        );
+                },
+              ),
+            ],
           ),
           // ---- Collecties ----
           instantRoute(

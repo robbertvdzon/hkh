@@ -40,7 +40,7 @@ class AiSearchPage extends StatefulWidget {
   final AiResearchDepth initialDepth;
   final String? initialSessionId;
 
-  /// Titel in de AppBar; standaard 'Vraag het archief'.
+  /// Titel in de AppBar; standaard 'Onderzoek'.
   final String? title;
 
   /// Kop boven de lijst met zoekopdrachten.
@@ -521,9 +521,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
     return Scaffold(
       appBar: HkhAppBar(
         context: context,
-        title: Text(widget.title ?? 'Vraag het archief'),
+        title: Text(widget.title ?? 'Onderzoek'),
         onBack: session != null ? _showOverview : null,
-        backLabel: 'Terug naar Vraag het archief',
+        backLabel: 'Terug naar Onderzoek',
         actions: [
           if (session == null)
             IconButton(

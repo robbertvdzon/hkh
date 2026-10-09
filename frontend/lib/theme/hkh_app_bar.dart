@@ -21,7 +21,7 @@ class AppNavigationScope extends InheritedWidget {
   final String location;
   final WidgetBuilder accountBuilder;
 
-  /// Zonder AI-bron ontbreekt 'Vraag het archief' in het menu.
+  /// Zonder AI-bron ontbreekt 'Onderzoek' in het menu.
   final bool questionsEnabled;
 
   static AppNavigationScope? of(BuildContext context) =>
@@ -51,7 +51,10 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.accountAction,
     this.showPageTitle = true,
     super.key,
-  }) : _layout = HeaderLayout(context);
+  }) : _layout = HeaderLayout(
+         context,
+         subMenu: subMenuFor(AppNavigationScope.of(context)?.location ?? ''),
+       );
 
   final Widget title;
   final VoidCallback? onBack;
@@ -66,6 +69,7 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => Size.fromHeight(
     _layout.brandHeight +
         _layout.menuHeight +
+        _layout.subMenuHeight +
         (showPageTitle ? 56 : 0) +
         (bottom?.preferredSize.height ?? 0),
   );
@@ -166,6 +170,35 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
+              if (_layout.subMenu.isNotEmpty)
+                ColoredBox(
+                  color: appSubMenuBackground,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: _layout.subMenuHeight,
+                    child: _HeaderContent(
+                      padding: _layout.horizontal - _layout.menuPadding,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          key: const Key('submenu-bar'),
+                          children: [
+                            for (final item in _layout.subMenu)
+                              _SubNavigationButton(
+                                layout: _layout,
+                                label: item.label,
+                                keyName:
+                                    'submenu-${item.path.substring(1).replaceAll('/', '-')}',
+                                selected:
+                                    activeSubMenuPath(path) == item.path,
+                                onPressed: () => go(item.path),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (showPageTitle || bottom != null)
                 Theme(
                   data: Theme.of(context).copyWith(
@@ -270,19 +303,54 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 /// Of een menu-ingang als actief telt voor de huidige route.
-bool isMenuPathActive(String menuPath, String currentPath) {
-  if (menuPath == '/collecties') {
-    return currentPath.startsWith('/collecties') ||
-        currentPath.startsWith('/zoeken') ||
-        currentPath.startsWith('/objecten') ||
-        currentPath.startsWith('/vragen') ||
-        currentPath.startsWith('/gedeeld');
-  }
-  if (menuPath == '/ontdek') {
-    return currentPath.startsWith('/ontdek') ||
-        currentPath.startsWith('/luchtfoto');
-  }
-  return currentPath == menuPath || currentPath.startsWith('$menuPath/');
+bool isMenuPathActive(String menuPath, String currentPath) =>
+    isMainMenuPathActive(menuPath, currentPath);
+
+/// Knop in de submenubalk: lichter van toon, actieve knop vet met streep.
+class _SubNavigationButton extends StatelessWidget {
+  const _SubNavigationButton({
+    required this.layout,
+    required this.label,
+    required this.keyName,
+    required this.selected,
+    required this.onPressed,
+  });
+  final HeaderLayout layout;
+  final String label;
+  final String keyName;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: TextButton(
+      key: Key(keyName),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: appGreen,
+        minimumSize: Size(40, layout.subMenuRowHeight),
+        padding: EdgeInsets.symmetric(horizontal: layout.menuPadding),
+        shape: const RoundedRectangleBorder(),
+        textStyle: layout.subMenuStyle.copyWith(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        ),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Container(
+        height: layout.subMenuRowHeight,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? appGreen : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Center(widthFactor: 1, child: Text(label)),
+      ),
+    ),
+  );
 }
 
 class _NavigationButton extends StatelessWidget {
@@ -379,7 +447,7 @@ class _MenuButton extends StatelessWidget {
             if (questionsEnabled)
               ListTile(
                 leading: const Icon(Icons.auto_awesome_outlined),
-                title: const Text('Vraag het archief'),
+                title: const Text('Onderzoek'),
                 onTap: () {
                   Navigator.of(sheet).pop();
                   navigate('/vragen');
@@ -499,7 +567,10 @@ class _HeaderContent extends StatelessWidget {
 /// Meet de merknaam en menuregels ook bij vergrote tekst, zodat de vaste
 /// Scaffold-header precies genoeg ruimte reserveert zonder verborgen links.
 class HeaderLayout {
-  HeaderLayout(BuildContext context) {
+  HeaderLayout(
+    BuildContext context, {
+    this.subMenu = const [],
+  }) {
     final width = math.min(MediaQuery.sizeOf(context).width, 1160.0);
     narrow = width <= 900;
     final tiny = width <= 350;
@@ -526,6 +597,7 @@ class HeaderLayout {
       letterSpacing: 0,
       fontWeight: FontWeight.w400,
     );
+    subMenuStyle = TextStyle(fontSize: narrow ? 13.5 : 14.5, height: 1.4);
     final scaler = MediaQuery.textScalerOf(context);
     // Op een smal scherm met grote tekst, of op een kleine telefoon, blijft
     // alleen het logo over; 'Lid worden' zit dan in het menupaneel.
@@ -557,28 +629,42 @@ class HeaderLayout {
         ? 72
         : math.max(narrow ? 84 : 112, name.height + 6 + tagline.height + 36);
     menuRowHeight = math.max(50, scaler.scale(menuStyle.fontSize!) * 1.4 + 24);
-    if (narrow) {
-      menuHeight = menuRowHeight;
-      return;
-    }
+    subMenuRowHeight = math.max(
+      42,
+      scaler.scale(subMenuStyle.fontSize!) * 1.4 + 18,
+    );
     final menuWidth = width - 2 * (horizontal - menuPadding);
-    var rows = 1;
-    var used = 0.0;
-    for (final item in mainMenu) {
-      final itemWidth =
-          measure(item.label, menuStyle, double.infinity).width +
-          2 * menuPadding;
-      if (used > 0 && used + itemWidth > menuWidth) {
-        rows++;
-        used = 0;
+    int rowsFor(List<String> labels, TextStyle style) {
+      var rows = 1;
+      var used = 0.0;
+      for (final label in labels) {
+        final itemWidth =
+            measure(label, style, double.infinity).width + 2 * menuPadding;
+        if (used > 0 && used + itemWidth > menuWidth) {
+          rows++;
+          used = 0;
+        }
+        used += itemWidth;
       }
-      used += itemWidth;
+      return rows;
     }
-    menuHeight = rows * menuRowHeight;
+
+    menuHeight = narrow
+        ? menuRowHeight
+        : rowsFor([for (final i in mainMenu) i.label], menuStyle) *
+              menuRowHeight;
+    subMenuHeight = subMenu.isEmpty
+        ? 0
+        : rowsFor([for (final i in subMenu) i.label], subMenuStyle) *
+              subMenuRowHeight;
   }
+
+  /// Subitems van het onderdeel waarin de bezoeker zich bevindt.
+  final List<({String label, String path})> subMenu;
 
   late final bool narrow, compactBrand, showSearchField;
   late final double horizontal, logoWidth, brandGap, menuPadding;
   late final double brandHeight, menuRowHeight, menuHeight;
-  late final TextStyle nameStyle, taglineStyle, menuStyle;
+  late final double subMenuRowHeight, subMenuHeight;
+  late final TextStyle nameStyle, taglineStyle, menuStyle, subMenuStyle;
 }

@@ -214,7 +214,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(source.loads, 2);
-      await tester.tap(find.byTooltip('Terug naar Vraag het archief'));
+      await tester.tap(find.byTooltip('Terug naar Onderzoek'));
       await tester.pumpAndSettle();
       source.pendingPoll.complete(source.session!);
       await tester.pumpAndSettle();
@@ -546,7 +546,7 @@ void main() {
         await tester.tap(
           embedded
               ? find.text('Mijn zoekopdrachten')
-              : find.byTooltip('Terug naar Vraag het archief'),
+              : find.byTooltip('Terug naar Onderzoek'),
         );
         await tester.pumpAndSettle();
         await tester.enterText(

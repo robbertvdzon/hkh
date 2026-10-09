@@ -308,7 +308,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                 padding: EdgeInsets.all(isNarrowLayout(context) ? 16 : 28),
                 children: [
                   Text(
-                    'HET GEHEUGEN VAN HEEMSKERK',
+                    'COLLECTIES VAN DE HKH',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: appMutedText,
                       letterSpacing: 1.4,

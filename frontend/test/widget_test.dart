@@ -390,7 +390,7 @@ void main() {
       expect(find.byKey(const Key('menu-agenda')), findsNothing);
       await tester.tap(find.byKey(const Key('menu-toggle')));
       await tester.pumpAndSettle();
-      expect(find.text('Vraag het archief'), findsOneWidget);
+      expect(find.text('Onderzoek'), findsOneWidget);
       await tester.tap(find.byKey(const Key('menu-educatie')));
       await tester.pumpAndSettle();
       expect(_path(router), '/educatie');
@@ -441,6 +441,10 @@ void main() {
         tester,
         size: const Size(1200, 1300),
         route: '/agenda',
+      );
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('activity-lezing-over-cornelis-corneliszoon')),
       );
       await tester.tap(
         find.byKey(const Key('activity-lezing-over-cornelis-corneliszoon')),
@@ -547,8 +551,9 @@ void main() {
       expect(find.textContaining('De Vingerbijters'), findsOneWidget);
       await tester.tap(find.byKey(const Key('menu-nieuws')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('news-newsletters')));
+      await tester.tap(find.byKey(const Key('submenu-nieuws-nieuwsbrieven')));
       await tester.pumpAndSettle();
+      expect(_path(router), '/nieuws/nieuwsbrieven');
       expect(find.byKey(const Key('newsletter-97')), findsOneWidget);
     });
 
@@ -683,6 +688,8 @@ void main() {
         '/ontdek/maerten-van-heemskerck',
         '/collecties',
         '/educatie',
+        '/geheugen',
+        '/geheugen/themas',
         '/vereniging',
         '/lid-worden',
         '/vragen',
@@ -733,6 +740,130 @@ void main() {
       );
       expect(internalRouteFor('https://www.oerij.eu/'), isNull);
       expect(internalRouteFor('mailto:opgeven@historischekringheemskerk.nl'), isNull);
+    });
+  });
+
+  group('submenu', () {
+    testWidgets('a submenu bar appears inside sections that have one', (
+      tester,
+    ) async {
+      final router = await _pumpApp(tester, size: const Size(1200, 1100));
+      expect(find.byKey(const Key('submenu-bar')), findsNothing);
+      router.go('/agenda');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('submenu-bar')), findsNothing);
+      router.go('/vereniging');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('submenu-vereniging-bestuur')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/vereniging/bestuur');
+      // De balk blijft staan binnen het onderdeel; het actieve item is gemarkeerd.
+      expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
+      final active = tester.widget<Semantics>(
+        find.ancestor(
+          of: find.byKey(const Key('submenu-vereniging-bestuur')),
+          matching: find.byType(Semantics),
+        ).first,
+      );
+      expect(active.properties.selected, isTrue);
+      await tester.tap(find.byKey(const Key('submenu-vereniging-contact')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/vereniging/contact');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('collections submenu reaches search and research', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
+        route: '/collecties',
+      );
+      await tester.tap(find.byKey(const Key('submenu-zoeken')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('submenu-vragen')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/vragen');
+      expect(find.text('Onderzoek'), findsWidgets);
+    });
+
+    test('active submenu item is the longest matching path', () {
+      expect(activeSubMenuPath('/nieuws'), '/nieuws');
+      expect(activeSubMenuPath('/nieuws/heemskring'), '/nieuws/heemskring');
+      expect(activeSubMenuPath('/nieuws/een-bericht'), '/nieuws');
+      expect(activeSubMenuPath('/objecten/beeldbank/1'), '/zoeken');
+      expect(activeSubMenuPath('/geheugen/verhaal/x'), '/geheugen');
+      expect(activeSubMenuPath('/agenda'), isNull);
+      expect(subMenuFor('/educatie'), isEmpty);
+    });
+  });
+
+  group('geheugen', () {
+    testWidgets('overview lists stories and filters by theme', (tester) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/geheugen',
+      );
+      expect(find.byKey(const Key('submenu-geheugen')), findsOneWidget);
+      expect(find.text('Aardbeientijd'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('memory-theme-school')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/geheugen/thema/school');
+      expect(find.text('Aardbeientijd'), findsNothing);
+      expect(find.textContaining('bij het thema'), findsOneWidget);
+    });
+
+    testWidgets('a story shows narrator, text and related stories', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/geheugen',
+      );
+      await tester.enterText(find.byKey(const Key('memory-search')), 'aardbei');
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('memory-aardbeientijd-1390')));
+      await tester.tap(find.byKey(const Key('memory-aardbeientijd-1390')));
+      await tester.pumpAndSettle();
+      expect(_path(router), startsWith('/geheugen/verhaal/aardbeientijd'));
+      expect(find.text('Aan het woord: Tineke de Ruyter'), findsOneWidget);
+      expect(find.textContaining('aardbeienpluk'), findsOneWidget);
+      expect(find.text('Bijpassende verhalen'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('themes, neighbourhoods and about pages render', (tester) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/geheugen/themas',
+      );
+      expect(find.byKey(const Key('memory-group-straat-buurt')), findsOneWidget);
+      router.go('/geheugen/buurten');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('memory-group-hart-van-heemskerk')), findsOneWidget);
+      router.go('/geheugen/over');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Welschap Welzijn'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('narrow geheugen pages have no overflow', (tester) async {
+      await _pumpApp(
+        tester,
+        size: const Size(360, 800),
+        route: '/geheugen',
+        textScaleFactor: 1.3,
+      );
+      expect(tester.takeException(), isNull);
+      await _scrollTo(tester, find.text('Aardbeientijd'));
+      expect(tester.takeException(), isNull);
     });
   });
 

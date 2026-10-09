@@ -43,7 +43,9 @@ mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 ## Publieke site (fase 1: vaste inhoud)
 
 De frontend is de nieuwe publieke website van de HKH, ingedeeld naar wat een bezoeker komt doen:
-Agenda, Nieuws, Ontdek Heemskerk, Collecties, Educatie en Vereniging, plus de knop Lid worden.
+Agenda, Nieuws, Ontdek Heemskerk, Geheugen van Heemskerk, Collecties, Educatie en Vereniging, plus
+de knop Lid worden. Onderdelen met meerdere ingangen tonen een submenubalk onder het hoofdmenu
+(`subMenus` in `site_structure.dart`).
 Het onderzoek naar de oude site en het structuurvoorstel staan in
 [docs/website-vernieuwing](docs/website-vernieuwing/README.md).
 
@@ -51,7 +53,8 @@ In deze fase staat alle inhoud als vaste gegevens in de app, overgenomen van de 
 
 - `frontend/lib/content/content_models.dart`: de modellen (pagina, activiteit, bericht,
   nieuwsbrief, uitgave, bestuurslid, lesaanbod);
-- `frontend/lib/content/generated_content.dart`: gegenereerd uit de oude site met de scripts in
+- `frontend/lib/content/generated_content.dart` en `generated_memory.dart` (de 174 verhalen van
+  het Geheugen van Heemskerk): gegenereerd uit de oude site met de scripts in
   `docs/website-vernieuwing/scripts/` (niet met de hand bewerken);
 - `frontend/lib/content/site_structure.dart`: de indeling (menu, rubrieken, onderdelen van
   Vereniging), het lesaanbod, de nieuwsbrieven, partnerlinks en praktische gegevens.
@@ -59,9 +62,9 @@ In deze fase staat alle inhoud als vaste gegevens in de app, overgenomen van de 
 Foto's worden in deze fase nog van de oude site geladen. De formulieren voor inschrijven (met
 wachtlijst), lesaanbod aanvragen, contact en lid worden tonen een voorbeeldbevestiging en bewaren
 nog niets; dat komt in fase 2 samen met de database en het beheer. De routes zijn `/#/agenda`,
-`/#/agenda/{slug}`, `/#/nieuws`, `/#/ontdek`, `/#/ontdek/{slug}`, `/#/collecties`, `/#/educatie`,
-`/#/vereniging/{onderdeel}` en `/#/lid-worden`; `/#/zoeken`, `/#/vragen` en `/#/luchtfoto`
-blijven bestaan.
+`/#/agenda/{slug}`, `/#/nieuws`, `/#/ontdek`, `/#/ontdek/{slug}`, `/#/geheugen`,
+`/#/geheugen/verhaal/{slug}`, `/#/collecties`, `/#/educatie`, `/#/vereniging/{onderdeel}` en
+`/#/lid-worden`; `/#/zoeken`, `/#/vragen` (Onderzoek) en `/#/luchtfoto` blijven bestaan.
 
 ## Zoeken en objectlinks
 
