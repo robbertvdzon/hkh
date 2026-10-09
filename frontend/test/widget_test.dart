@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hkh_app/theme/app_style.dart';
 import 'package:hkh_app/ai_search/ai_search.dart';
 import 'package:hkh_app/auth/user_session.dart';
 import 'package:hkh_app/collection/collection_search.dart';
+import 'package:hkh_app/content/site_structure.dart';
 import 'package:hkh_app/main.dart';
+import 'package:hkh_app/theme/app_style.dart';
 
-import 'dossier_test_support.dart';
+/// Vast peilmoment: vrijdag 9 oktober 2026, zodat de agenda voorspelbaar is.
+final _now = DateTime(2026, 10, 9, 12);
 
 class _SignedInSession extends UserSessionController {
   UserIdentity? _identity = const UserIdentity(
@@ -47,15 +49,7 @@ class _SignedInSession extends UserSessionController {
 }
 
 class _SearchSource implements CollectionSearchSource {
-  _SearchSource({this.results = const [], this.total});
-
-  final List<CollectionItemSummary> results;
-  final int? total;
-  bool throwOnSearch = false;
   String? lastQuery;
-  Map<String, String> lastFieldQueries = const {};
-  int? lastYear;
-  int? lastSize;
   int searchCalls = 0;
 
   @override
@@ -74,16 +68,7 @@ class _SearchSource implements CollectionSearchSource {
   }) async {
     searchCalls++;
     lastQuery = query;
-    lastFieldQueries = fieldQueries;
-    lastYear = year;
-    lastSize = size;
-    if (throwOnSearch) throw StateError('backend niet bereikbaar');
-    return SearchPage(
-      items: results,
-      total: total ?? results.length,
-      page: page,
-      pageSize: size,
-    );
+    return SearchPage(items: const [], total: 0, page: page, pageSize: size);
   }
 
   @override
@@ -186,29 +171,6 @@ class _AiSource implements AiSearchSource {
   Future<void> deleteAiSearch(String sessionId) async {}
 }
 
-const _result = CollectionItemSummary(
-  collection: 'beeldbank',
-  ident: '10001',
-  title: 'Foto Kerklaan, hoek Rijksstraatweg (1932)',
-  description: 'Zwart-witfoto van de kruising.',
-  year: 1932,
-  imageUrl: null,
-  hasPdf: false,
-);
-
-void _setViewport(
-  WidgetTester tester,
-  Size size, {
-  double textScaleFactor = 1,
-}) {
-  tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = size;
-  tester.platformDispatcher.textScaleFactorTestValue = textScaleFactor;
-  addTearDown(tester.view.resetDevicePixelRatio);
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-}
-
 class _AccountAiSource extends _AiSource implements AiSearchAccountSource {
   _AccountAiSource(this.session);
   final UserSessionController session;
@@ -234,14 +196,27 @@ class _AccountAiSource extends _AiSource implements AiSearchAccountSource {
   }
 }
 
-Future<void> _pumpHome(
+void _setViewport(
+  WidgetTester tester,
+  Size size, {
+  double textScaleFactor = 1,
+}) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  tester.platformDispatcher.textScaleFactorTestValue = textScaleFactor;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+}
+
+Future<GoRouter> _pumpApp(
   WidgetTester tester, {
   required Size size,
   _SearchSource? searchSource,
   _AiSource? aiSource,
   UserSessionController? session,
-  FakeDossierSource? dossierSource,
   double textScaleFactor = 1,
+  String? route,
 }) async {
   _setViewport(tester, size, textScaleFactor: textScaleFactor);
   await tester.pumpWidget(
@@ -249,581 +224,598 @@ Future<void> _pumpHome(
       searchSource: searchSource ?? _SearchSource(),
       aiSearchSource: aiSource ?? _AiSource(),
       session: session,
-      dossierSource: dossierSource,
+      now: _now,
     ),
+  );
+  await tester.pumpAndSettle();
+  final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+  if (route != null) {
+    router.go(route);
+    await tester.pumpAndSettle();
+  }
+  return router;
+}
+
+String _path(GoRouter router) => router.routeInformationProvider.value.uri.path;
+
+Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    300,
+    scrollable: find.byType(Scrollable).first,
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('public aerial menu opens the viewer and keeps home reachable', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(1100, 900));
-    await tester.tap(find.byKey(const Key('aerial-action')));
-    await tester.pump();
-    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-    expect(router.routeInformationProvider.value.uri.path, '/luchtfoto');
-    expect(find.text('Luchtfoto'), findsAtLeastNWidgets(1));
-    await tester.tap(find.byKey(const Key('hkh-home')));
-    await tester.pumpAndSettle();
-    expect(router.routeInformationProvider.value.uri.path, '/');
-    expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets(
-    'login links browser history from home and reloads history on account changes',
-    (tester) async {
-      final session = _SignedInSession();
-      await session.signOut();
-      final source = _AccountAiSource(session);
-      await _pumpHome(
-        tester,
-        size: const Size(1000, 1100),
-        aiSource: source,
-        session: session,
-      );
-      expect(source.syncedAccounts, isEmpty);
-      session.loginAs('jan@example.com');
-      await tester.pumpAndSettle();
-      expect(source.syncedAccounts, ['jan@example.com']);
-      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-      router.go('/vragen');
-      await tester.pumpAndSettle();
-      expect(source.loadedAccounts.last, 'jan@example.com');
-      expect(
-        find.textContaining('Je vragen worden bewaard in je account.'),
-        findsOneWidget,
-      );
-      session.loginAs('ander@example.com');
-      await tester.pumpAndSettle();
-      expect(source.loadedAccounts.last, 'ander@example.com');
-      expect(source.syncedAccounts, ['jan@example.com', 'ander@example.com']);
-      await session.signOut();
-      await tester.pumpAndSettle();
-      expect(source.loadedAccounts.last, isNull);
-      expect(
-        find.textContaining('Je vragen worden voor deze browser bewaard.'),
-        findsOneWidget,
-      );
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
-
-  testWidgets('logout removes an already open private answer', (tester) async {
-    final session = _SignedInSession();
-    final source = _AccountAiSource(session);
-    await source.startAiSearch('Privévraag van Jan');
-    await _pumpHome(
+  group('homepage', () {
+    testWidgets('shows the six entrances, upcoming activities and news', (
       tester,
-      size: const Size(1000, 1100),
-      aiSource: source,
-      session: session,
-    );
-    expect(source.syncedAccounts, ['jan@example.com']);
-    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-    router.go('/vragen?id=session-1');
-    await tester.pumpAndSettle();
-    expect(find.text('Privévraag van Jan'), findsOneWidget);
-    await session.signOut();
-    await tester.pumpAndSettle();
-    expect(find.text('Privévraag van Jan'), findsNothing);
-    expect(find.textContaining('Gevonden antwoord.'), findsNothing);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('wide homepage has the new hierarchy, styling and spacing', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(1000, 1300));
-
-    expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
-    expect(
-      find.text(
-        'Stel een vraag over plekken, personen of gebeurtenissen uit de geschiedenis van Heemskerk.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byIcon(Icons.account_balance), findsNothing);
-    expect(find.text('Wat wilt u weten?'), findsOneWidget);
-    expect(
-      find.text(
-        'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De digitale onderzoeker zoekt de bronnen erbij; dit kan enkele minuten duren.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Zelf zoeken in de collectie'), findsOneWidget);
-
-    final aiRect = tester.getRect(find.byKey(const Key('ai-question-card')));
-    final collectionRect = tester.getRect(
-      find.byKey(const Key('collection-search-section')),
-    );
-    final introRect = tester.getRect(
-      find.text(
-        'Stel een vraag over plekken, personen of gebeurtenissen uit de geschiedenis van Heemskerk.',
-      ),
-    );
-    expect(aiRect.top - introRect.bottom, greaterThanOrEqualTo(32));
-    expect(collectionRect.top - aiRect.bottom, greaterThanOrEqualTo(32));
-
-    final aiCard = tester.widget<Card>(
-      find.byKey(const Key('ai-question-card')),
-    );
-    expect(aiCard.color, const Color(0xFFDCE9DA));
-    final aiShape = aiCard.shape! as RoundedRectangleBorder;
-    expect(aiShape.borderRadius, BorderRadius.circular(16));
-    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
-    expect(scaffold.backgroundColor, const Color(0xFFFBF6EE));
-
-    final aiField = tester.getRect(find.byKey(const Key('ai-question-field')));
-    final aiButton = tester.getRect(
-      find.byKey(const Key('ai-question-button')),
-    );
-    expect(find.byKey(const Key('collection-search-field')), findsNothing);
-    final collectionButton = tester.getRect(
-      find.byKey(const Key('collection-search-button')),
-    );
-    expect(aiButton.top, greaterThan(aiField.bottom));
-    expect(collectionButton.width, greaterThan(300));
-    expect(find.byType(FilledButton), findsOneWidget);
-  });
-
-  testWidgets('600px homepage stacks both search controls at full width', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(600, 1100));
-    // De vraagkaart is met de dieptekeuze hoger; de collectiekaart staat onder de vouw.
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('collection-search-button')),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    final aiField = tester.getRect(find.byKey(const Key('ai-question-field')));
-    final aiButton = tester.getRect(
-      find.byKey(const Key('ai-question-button')),
-    );
-    expect(find.byKey(const Key('collection-search-field')), findsNothing);
-    final collectionButton = tester.getRect(
-      find.byKey(const Key('collection-search-button')),
-    );
-    expect(aiButton.top, greaterThan(aiField.bottom));
-    expect(aiButton.width, aiField.width);
-    expect(collectionButton.width, closeTo(aiField.width, 2));
-  });
-
-  testWidgets(
-    'homepage opens an empty search page without querying the backend',
-    (tester) async {
-      final source = _SearchSource();
-      await _pumpHome(
-        tester,
-        size: const Size(800, 1000),
-        searchSource: source,
-      );
-      expect(find.byKey(const Key('collection-search-field')), findsNothing);
-      expect(find.text('Gericht zoeken'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('collection-search-button')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('collection-search-button')));
-      await tester.pumpAndSettle();
-      expect(source.searchCalls, 0);
+    ) async {
+      final router = await _pumpApp(tester, size: const Size(1200, 1100));
+      for (final item in mainMenu) {
+        expect(find.byKey(Key('menu-${item.path.substring(1)}')), findsOneWidget);
+      }
+      expect(find.byKey(const Key('membership-action')), findsOneWidget);
       expect(
-        find.text('Voer een zoekterm in om de collectie te doorzoeken.'),
+        find.text('De geschiedenis van Heemskerk, verzameld en verteld sinds 1988'),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('collection-query')), findsOneWidget);
-    },
-  );
-
-  testWidgets('filled AI question starts the existing AI search route', (
-    tester,
-  ) async {
-    final aiSource = _AiSource();
-    await _pumpHome(tester, size: const Size(800, 1000), aiSource: aiSource);
-    await tester.enterText(
-      find.byKey(const Key('ai-question-field')),
-      'Wat gebeurde er aan de Kerklaan?',
-    );
-    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ai-question-button')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(aiSource.startedQuestions, ['Wat gebeurde er aan de Kerklaan?']);
-    expect(find.text('Vraag het archief'), findsNWidgets(2));
-    expect(find.text('Wat gebeurde er aan de Kerklaan?'), findsWidgets);
-  });
-
-  testWidgets('empty AI start and Eerdere vragen open the AI overview', (
-    tester,
-  ) async {
-    final aiSource = _AiSource();
-    await _pumpHome(tester, size: const Size(800, 1000), aiSource: aiSource);
-    await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ai-question-button')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(aiSource.startedQuestions, isEmpty);
-    expect(find.text('Vraag het archief'), findsNWidgets(2));
-    expect(aiSource.listCalls, 1);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    // De vraagkaart heeft sinds de dieptekeuze een extra rij; de link kan onder de vouw staan.
-    await tester.ensureVisible(find.text('Eerdere vragen'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Eerdere vragen'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Vraag het archief'), findsNWidgets(2));
-    expect(aiSource.listCalls, 2);
-  });
-
-  testWidgets(
-    'ordinary and advanced collection searches keep their callbacks',
-    (tester) async {
-      final source = _SearchSource();
-      await _pumpHome(
-        tester,
-        size: const Size(800, 1200),
-        searchSource: source,
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('collection-search-button')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('collection-search-button')));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('collection-query')),
-        'Kerklaan',
-      );
-      await tester.testTextInput.receiveAction(TextInputAction.search);
-      await tester.pumpAndSettle();
-      expect(source.lastQuery, 'Kerklaan');
-      expect(source.lastSize, 20);
-      await tester.enterText(find.byKey(const Key('collection-query')), '');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Gericht zoeken'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Titel'),
-        'Bouwtekening',
-      );
-      await tester.enterText(find.widgetWithText(TextField, 'Jaar'), '1928');
-      await tester.testTextInput.receiveAction(TextInputAction.search);
-      await tester.pumpAndSettle();
-      expect(source.lastFieldQueries, {'title': 'Bouwtekening'});
-      expect(source.lastYear, 1928);
-    },
-  );
-
-  testWidgets(
-    'collection results and navigation to all results stay available',
-    (tester) async {
-      final source = _SearchSource(results: const [_result], total: 27);
-      await _pumpHome(
-        tester,
-        size: const Size(800, 1200),
-        searchSource: source,
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('collection-search-button')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('collection-search-button')));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('collection-query')),
-        'Kerklaan',
-      );
-      await tester.testTextInput.receiveAction(TextInputAction.search);
-      await tester.pumpAndSettle();
-      expect(find.text(_result.title), findsOneWidget);
-      expect(find.text('27 resultaten'), findsOneWidget);
-      expect(find.text('Doorzoek de collectie'), findsNothing);
-      expect(source.lastQuery, 'Kerklaan');
-      expect(source.lastSize, 20);
-    },
-  );
-
-  testWidgets('empty collection results show the empty state', (tester) async {
-    await _pumpHome(tester, size: const Size(800, 1000));
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('collection-search-button')),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('collection-search-button')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('collection-query')),
-      'xyzyxzyx',
-    );
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-    expect(find.text('Geen resultaten gevonden.'), findsOneWidget);
-  });
-
-  testWidgets('failed collection search reports an error and keeps its query', (
-    tester,
-  ) async {
-    final source = _SearchSource(results: const [_result], total: 27);
-    await _pumpHome(tester, size: const Size(800, 1000), searchSource: source);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('collection-search-button')),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('collection-search-button')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('collection-query')),
-      'Kerklaan',
-    );
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-    expect(find.text('27 resultaten'), findsOneWidget);
-
-    source.throwOnSearch = true;
-    await tester.enterText(find.byType(TextField).first, 'Slot Assumburg');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Zoeken is mislukt. Probeer het opnieuw.'),
-      findsOneWidget,
-    );
-    expect(find.text('27 resultaten'), findsNothing);
-    expect(find.text('Collecties'), findsOneWidget);
-    final field = tester.widget<TextField>(find.byType(TextField).first);
-    expect(field.controller!.text, 'Slot Assumburg');
-  });
-
-  testWidgets('320px at 200% text scaling has no horizontal overflow', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(320, 700), textScaleFactor: 2);
-    expect(tester.takeException(), isNull);
-    for (final key in ['ai-question-button', 'collection-search-button']) {
-      await tester.scrollUntilVisible(
-        find.byKey(Key(key)),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
+      expect(find.text('Binnenkort'), findsOneWidget);
+      // De drie eerstvolgende activiteiten op 9 oktober 2026.
+      expect(find.text('De museumschuur van Piet Diemeer'), findsOneWidget);
+      expect(find.text('De Zoektocht in het Noorderveld'), findsOneWidget);
+      expect(find.text('Lezing het Palmhoutwrak'), findsOneWidget);
+      expect(find.text('Vol · 3 op wachtlijst'), findsOneWidget);
+      expect(find.text('Lezing over Cornelis Corneliszoon'), findsNothing);
+      await _scrollTo(tester, find.text('Het verhaal van Neeltje Snijders'));
+      expect(find.text('Het verhaal van Neeltje Snijders'), findsOneWidget);
+      await _scrollTo(tester, find.text('Voor basisscholen'));
+      expect(find.text('Bekijk het lesaanbod'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(find.byKey(Key(key)).hitTestable(), findsOneWidget);
-    }
-  });
+      expect(_path(router), '/');
+    });
 
-  testWidgets('signed-in wide app bar has a separate dossiers action', (
-    tester,
-  ) async {
-    final session = _SignedInSession();
-    await _pumpHome(
+    testWidgets('hero buttons open the agenda, the search and membership', (
       tester,
-      size: const Size(900, 1000),
-      session: session,
-      dossierSource: FakeDossierSource(),
-    );
-    expect(find.text('Mijn dossiers'), findsOneWidget);
-    expect(find.byTooltip('Mijn account'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('dossiers-action')));
-    await tester.pumpAndSettle();
-    expect(find.text('De Kerklaan'), findsOneWidget);
-    expect(find.text('Nieuw dossier'), findsOneWidget);
+    ) async {
+      final router = await _pumpApp(tester, size: const Size(1200, 1100));
+      await tester.tap(find.byKey(const Key('home-agenda-button')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/agenda');
+      await tester.tap(find.byKey(const Key('hkh-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-search-button')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      await tester.tap(find.byKey(const Key('hkh-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('membership-action')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/lid-worden');
+      expect(find.text('Aanmelden als lid'), findsOneWidget);
+    });
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('account-menu')));
-    await tester.pumpAndSettle();
-    expect(find.text('Mijn dossiers'), findsOneWidget);
-    expect(find.text('Jan Jansen'), findsOneWidget);
-    expect(find.text('Uitloggen'), findsOneWidget);
-    await tester.tap(find.text('Uitloggen'));
-    await tester.pumpAndSettle();
-    expect(session.signOutCalls, 1);
+    testWidgets('home search field opens the search page with the query', (
+      tester,
+    ) async {
+      final source = _SearchSource();
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
+        searchSource: source,
+      );
+      await _scrollTo(tester, find.byKey(const Key('home-search-field')));
+      await tester.enterText(
+        find.byKey(const Key('home-search-field')),
+        'Kerklaan',
+      );
+      await tester.tap(find.byKey(const Key('home-search-submit')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['q'],
+        'Kerklaan',
+      );
+      expect(source.lastQuery, 'Kerklaan');
+    });
+
+    testWidgets('home question starts the AI search route', (tester) async {
+      final aiSource = _AiSource();
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
+        aiSource: aiSource,
+      );
+      await _scrollTo(tester, find.byKey(const Key('home-question-field')));
+      await tester.enterText(
+        find.byKey(const Key('home-question-field')),
+        'Wat gebeurde er aan de Kerklaan?',
+      );
+      await tester.tap(find.byKey(const Key('home-question-submit')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_path(router), '/vragen');
+      expect(aiSource.startedQuestions, ['Wat gebeurde er aan de Kerklaan?']);
+    });
+
+    testWidgets('without an AI source the question block and menu entry are gone', (
+      tester,
+    ) async {
+      _setViewport(tester, const Size(1200, 1100));
+      await tester.pumpWidget(
+        HkhApp(searchSource: _SearchSource(), now: _now),
+      );
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('home-search-field')));
+      expect(find.byKey(const Key('home-question-field')), findsNothing);
+      expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    });
+
+    testWidgets('320px at 200% text scaling has no horizontal overflow', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        size: const Size(320, 700),
+        textScaleFactor: 2,
+      );
+      expect(tester.takeException(), isNull);
+      for (final key in ['home-search-submit', 'home-question-submit']) {
+        await _scrollTo(tester, find.byKey(Key(key)));
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(Key(key)).hitTestable(), findsOneWidget);
+      }
+    });
   });
 
-  testWidgets(
-    'signed-in narrow header keeps the labelled dossiers link visible',
-    (tester) async {
-      await _pumpHome(
+  group('menu', () {
+    testWidgets('wide menu opens every section', (tester) async {
+      final router = await _pumpApp(tester, size: const Size(1200, 1100));
+      for (final item in mainMenu) {
+        await tester.tap(find.byKey(Key('menu-${item.path.substring(1)}')));
+        await tester.pumpAndSettle();
+        expect(_path(router), item.path, reason: item.label);
+        expect(tester.takeException(), isNull, reason: item.label);
+      }
+      await tester.tap(find.byKey(const Key('hkh-home')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/');
+    });
+
+    testWidgets('narrow header shows a menu button that opens a panel', (
+      tester,
+    ) async {
+      final router = await _pumpApp(tester, size: const Size(600, 1000));
+      expect(find.byKey(const Key('menu-agenda')), findsNothing);
+      await tester.tap(find.byKey(const Key('menu-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('Vraag het archief'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('menu-educatie')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/educatie');
+      expect(
+        find.text('Educatie: lesaanbod voor het basisonderwijs'),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('header search box opens the collection search', (tester) async {
+      final router = await _pumpApp(tester, size: const Size(1200, 1100));
+      await tester.tap(find.byKey(const Key('header-search-field')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(find.byKey(const Key('collection-query')), findsOneWidget);
+    });
+  });
+
+  group('agenda', () {
+    testWidgets('lists upcoming activities, filters and opens the past', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
         tester,
-        size: const Size(600, 1100),
-        session: _SignedInSession(),
-        dossierSource: FakeDossierSource(),
+        size: const Size(1200, 1300),
+        route: '/agenda',
       );
-      expect(find.text('Mijn dossiers').hitTestable(), findsOneWidget);
-      await tester.tap(find.byKey(const Key('dossiers-action')));
+      expect(find.text('oktober 2026'), findsOneWidget);
+      expect(find.text('november 2026'), findsOneWidget);
+      expect(find.text('Piet Paree – De Terugkeer van een Kanaalgraver'), findsOneWidget);
+      expect(find.text('Raad je straat'), findsNothing);
+      await tester.tap(find.byKey(const Key('agenda-filter-lezing')));
       await tester.pumpAndSettle();
-      expect(find.text('De Kerklaan'), findsOneWidget);
+      expect(find.text('Lezing het Palmhoutwrak'), findsOneWidget);
+      expect(find.text('De museumschuur van Piet Diemeer'), findsNothing);
+      await tester.tap(find.byKey(const Key('agenda-filter-lezing')));
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('agenda-past-button')));
+      await tester.tap(find.byKey(const Key('agenda-past-button')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/agenda/eerder');
+      expect(find.text('Raad je straat'), findsWidgets);
+      expect(find.text('Lezing het Palmhoutwrak'), findsNothing);
+    });
 
-      await tester.pageBack();
+    testWidgets('an activity row opens the activity page', (tester) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/agenda',
+      );
+      await tester.tap(
+        find.byKey(const Key('activity-lezing-over-cornelis-corneliszoon')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('account-menu')));
-      await tester.pumpAndSettle();
-      expect(find.text('Mijn dossiers'), findsOneWidget);
-      expect(find.text('Uitloggen'), findsOneWidget);
-    },
-  );
+      expect(_path(router), '/agenda/lezing-over-cornelis-corneliszoon');
+      expect(find.text('Nog 4 van de 25 plaatsen'), findsOneWidget);
+    });
 
-  testWidgets(
-    'multiline homepage question keeps newlines and submits only via the button',
-    (tester) async {
-      final source = _AiSource();
-      await _pumpHome(tester, size: const Size(900, 1100), aiSource: source);
-      final field = find.byKey(const Key('ai-question-field'));
-      final input = tester.widget<TextField>(field);
-      expect(input.minLines, greaterThanOrEqualTo(5));
-      expect(input.decoration!.hintText, contains('Welke relaties'));
+    testWidgets('registering shows a demo confirmation without a backend', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/agenda/lezing-over-cornelis-corneliszoon',
+      );
       await tester.enterText(
-        field,
-        'Onderzoek familie Jansen.\nWelke relaties zijn er met de Kerklaan?',
+        find.byKey(const Key('registration-name')),
+        'J. de Vries',
       );
-      await tester.testTextInput.receiveAction(TextInputAction.newline);
+      await tester.enterText(
+        find.byKey(const Key('registration-email')),
+        'j.devries@voorbeeld.nl',
+      );
+      await tester.tap(find.byKey(const Key('registration-privacy')));
       await tester.pumpAndSettle();
-      expect(source.startedQuestions, isEmpty);
+      await tester.tap(find.byKey(const Key('registration-submit')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ingeschreven'), findsOneWidget);
+      expect(find.textContaining('nog niets bewaard'), findsOneWidget);
+    });
+
+    testWidgets('a full activity offers the waiting list', (tester) async {
+      await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/agenda/de-zoektocht-in-het-noorderveld',
+      );
+      expect(find.text('Deze activiteit is vol'), findsOneWidget);
+      expect(
+        find.text('25 van de 25 plaatsen bezet · 3 op de wachtlijst'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(FilledButton, 'Op de wachtlijst'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('registration-name')), 'A');
+      await tester.enterText(
+        find.byKey(const Key('registration-email')),
+        'a@b.nl',
+      );
+      await tester.tap(find.byKey(const Key('registration-privacy')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('registration-submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('U staat op de wachtlijst'), findsOneWidget);
+    });
+
+    testWidgets('a partner activity links to the external registration', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/agenda/lezing-het-palmhoutwrak',
+      );
+      expect(find.byKey(const Key('registration-external')), findsOneWidget);
+      expect(find.byKey(const Key('registration-submit')), findsNothing);
+    });
+
+    testWidgets('a past activity shows no form', (tester) async {
+      await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/agenda/raad-je-straat',
+      );
+      expect(find.text('Deze activiteit is geweest'), findsOneWidget);
+      expect(find.byKey(const Key('registration-submit')), findsNothing);
+    });
+
+    testWidgets('narrow agenda has no overflow', (tester) async {
+      await _pumpApp(
+        tester,
+        size: const Size(360, 800),
+        route: '/agenda',
+        textScaleFactor: 1.3,
+      );
+      expect(tester.takeException(), isNull);
+      await _scrollTo(tester, find.byKey(const Key('agenda-past-button')));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('content pages', () {
+    testWidgets('news lists posts and opens an article', (tester) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/nieuws',
+      );
+      expect(find.text('Het verhaal van Neeltje Snijders'), findsOneWidget);
+      await tester.tap(find.text('Het verhaal van Neeltje Snijders'));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/nieuws/het-verhaal-van-neeltje-snijders');
+      expect(find.textContaining('De Vingerbijters'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('menu-nieuws')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('news-newsletters')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('newsletter-97')), findsOneWidget);
+    });
+
+    testWidgets('discover shows categories and a story with related links', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/ontdek',
+      );
+      expect(find.byKey(const Key('discover-kastelen')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('discover-kastelen')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/ontdek/kastelen');
+      await tester.tap(find.text('Kastelen - Assumburg'));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/ontdek/kastelen-assumburg');
+      expect(find.textContaining('Slot Assumburg dateert'), findsOneWidget);
+      await _scrollTo(tester, find.byKey(const Key('more-in-collections')));
+      await tester.tap(find.byKey(const Key('more-in-collections')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['q'],
+        'Assumburg',
+      );
+    });
+
+    testWidgets('education lists the programme and takes a request', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/educatie',
+      );
+      for (final item in educationItems) {
+        expect(find.byKey(Key('education-${item.slug}')), findsOneWidget);
+      }
+      await tester.tap(find.byKey(const Key('education-heemskerk-in-oorlogstijd')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/educatie/heemskerk-in-oorlogstijd');
+      await tester.enterText(find.byKey(const Key('education-school')), 'De Otterkolken');
+      await tester.enterText(find.byKey(const Key('education-contact')), 'M. Bakker');
+      await tester.enterText(find.byKey(const Key('education-email')), 'm@school.nl');
+      await _scrollTo(tester, find.byKey(const Key('education-submit')));
+      await tester.tap(find.byKey(const Key('education-submit')));
+      await tester.pumpAndSettle();
+      expect(find.text('Aanvraag verstuurd'), findsOneWidget);
+    });
+
+    testWidgets('association pages render board, documents and contact', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/vereniging',
+      );
+      await tester.tap(find.byKey(const Key('association-bestuur')));
+      await tester.pumpAndSettle();
+      expect(find.text('Guus de Jonge'), findsOneWidget);
+      expect(find.text('Voorzitter'), findsOneWidget);
+      router.go('/vereniging/anbi');
+      await tester.pumpAndSettle();
+      expect(find.text('Financiën'), findsOneWidget);
+      expect(find.text('Beleidsplan'), findsOneWidget);
+      router.go('/vereniging/contact');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('contact-submit')), findsOneWidget);
+      router.go('/vereniging/werkgroepen');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Werkgroep Educatie'), findsOneWidget);
+      expect(find.byKey(const Key('workgroups-join')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('collections page opens search and the AI question', (
+      tester,
+    ) async {
+      final aiSource = _AiSource();
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        aiSource: aiSource,
+        route: '/collecties',
+      );
+      await tester.tap(find.byKey(const Key('collection-chip-bidprentjes')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['collection'],
+        'bidprentjes',
+      );
+      router.go('/collecties');
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('ai-question-field')));
+      await tester.enterText(
+        find.byKey(const Key('ai-question-field')),
+        'Wie was Piet Diemeer?',
+      );
+      await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
       await tester.tap(find.byKey(const Key('ai-question-button')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(source.startedQuestions, [
-        'Onderzoek familie Jansen.\nWelke relaties zijn er met de Kerklaan?',
-      ]);
-    },
-  );
+      expect(aiSource.startedQuestions, ['Wie was Piet Diemeer?']);
+      expect(_path(router), '/vragen');
+    });
 
-  testWidgets(
-    'dossiers remain reachable from AI and collection pages with readable header actions',
-    (tester) async {
-      await _pumpHome(
+    testWidgets('unknown routes show the not-found page', (tester) async {
+      await _pumpApp(
         tester,
-        size: const Size(1100, 1100),
+        size: const Size(1200, 1000),
+        route: '/agenda/bestaat-niet',
+      );
+      expect(find.text('Pagina niet gevonden'), findsWidgets);
+    });
+
+    testWidgets('all page backgrounds use the site colour', (tester) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
         session: _SignedInSession(),
-        dossierSource: FakeDossierSource(),
       );
-      final button = tester.widget<TextButton>(
-        find.byKey(const Key('dossiers-action')),
-      );
-      expect(button.style!.foregroundColor!.resolve({}), appHeaderForeground);
-      await tester.tap(find.byKey(const Key('questions-action')));
-      await tester.pumpAndSettle();
-      expect(find.text('Vraag het archief'), findsNWidgets(2));
-      expect(find.byTooltip('Mijn account'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('dossiers-action')));
-      await tester.pumpAndSettle();
-      expect(find.text('De Kerklaan'), findsOneWidget);
-      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-      await tester.tap(find.byKey(const Key('search-action')));
-      await tester.pumpAndSettle();
-      expect(router.routeInformationProvider.value.uri.path, '/zoeken');
-      await tester.tap(find.byKey(const Key('dossiers-action')));
-      await tester.pumpAndSettle();
-      expect(find.text('De Kerklaan'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('hkh-home')));
-      await tester.pumpAndSettle();
-      expect(router.routeInformationProvider.value.uri.path, '/');
-      expect(find.text('Ontdek historisch Heemskerk'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'signed-out visitors can find dossiers and their sign-in explanation',
-    (tester) async {
-      await _pumpHome(
-        tester,
-        size: const Size(1100, 1100),
-        session: DisabledUserSession(),
-        dossierSource: FakeDossierSource(),
-      );
-      await tester.tap(find.byKey(const Key('dossiers-action')));
-      await tester.pumpAndSettle();
-      expect(find.text('Dossiers zijn persoonlijk'), findsOneWidget);
-    },
-  );
-
-  testWidgets('all page backgrounds use the homepage colour', (tester) async {
-    await _pumpHome(
-      tester,
-      size: const Size(1100, 1100),
-      session: _SignedInSession(),
-      dossierSource: FakeDossierSource(),
-    );
-    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-    for (final route in [
-      '/',
-      '/vragen',
-      '/zoeken',
-      '/dossiers',
-      '/dossiers/d1',
-      '/artikelen/a1',
-    ]) {
-      router.go(route);
-      await tester.pumpAndSettle();
-      final scaffoldFinder = find.byType(Scaffold).first;
-      final scaffold = tester.widget<Scaffold>(scaffoldFinder);
-      final theme = Theme.of(tester.element(scaffoldFinder));
-      expect(
-        scaffold.backgroundColor ?? theme.scaffoldBackgroundColor,
-        appBackground,
-        reason: route,
-      );
-    }
+      for (final route in [
+        '/',
+        '/agenda',
+        '/agenda/lezing-het-palmhoutwrak',
+        '/nieuws',
+        '/ontdek',
+        '/ontdek/maerten-van-heemskerck',
+        '/collecties',
+        '/educatie',
+        '/vereniging',
+        '/lid-worden',
+        '/vragen',
+        '/zoeken',
+      ]) {
+        router.go(route);
+        await tester.pumpAndSettle();
+        final scaffoldFinder = find.byType(Scaffold).first;
+        final scaffold = tester.widget<Scaffold>(scaffoldFinder);
+        final theme = Theme.of(tester.element(scaffoldFinder));
+        expect(
+          scaffold.backgroundColor ?? theme.scaffoldBackgroundColor,
+          appBackground,
+          reason: route,
+        );
+        expect(tester.takeException(), isNull, reason: route);
+      }
+    });
   });
 
-  testWidgets(
-    'back from a saved answer opens the question form above the history',
-    (tester) async {
-      final source = _AiSource();
-      await source.startAiSearch('Een eerder gestelde vraag');
-      await _pumpHome(tester, size: const Size(1000, 1100), aiSource: source);
-      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
-      router.go('/vragen?id=session-1');
-      await tester.pumpAndSettle();
-      expect(find.text('Een eerder gestelde vraag'), findsOneWidget);
-      await tester.tap(find.byTooltip('Terug naar Vraag het archief'));
-      await tester.pumpAndSettle();
-      expect(router.routeInformationProvider.value.uri.path, '/vragen');
+  group('old links', () {
+    test('old site links map to the new routes', () {
       expect(
-        router.routeInformationProvider.value.uri.queryParameters['id'],
+        internalRouteFor('https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl'),
+        '/zoeken?collection=beeldbank',
+      );
+      expect(
+        internalRouteFor(
+          'https://www.historischekringheemskerk.nl/cgi-bin/library.pl?ident=5280&search=toen%20&veld=all',
+        ),
+        '/zoeken?collection=bibliotheek&q=toen+',
+      );
+      expect(
+        internalRouteFor('https://www.historischekringheemskerk.nl/evenementen/'),
+        '/agenda',
+      );
+      expect(
+        internalRouteFor(
+          'https://www.historischekringheemskerk.nl/evenement/de-verjaardag-van-maerten/',
+        ),
+        '/agenda/de-verjaardag-van-maerten',
+      );
+      expect(internalRouteFor('/juridische-disclaimer/'), '/vereniging/anbi');
+      expect(internalRouteFor('/kastelen-assumburg/'), '/ontdek/kastelen-assumburg');
+      expect(
+        internalRouteFor('https://www.historischekringheemskerk.nl/wp-content/uploads/x.pdf'),
         isNull,
       );
-      expect(
-        find.byKey(const Key('ai-question-field')).hitTestable(),
-        findsOneWidget,
-      );
-      expect(
-        tester.getTopLeft(find.byKey(const Key('ai-question-card'))).dy,
-        lessThan(tester.getTopLeft(find.text('Mijn zoekopdrachten')).dy),
-      );
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('ai-question-field')))
-            .minLines,
-        5,
-      );
-      expect(source.startedQuestions, ['Een eerder gestelde vraag']);
-    },
-  );
+      expect(internalRouteFor('https://www.oerij.eu/'), isNull);
+      expect(internalRouteFor('mailto:opgeven@historischekringheemskerk.nl'), isNull);
+    });
+  });
 
-  testWidgets('no login action is shown when login is not configured', (
-    tester,
-  ) async {
-    await _pumpHome(tester, size: const Size(800, 1000));
-    expect(find.text('Inloggen'), findsNothing);
+  group('account', () {
+    testWidgets(
+      'login links browser history from home and reloads history on account changes',
+      (tester) async {
+        final session = _SignedInSession();
+        await session.signOut();
+        final source = _AccountAiSource(session);
+        final router = await _pumpApp(
+          tester,
+          size: const Size(1200, 1300),
+          aiSource: source,
+          session: session,
+        );
+        expect(source.syncedAccounts, isEmpty);
+        session.loginAs('jan@example.com');
+        await tester.pumpAndSettle();
+        expect(source.syncedAccounts, ['jan@example.com']);
+        router.go('/vragen');
+        await tester.pumpAndSettle();
+        expect(source.loadedAccounts.last, 'jan@example.com');
+        expect(
+          find.textContaining('Je vragen worden bewaard in je account.'),
+          findsOneWidget,
+        );
+        session.loginAs('ander@example.com');
+        await tester.pumpAndSettle();
+        expect(source.loadedAccounts.last, 'ander@example.com');
+        expect(source.syncedAccounts, ['jan@example.com', 'ander@example.com']);
+        await session.signOut();
+        await tester.pumpAndSettle();
+        expect(source.loadedAccounts.last, isNull);
+        expect(
+          find.textContaining('Je vragen worden voor deze browser bewaard.'),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets('logout removes an already open private answer', (tester) async {
+      final session = _SignedInSession();
+      final source = _AccountAiSource(session);
+      await source.startAiSearch('Privévraag van Jan');
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        aiSource: source,
+        session: session,
+      );
+      expect(source.syncedAccounts, ['jan@example.com']);
+      router.go('/vragen?id=session-1');
+      await tester.pumpAndSettle();
+      expect(find.text('Privévraag van Jan'), findsOneWidget);
+      await session.signOut();
+      await tester.pumpAndSettle();
+      expect(find.text('Privévraag van Jan'), findsNothing);
+      expect(find.textContaining('Gevonden antwoord.'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('signed-in header has an account menu with sign-out', (
+      tester,
+    ) async {
+      final session = _SignedInSession();
+      await _pumpApp(tester, size: const Size(1200, 1000), session: session);
+      expect(find.byTooltip('Mijn account'), findsOneWidget);
+      expect(find.text('Mijn dossiers'), findsNothing);
+      await tester.tap(find.byKey(const Key('account-menu')));
+      await tester.pumpAndSettle();
+      expect(find.text('Jan Jansen'), findsOneWidget);
+      await tester.tap(find.text('Uitloggen'));
+      await tester.pumpAndSettle();
+      expect(session.signOutCalls, 1);
+    });
+
+    testWidgets('no login action is shown when login is not configured', (
+      tester,
+    ) async {
+      await _pumpApp(tester, size: const Size(800, 1000));
+      expect(find.text('Inloggen'), findsNothing);
+    });
   });
 }

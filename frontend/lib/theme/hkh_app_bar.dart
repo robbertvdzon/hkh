@@ -2,29 +2,27 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../content/site_structure.dart';
 import 'app_style.dart';
 
 /// De hoofdnavigatie en accountbediening zijn op iedere pagina beschikbaar.
 class AppNavigationScope extends InheritedWidget {
   const AppNavigationScope({
-    required this.onOpenHome,
-    required this.onOpenSearch,
-    required this.onOpenAerial,
-    required this.onOpenQuestions,
-    required this.onOpenDossiers,
+    required this.navigate,
     required this.location,
     required this.accountBuilder,
     required super.child,
+    this.questionsEnabled = true,
     super.key,
   });
 
-  final VoidCallback onOpenHome;
-  final VoidCallback onOpenSearch;
-  final VoidCallback onOpenAerial;
-  final VoidCallback? onOpenQuestions;
-  final VoidCallback? onOpenDossiers;
+  /// Opent een route in de app, bijvoorbeeld `/agenda`.
+  final void Function(String location) navigate;
   final String location;
   final WidgetBuilder accountBuilder;
+
+  /// Zonder AI-bron ontbreekt 'Vraag het archief' in het menu.
+  final bool questionsEnabled;
 
   static AppNavigationScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppNavigationScope>();
@@ -32,15 +30,16 @@ class AppNavigationScope extends InheritedWidget {
   @override
   bool updateShouldNotify(AppNavigationScope oldWidget) =>
       location != oldWidget.location ||
-      onOpenHome != oldWidget.onOpenHome ||
-      onOpenSearch != oldWidget.onOpenSearch ||
-      onOpenAerial != oldWidget.onOpenAerial ||
-      onOpenQuestions != oldWidget.onOpenQuestions ||
-      onOpenDossiers != oldWidget.onOpenDossiers ||
+      navigate != oldWidget.navigate ||
+      questionsEnabled != oldWidget.questionsEnabled ||
       accountBuilder != oldWidget.accountBuilder;
 }
 
-/// Vaste merkheader met hoofdnavigatie; paginatitel en acties staan eronder.
+/// Vaste merkheader met hoofdmenu; paginatitel en acties staan eronder.
+///
+/// Breed: merkregel (logo, naam, zoekveld, Lid worden, account) en een
+/// menuregel met de zes hoofdingangen. Smal: merkregel met Lid worden en een
+/// menuknop die de ingangen in een paneel toont.
 class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
   HkhAppBar({
     required BuildContext context,
@@ -52,7 +51,7 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.accountAction,
     this.showPageTitle = true,
     super.key,
-  }) : _layout = _HeaderLayout(context);
+  }) : _layout = HeaderLayout(context);
 
   final Widget title;
   final VoidCallback? onBack;
@@ -61,7 +60,7 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
   final Widget? accountAction;
   final bool showPageTitle;
-  final _HeaderLayout _layout;
+  final HeaderLayout _layout;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -76,39 +75,13 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
     final navigation = AppNavigationScope.of(context);
     final path = navigation?.location ?? '';
     final account = accountAction ?? navigation?.accountBuilder(context);
-    Widget navigationButton(
-      String label,
-      String key,
-      VoidCallback? onPressed,
-      bool selected,
-    ) => Semantics(
-      selected: selected,
-      child: TextButton(
-        key: Key(key),
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: appHeaderForeground,
-          disabledForegroundColor: appHeaderForeground,
-          minimumSize: Size(48, _layout.menuRowHeight),
-          padding: EdgeInsets.symmetric(horizontal: _layout.menuPadding),
-          shape: const RoundedRectangleBorder(),
-          textStyle: _layout.menuStyle,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Container(
-          height: _layout.menuRowHeight,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: selected ? appHeaderAccent : Colors.transparent,
-                width: 3,
-              ),
-            ),
-          ),
-          child: Center(widthFactor: 1, child: Text(label)),
-        ),
-      ),
-    );
+    void go(String location) {
+      if (navigation != null) {
+        navigation.navigate(location);
+      } else {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
+    }
 
     return Theme(
       data: Theme.of(context).copyWith(appBarTheme: appHeaderTheme),
@@ -133,17 +106,26 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                               'Historische Kring Heemskerk, naar de homepage',
                           child: InkWell(
                             key: const Key('hkh-home'),
-                            onTap:
-                                navigation?.onOpenHome ??
-                                () => Navigator.of(
-                                  context,
-                                ).popUntil((r) => r.isFirst),
+                            onTap: () => go('/'),
                             child: ExcludeSemantics(child: _brand()),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      SizedBox(width: 44, child: account),
+                      if (_layout.showSearchField) ...[
+                        const SizedBox(width: 16),
+                        _HeaderSearchField(onSearch: go),
+                      ],
+                      if (!_layout.compactBrand) ...[
+                        const SizedBox(width: 12),
+                        _MembershipButton(
+                          compact: _layout.narrow,
+                          onPressed: () => go('/lid-worden'),
+                        ),
+                      ],
+                      if (account != null) ...[
+                        const SizedBox(width: 12),
+                        SizedBox(width: 44, child: account),
+                      ],
                     ],
                   ),
                 ),
@@ -157,36 +139,29 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                     padding: _layout.horizontal - _layout.menuPadding,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        children: [
-                          navigationButton(
-                            'Vraag het archief',
-                            'questions-action',
-                            navigation?.onOpenQuestions,
-                            path.startsWith('/vragen'),
-                          ),
-                          navigationButton(
-                            'Zoeken',
-                            'search-action',
-                            navigation?.onOpenSearch,
-                            path.startsWith('/zoeken') ||
-                                path.startsWith('/objecten'),
-                          ),
-                          navigationButton(
-                            'Luchtfoto',
-                            'aerial-action',
-                            navigation?.onOpenAerial,
-                            path.startsWith('/luchtfoto'),
-                          ),
-                          navigationButton(
-                            'Mijn dossiers',
-                            'dossiers-action',
-                            navigation?.onOpenDossiers,
-                            path.startsWith('/dossiers') ||
-                                path.startsWith('/artikelen'),
-                          ),
-                        ],
-                      ),
+                      child: _layout.narrow
+                          ? _MenuButton(
+                              layout: _layout,
+                              path: path,
+                              questionsEnabled:
+                                  navigation?.questionsEnabled ?? true,
+                              navigate: go,
+                            )
+                          : Wrap(
+                              children: [
+                                for (final item in mainMenu)
+                                  _NavigationButton(
+                                    layout: _layout,
+                                    label: item.label,
+                                    keyName: 'menu-${item.path.substring(1)}',
+                                    selected: isMenuPathActive(
+                                      item.path,
+                                      path,
+                                    ),
+                                    onPressed: () => go(item.path),
+                                  ),
+                              ],
+                            ),
                     ),
                   ),
                 ),
@@ -261,7 +236,6 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
       width: _layout.logoWidth,
       filterQuality: FilterQuality.high,
     );
-    final name = Text('Historische Kring Heemskerk', style: _layout.nameStyle);
     if (_layout.compactBrand) {
       return Align(alignment: Alignment.centerLeft, child: logo);
     }
@@ -274,15 +248,235 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              name,
-              const SizedBox(height: 9),
-              Text('HET GEHEUGEN VAN HEEMSKERK', style: _layout.taglineStyle),
+              Text(
+                siteName,
+                style: _layout.nameStyle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                siteTagline.toUpperCase(),
+                style: _layout.taglineStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
       ],
     );
   }
+}
+
+/// Of een menu-ingang als actief telt voor de huidige route.
+bool isMenuPathActive(String menuPath, String currentPath) {
+  if (menuPath == '/collecties') {
+    return currentPath.startsWith('/collecties') ||
+        currentPath.startsWith('/zoeken') ||
+        currentPath.startsWith('/objecten') ||
+        currentPath.startsWith('/vragen') ||
+        currentPath.startsWith('/gedeeld');
+  }
+  if (menuPath == '/ontdek') {
+    return currentPath.startsWith('/ontdek') ||
+        currentPath.startsWith('/luchtfoto');
+  }
+  return currentPath == menuPath || currentPath.startsWith('$menuPath/');
+}
+
+class _NavigationButton extends StatelessWidget {
+  const _NavigationButton({
+    required this.layout,
+    required this.label,
+    required this.keyName,
+    required this.selected,
+    required this.onPressed,
+  });
+  final HeaderLayout layout;
+  final String label;
+  final String keyName;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: TextButton(
+      key: Key(keyName),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: appHeaderForeground,
+        minimumSize: Size(48, layout.menuRowHeight),
+        padding: EdgeInsets.symmetric(horizontal: layout.menuPadding),
+        shape: const RoundedRectangleBorder(),
+        textStyle: layout.menuStyle,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Container(
+        height: layout.menuRowHeight,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? appHeaderAccent : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Center(widthFactor: 1, child: Text(label)),
+      ),
+    ),
+  );
+}
+
+/// Op smalle schermen: één knop die het hoofdmenu in een paneel opent.
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({
+    required this.layout,
+    required this.path,
+    required this.questionsEnabled,
+    required this.navigate,
+  });
+  final HeaderLayout layout;
+  final String path;
+  final bool questionsEnabled;
+  final void Function(String) navigate;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    key: const Key('menu-toggle'),
+    onPressed: () => showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: appBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            for (final item in mainMenu)
+              ListTile(
+                key: Key('menu-${item.path.substring(1)}'),
+                title: Text(item.label),
+                selected: isMenuPathActive(item.path, path),
+                selectedColor: appGreen,
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  navigate(item.path);
+                },
+              ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.search),
+              title: const Text('Zoeken in de collecties'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                navigate('/zoeken');
+              },
+            ),
+            if (questionsEnabled)
+              ListTile(
+                leading: const Icon(Icons.auto_awesome_outlined),
+                title: const Text('Vraag het archief'),
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  navigate('/vragen');
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.card_membership_outlined),
+              title: const Text('Lid worden'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                navigate('/lid-worden');
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+    style: TextButton.styleFrom(
+      foregroundColor: appHeaderForeground,
+      minimumSize: Size(48, layout.menuRowHeight),
+      padding: EdgeInsets.symmetric(horizontal: layout.menuPadding),
+      textStyle: layout.menuStyle,
+    ),
+    icon: const Icon(Icons.menu, size: 22),
+    label: const Text('Menu'),
+  );
+}
+
+class _MembershipButton extends StatelessWidget {
+  const _MembershipButton({required this.compact, required this.onPressed});
+  final bool compact;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton(
+    key: const Key('membership-action'),
+    onPressed: onPressed,
+    style: FilledButton.styleFrom(
+      backgroundColor: Colors.white,
+      foregroundColor: appHeaderBackground,
+      minimumSize: Size(0, compact ? 40 : 44),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 20),
+      textStyle: TextStyle(
+        fontSize: compact ? 13 : 15,
+        fontWeight: FontWeight.w600,
+      ),
+      shape: const StadiumBorder(),
+    ),
+    child: const Text('Lid worden'),
+  );
+}
+
+/// Compact zoekvak in de merkregel; opent de zoekpagina, waar het echte
+/// zoekveld staat. Bewust geen TextField: zo blijft de header licht en zonder
+/// eigen scrollgebied.
+class _HeaderSearchField extends StatelessWidget {
+  const _HeaderSearchField({required this.onSearch});
+  final void Function(String location) onSearch;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Zoek in de collecties',
+    child: InkWell(
+      key: const Key('header-search-field'),
+      onTap: () => onSearch('/zoeken'),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 300,
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: appHeaderForeground.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: appHeaderForeground, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Zoek in de collecties…',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: appHeaderForeground.withValues(alpha: 0.85),
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _HeaderContent extends StatelessWidget {
@@ -304,35 +498,38 @@ class _HeaderContent extends StatelessWidget {
 
 /// Meet de merknaam en menuregels ook bij vergrote tekst, zodat de vaste
 /// Scaffold-header precies genoeg ruimte reserveert zonder verborgen links.
-class _HeaderLayout {
-  _HeaderLayout(BuildContext context) {
+class HeaderLayout {
+  HeaderLayout(BuildContext context) {
     final width = math.min(MediaQuery.sizeOf(context).width, 1160.0);
-    final narrow = width <= 600;
+    narrow = width <= 900;
     final tiny = width <= 350;
+    showSearchField = width >= 1000;
     horizontal = narrow ? 18 : 28;
-    logoWidth = tiny ? 70 : (narrow ? 88 : 116);
-    brandGap = narrow ? 14 : 24;
+    logoWidth = tiny ? 64 : (narrow ? 80 : 108);
+    brandGap = narrow ? 12 : 20;
     menuPadding = narrow ? 10 : 14;
     nameStyle = TextStyle(
-      fontFamily: 'HkhSerif',
+      fontFamily: appSerifFont,
       color: appHeaderForeground,
-      fontSize: tiny ? 16 : (narrow ? 19 : 22),
+      fontSize: tiny ? 15 : (narrow ? 17 : 22),
       height: 1.25,
     );
     taglineStyle = TextStyle(
-      color: const Color(0xFFC4D0D2),
-      fontSize: 11,
+      color: const Color(0xFFC4D0C8),
+      fontSize: narrow ? 9 : 11,
       height: 1.5,
-      letterSpacing: narrow ? 0.3 : 1.6,
+      letterSpacing: narrow ? 1.0 : 1.8,
     );
     menuStyle = TextStyle(
-      fontSize: narrow ? 13 : 14,
+      fontSize: narrow ? 14 : 15,
       height: 1.4,
       letterSpacing: 0,
       fontWeight: FontWeight.w400,
     );
     final scaler = MediaQuery.textScalerOf(context);
-    compactBrand = narrow && scaler.scale(16) > 21;
+    // Op een smal scherm met grote tekst, of op een kleine telefoon, blijft
+    // alleen het logo over; 'Lid worden' zit dan in het menupaneel.
+    compactBrand = narrow && (scaler.scale(16) > 20 || width < 420);
     Size measure(String text, TextStyle style, double maxWidth) {
       final painter = TextPainter(
         text: TextSpan(text: text, style: style),
@@ -344,33 +541,33 @@ class _HeaderLayout {
       return size;
     }
 
+    // Ruimte rechts van de naam: zoekveld, Lid worden en account.
+    final rightWidth =
+        (showSearchField ? 316.0 : 0.0) + (narrow ? 100.0 : 140.0) + 56;
     final nameWidth = math.max(
       1.0,
-      width - 2 * horizontal - 60 - (compactBrand ? 0 : logoWidth + brandGap),
+      width -
+          2 * horizontal -
+          rightWidth -
+          (compactBrand ? 0 : logoWidth + brandGap),
     );
-    final name = measure('Historische Kring Heemskerk', nameStyle, nameWidth);
-    final tagline = measure(
-      'HET GEHEUGEN VAN HEEMSKERK',
-      taglineStyle,
-      nameWidth,
-    );
-    // Bij sterke tekstvergroting vervangt het originele logo de volledige
-    // verenigingsnaam. Zo blijft er ook op een kleine telefoon ruimte voor de inhoud.
+    final name = measure(siteName, nameStyle, nameWidth);
+    final tagline = measure(siteTagline.toUpperCase(), taglineStyle, nameWidth);
     brandHeight = compactBrand
         ? 72
-        : math.max(112, name.height + 9 + tagline.height + 40);
+        : math.max(narrow ? 84 : 112, name.height + 6 + tagline.height + 36);
     menuRowHeight = math.max(50, scaler.scale(menuStyle.fontSize!) * 1.4 + 24);
+    if (narrow) {
+      menuHeight = menuRowHeight;
+      return;
+    }
     final menuWidth = width - 2 * (horizontal - menuPadding);
     var rows = 1;
     var used = 0.0;
-    for (final label in [
-      'Vraag het archief',
-      'Zoeken',
-      'Luchtfoto',
-      'Mijn dossiers',
-    ]) {
+    for (final item in mainMenu) {
       final itemWidth =
-          measure(label, menuStyle, double.infinity).width + 2 * menuPadding;
+          measure(item.label, menuStyle, double.infinity).width +
+          2 * menuPadding;
       if (used > 0 && used + itemWidth > menuWidth) {
         rows++;
         used = 0;
@@ -380,7 +577,7 @@ class _HeaderLayout {
     menuHeight = rows * menuRowHeight;
   }
 
-  late final bool compactBrand;
+  late final bool narrow, compactBrand, showSearchField;
   late final double horizontal, logoWidth, brandGap, menuPadding;
   late final double brandHeight, menuRowHeight, menuHeight;
   late final TextStyle nameStyle, taglineStyle, menuStyle;

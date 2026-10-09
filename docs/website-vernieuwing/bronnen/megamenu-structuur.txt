@@ -1,0 +1,72 @@
+     - home -> https://www.historischekringheemskerk.nl
+
+### TOP: informatie
+  ==  Algemeen
+     - Over Heemskerk -> /over-heemskerk
+     - Over Historische Kring Heemskerk -> /over-historische-kring-heemskerk/
+  ==  Wie zijn wij ?
+     - bestuursleden -> /hkh-bestuursleden
+     - historisch huis -> /historisch-huis/
+     - Heemsstichting -> /heemsstichting/
+     - contactformulier -> #elementor-action%3Aaction%3Dpopup%3Aopen%26settings%3DeyJpZCI6Ijk0NyIsInRvZ2dsZSI6ZmFsc2V9
+     - lid worden -> /lid-worden-van-de-historische-kring-heemskerk/
+  ==  ANBI
+     - financiën -> /financien/
+     - beleidsplan -> /beleidsplan/
+     - juridische disclaimer -> /juridische-disclaimer/
+     - privacy + integriteitsregeling -> /privacy-integriteitsregeling
+
+### TOP: activiteiten + nieuws
+  ==  Op onze locatie
+     - Openstelling Historisch Huis -> /openstelling-historisch-huis
+     - Werkgroepen -> /werkgroepen/
+  ==  Berichten
+     - Alle berichten van de HKH -> /alle-berichten-van-historische-kring-heemskerk/
+  ==  Nieuwsbrieven
+     - Overzicht nieuwsbrieven -> /hkh-nieuwsbrieven/
+  ==  Agenda
+     - Bekijk de HKH kalender -> /evenementen/
+  ==  Lezing het Palmhoutwrak
+     - Lees verder » -> https://www.historischekringheemskerk.nl/evenement/lezing-het-palmhoutwrak/
+
+### TOP: publicaties
+  ==  Heemskring
+  ==  Wetenswaardigheden
+     - Dorpskerk en kerkhof -> /dorpskerk-en-kerkhof/
+     - Heemskerker ezels -> /heemskerker-ezels/
+     - Fort Veldhuis -> /fort-veldhuis/
+     - Huldtoneel -> /huldtoneel/
+     - Laurentiuskerk -> /laurentiuskerk/
+     - Maerten van Heemskerck -> /maerten-van-heemskerck/
+  ==  Kastelen in Heemskerk
+     - Alle kastelen op de kaart -> /alle-kastelen-op-de-kaart
+     - De Vlotter -> /kastelen-de-vlotter/
+     - Marquette -> /kastelen-marquette/
+     - 't Hoge Werfje -> https://www.historischekringheemskerk.nl/kastelen-t-hoge-werfje/
+     - Poelenburg -> https://www.historischekringheemskerk.nl/kastelen-poelenburg/
+     - Rietwijk of Reewijk -> https://www.historischekringheemskerk.nl/kastelen-rietwijk-of-reewijk/
+     - Assumburg -> https://www.historischekringheemskerk.nl/kastelen-assumburg/
+     - Beijerlust -> https://www.historischekringheemskerk.nl/kastelen-beijerlust/
+     - Kasteel Oud Haarlem -> https://www.historischekringheemskerk.nl/kastelen-oud-haarlem/
+     - Meeresteijn -> https://www.historischekringheemskerk.nl/kastelen-meeresteijn/
+
+### TOP: collecties
+  ==  Beeldbanken
+     - archief -> https://www.historischekringheemskerk.nl/cgi-bin/archief.pl
+     - foto's -> https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl
+     - bibliotheek -> https://www.historischekringheemskerk.nl/cgi-bin/library.pl
+     - bidprentjes -> https://www.historischekringheemskerk.nl/cgi-bin/bidprent.pl
+     - artikelen -> https://www.historischekringheemskerk.nl/cgi-bin/artikelen.pl
+     - objecten -> https://www.historischekringheemskerk.nl/cgi-bin/objecten.pl
+  ==  Exposities
+     - exposities algemeen -> /exposities-van-historische-kring-heemskerk/
+     - man en paard benoemen -> #
+     - agrarisch heemskerk -> #
+     - deutzstraat -> /expositie-deutzstraat/
+     - Gerrit van Assendelftstraat -> #
+     - boerderijen -> #
+  ==  Het geheugen van Heemskerk
+     - het geheugen van Heemskerk -> /Geheugen/geheugen_index.html
+     - webshop -> /hkh-producten/
+     - links -> /links
+

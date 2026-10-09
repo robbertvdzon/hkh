@@ -67,7 +67,7 @@ class _GoogleLoginDialogState extends State<GoogleLoginDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'Log in met je Google-account om onderzoeksdossiers te bewaren. '
+            'Log in met je Google-account om je vragen aan het archief op elke computer terug te vinden. '
             'Zonder account kun je de app gewoon blijven gebruiken.',
           ),
           const SizedBox(height: 20),

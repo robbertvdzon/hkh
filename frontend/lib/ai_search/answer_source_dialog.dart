@@ -147,7 +147,7 @@ class _AnswerSourceDialogState extends State<AnswerSourceDialog> {
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: appDossierTheme(context),
+    data: appPageTheme(context),
     child: CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () =>

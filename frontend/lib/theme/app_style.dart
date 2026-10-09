@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 export 'hkh_app_bar.dart';
 
-/// Gedeelde vormgeving van de publieke app: de homepage en de dossierschermen
-/// en -dialogen gebruiken dezelfde kleuren, afrondingen en verticale ritmiek.
+/// Gedeelde vormgeving van de publieke app: alle pagina's en dialogen gebruiken
+/// dezelfde kleuren, afrondingen en verticale ritmiek.
 const appBackground = Color(0xFFFBF6EE);
 const appGreen = Color(0xFF1F3B2E);
 const appAccentBackground = Color(0xFFDCE9DA);
@@ -30,15 +30,19 @@ const appSectionGap = 32.0;
 /// Tot en met deze breedte gelden de smalle (gestapelde) varianten.
 const appNarrowWidth = 600.0;
 
-/// Achtergrond- en tekstkleur van de rolchips.
-const appRoleOwnerBackground = Color(0xFFDCE9DA);
-const appRoleOwnerForeground = Color(0xFF1F3B2E);
-const appRoleEditorBackground = Color(0xFFF0E6D2);
-const appRoleEditorForeground = Color(0xFF6B4A21);
-const appRoleResearcherBackground = Color(0xFFD9ECE7);
-const appRoleResearcherForeground = Color(0xFF17352F);
-const appRoleReaderBackground = Color(0xFFECE8DD);
-const appRoleReaderForeground = Color(0xFF4A4740);
+/// Zandkleurige accentvlakken en de warme bruintint voor datums en labels.
+const appSandBackground = Color(0xFFF0E6D2);
+const appSandForeground = Color(0xFF8A5A2B);
+
+/// Status 'vol' bij activiteiten.
+const appFullBackground = Color(0xFFF3DCD6);
+const appFullForeground = Color(0xFF9A3B2E);
+
+/// Koppen in de huisstijl: Libre Baskerville.
+const appSerifFont = 'HkhSerif';
+
+/// Maximale inhoudsbreedte van de publieke pagina's.
+const appContentMaxWidth = 1104.0;
 
 /// True zodra het venster smal genoeg is voor de gestapelde varianten.
 bool isNarrowLayout(BuildContext context) =>
@@ -99,8 +103,8 @@ ThemeData appSurfaceTheme(BuildContext context) {
 }
 
 /// De vormgeving van de homepage, aangevuld met de kaart-, balk- en
-/// tabbladstijl van de dossierschermen en -dialogen.
-ThemeData appDossierTheme(BuildContext context) {
+/// tabbladstijl van de overige schermen en dialogen.
+ThemeData appPageTheme(BuildContext context) {
   final base = appSurfaceTheme(context);
   return base.copyWith(
     scaffoldBackgroundColor: appBackground,
@@ -173,7 +177,7 @@ class AppDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = appDossierTheme(context);
+    final theme = appPageTheme(context);
     return Theme(
       data: theme,
       child: AlertDialog(
@@ -239,11 +243,11 @@ class AppCard extends StatelessWidget {
   }
 }
 
-/// Donkerblauwe huisstijl voor de vaste header en de iets lichtere navigatie.
-const appHeaderBackground = Color(0xFF122C37);
-const appMenuBackground = Color(0xFF203C47);
+/// Donkergroene huisstijl voor de vaste header en de iets lichtere menubalk.
+const appHeaderBackground = Color(0xFF16302A);
+const appMenuBackground = Color(0xFF23443A);
 const appHeaderForeground = Color(0xFFFFFAF1);
-const appHeaderAccent = Color(0xFFD7B775);
+const appHeaderAccent = Color(0xFFFFFAF1);
 const appHeaderTheme = AppBarTheme(
   backgroundColor: appHeaderBackground,
   foregroundColor: appHeaderForeground,

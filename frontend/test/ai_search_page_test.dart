@@ -193,6 +193,9 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).first,
     );
+    // ensureVisible springt zonder animatie; eerst een frame zodat de knop
+    // ook in de lay-out op zijn nieuwe plek staat.
+    await tester.pumpAndSettle();
     await tester.tap(second);
     await tester.pumpAndSettle();
     expect(pdf.requestedIds, ['turn-2']);

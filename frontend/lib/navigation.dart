@@ -10,13 +10,17 @@ import 'ai_search/shared_answer_page.dart';
 import 'auth/user_session.dart';
 import 'collection/collection_search.dart';
 import 'collection/collection_search_page.dart';
-import 'dossier/dossier.dart';
-import 'dossier/dossier_dialogs.dart';
-import 'dossier/dossier_list_page.dart';
-import 'dossier/dossier_page.dart';
-import 'dossier/article_page.dart';
-import 'dossier/article_history_page.dart';
-import 'main.dart';
+import 'content/site_structure.dart';
+import 'site/activity_page.dart';
+import 'site/agenda_page.dart';
+import 'site/association_pages.dart';
+import 'site/collections_page.dart';
+import 'site/discover_pages.dart';
+import 'site/education_pages.dart';
+import 'site/home_page.dart';
+import 'site/membership_page.dart';
+import 'site/news_pages.dart';
+import 'site/site_widgets.dart';
 
 String searchLocation({
   String query = '',
@@ -70,14 +74,37 @@ GoRoute instantRoute({
         ),
 );
 
+/// Pagina voor een onbekende route.
+class NotFoundPage extends StatelessWidget {
+  const NotFoundPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => SitePage(
+    title: 'Pagina niet gevonden',
+    children: [
+      const PageHeading(
+        title: 'Pagina niet gevonden',
+        intro: 'Deze pagina bestaat niet of is verplaatst.',
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: FilledButton(
+          onPressed: () => navigateTo(context, '/'),
+          child: const Text('Naar de homepage'),
+        ),
+      ),
+    ],
+  );
+}
+
 GoRouter createAppRouter({
   required CollectionSearchSource searchSource,
   AiSearchSource? aiSearchSource,
   AiAnswerPdfSource? pdfSource,
-  DossierSource? dossierSource,
   UserSessionController? session,
   Widget Function()? googleButtonBuilder,
   String? initialLocation,
+  DateTime? now,
 }) {
   GoRouter.optionURLReflectsImperativeAPIs = true;
   Widget objectPage(GoRouterState state) => CollectionDetailPage(
@@ -91,19 +118,6 @@ GoRouter createAppRouter({
         : null,
     searchUri: state.uri.path.startsWith('/zoeken/') ? state.uri : null,
   );
-  Widget accountPage(Widget child) {
-    if (session == null) return child;
-    return ListenableBuilder(
-      listenable: session,
-      builder: (_, __) => session.signedIn
-          ? child
-          : DossierListPage(
-              source: dossierSource!,
-              session: session,
-              googleButtonBuilder: googleButtonBuilder,
-            ),
-    );
-  }
 
   Widget questionsPage(GoRouterState state) {
     Widget page() => AiSearchPage(
@@ -126,32 +140,90 @@ GoRouter createAppRouter({
       historyDescription: session?.signedIn ?? false
           ? 'Je vragen worden bewaard in je account. Log op een andere pc in met hetzelfde Google-account om ze daar te bekijken.'
           : 'Je vragen worden voor deze browser bewaard. Log in met Google om ze aan je account te koppelen en op andere pc’s te bekijken.',
-      onAdopt: dossierSource != null && (session?.signedIn ?? false)
-          ? (context, id) =>
-                showAdoptToDossierDialog(context, dossierSource, id)
-          : null,
     );
     return session == null
         ? page()
         : ListenableBuilder(listenable: session, builder: (_, __) => page());
   }
 
+  Widget notFound() => const NotFoundPage();
+
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
       instantRoute(
         path: '/',
-        builder: (_, __) => HomePage(
-          searchSource: searchSource,
-          aiSearchSource: aiSearchSource,
-          dossierSource: dossierSource,
-          session: session,
-          googleButtonBuilder: googleButtonBuilder,
-        ),
+        builder: (_, __) =>
+            HomePage(questionsEnabled: aiSearchSource != null, now: now),
         routes: [
+          // ---- Agenda ----
+          instantRoute(
+            path: 'agenda',
+            builder: (_, __) => AgendaPage(now: now),
+            routes: [
+              instantRoute(
+                path: 'eerder',
+                builder: (_, __) => AgendaPage(past: true, now: now),
+              ),
+              instantRoute(
+                path: ':slug',
+                builder: (_, state) {
+                  final activity = activityBySlug(state.pathParameters['slug']!);
+                  return activity == null
+                      ? notFound()
+                      : ActivityPage(activity: activity, now: now);
+                },
+              ),
+            ],
+          ),
+          // ---- Nieuws ----
+          instantRoute(
+            path: 'nieuws',
+            builder: (_, __) => const NewsPage(),
+            routes: [
+              instantRoute(
+                path: 'nieuwsbrieven',
+                builder: (_, __) => const NewslettersPage(),
+              ),
+              instantRoute(
+                path: 'heemskring',
+                builder: (_, __) => const HeemskringPage(),
+              ),
+              instantRoute(
+                path: ':slug',
+                builder: (_, state) {
+                  final post = newsBySlug(state.pathParameters['slug']!);
+                  return post == null ? notFound() : NewsArticlePage(post: post);
+                },
+              ),
+            ],
+          ),
+          // ---- Ontdek Heemskerk ----
+          instantRoute(
+            path: 'ontdek',
+            builder: (_, __) => const DiscoverPage(),
+            routes: [
+              instantRoute(
+                path: ':slug',
+                builder: (_, state) {
+                  final slug = state.pathParameters['slug']!;
+                  final category = storyCategoryBySlug(slug);
+                  if (category != null) return DiscoverPage(category: category);
+                  final page = pageBySlug(slug);
+                  return page == null ? notFound() : StoryPage(page: page);
+                },
+              ),
+            ],
+          ),
           instantRoute(
             path: 'luchtfoto',
             builder: (_, __) => const AerialPhotoPage(),
+          ),
+          // ---- Collecties ----
+          instantRoute(
+            path: 'collecties',
+            builder: (_, __) =>
+                CollectionsPage(questionsEnabled: aiSearchSource != null),
           ),
           instantRoute(
             path: 'zoeken',
@@ -188,11 +260,6 @@ GoRouter createAppRouter({
             path: 'objecten/:collection/:ident',
             builder: (_, state) => objectPage(state),
           ),
-          instantRoute(
-            path: 'collecties',
-            redirect: (_, state) =>
-                state.uri.replace(path: '/zoeken').toString(),
-          ),
           if (aiSearchSource != null && shareSourceFor(aiSearchSource) != null)
             instantRoute(
               path: 'gedeeld/:token',
@@ -206,106 +273,45 @@ GoRouter createAppRouter({
               path: 'vragen',
               builder: (_, state) => questionsPage(state),
             ),
-          if (dossierSource != null) ...[
-            instantRoute(
-              path: 'dossiers',
-              builder: (_, __) => DossierListPage(
-                source: dossierSource,
-                session: session,
-                googleButtonBuilder: googleButtonBuilder,
+          // ---- Educatie ----
+          instantRoute(
+            path: 'educatie',
+            builder: (_, __) => const EducationPage(),
+            routes: [
+              instantRoute(
+                path: ':slug',
+                builder: (_, state) {
+                  final item = educationBySlug(state.pathParameters['slug']!);
+                  return item == null
+                      ? notFound()
+                      : EducationItemPage(item: item);
+                },
               ),
-              routes: [
-                instantRoute(
-                  path: ':id',
-                  builder: (_, state) => accountPage(
-                    DossierPage(
-                      key: ValueKey(state.pathParameters['id']),
-                      source: dossierSource,
-                      dossierId: state.pathParameters['id']!,
-                      session: session,
-                      initialQuestionId: state.uri.queryParameters['vraag'],
-                      initialTab:
-                          (int.tryParse(
-                                    state.uri.queryParameters['tab'] ?? '',
-                                  ) ??
-                                  0)
-                              .clamp(0, 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            instantRoute(
-              path: 'artikelen/:id',
-              builder: (_, state) => accountPage(
-                ArticlePage(
-                  key: ValueKey(state.pathParameters['id']),
-                  source: dossierSource,
-                  articleId: state.pathParameters['id']!,
-                ),
+            ],
+          ),
+          // ---- Vereniging ----
+          instantRoute(
+            path: 'vereniging',
+            builder: (_, __) => const AssociationPage(),
+            routes: [
+              instantRoute(
+                path: ':slug',
+                builder: (_, state) =>
+                    associationSectionPage(state.pathParameters['slug']!) ??
+                    notFound(),
               ),
-              routes: [
-                instantRoute(
-                  path: 'geschiedenis',
-                  builder: (_, state) => accountPage(
-                    _ArticleHistoryRoute(
-                      source: dossierSource,
-                      id: state.pathParameters['id']!,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
+          instantRoute(
+            path: 'lid-worden',
+            builder: (_, __) => const MembershipPage(),
+          ),
         ],
       ),
     ],
-    errorBuilder: (context, _) => Scaffold(
-      appBar: HkhAppBar(
-        context: context,
-        title: const Text('Pagina niet gevonden'),
-      ),
-      body: Center(
-        child: TextButton(
-          onPressed: () => context.go('/'),
-          child: const Text('Naar het homescherm'),
-        ),
-      ),
+    errorBuilder: (context, _) => Theme(
+      data: appPageTheme(context),
+      child: const NotFoundPage(),
     ),
-  );
-}
-
-class _ArticleHistoryRoute extends StatefulWidget {
-  const _ArticleHistoryRoute({required this.source, required this.id});
-  final DossierSource source;
-  final String id;
-  @override
-  State<_ArticleHistoryRoute> createState() => _ArticleHistoryRouteState();
-}
-
-class _ArticleHistoryRouteState extends State<_ArticleHistoryRoute> {
-  late final _article = widget.source.loadArticle(widget.id);
-  @override
-  Widget build(BuildContext context) => FutureBuilder<ArticleDetail>(
-    future: _article,
-    builder: (_, snapshot) {
-      if (snapshot.hasData) {
-        return ArticleHistoryPage(
-          source: widget.source,
-          article: snapshot.requireData,
-        );
-      }
-      return Scaffold(
-        appBar: HkhAppBar(
-          context: context,
-          title: const Text('Artikelgeschiedenis'),
-        ),
-        body: Center(
-          child: snapshot.hasError
-              ? const Text('Het artikel kon niet worden geladen.')
-              : const CircularProgressIndicator(),
-        ),
-      );
-    },
   );
 }

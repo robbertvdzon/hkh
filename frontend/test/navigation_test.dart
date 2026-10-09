@@ -116,17 +116,23 @@ void main() {
   );
 
   testWidgets(
-    'home search opens all collection results and stores the query in the URL',
+    'collections page opens all collection results and stores the query in the URL',
     (tester) async {
       final source = RecordingSource();
       final router = createAppRouter(
         searchSource: source,
-        initialLocation: '/',
+        initialLocation: '/collecties',
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
       expect(find.text('Doorzoek de collectie'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('collection-search-button')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       expect(source.requests, isEmpty);
@@ -217,13 +223,11 @@ void main() {
     },
   );
 
-  testWidgets('next page changes URL and old collection route redirects', (
-    tester,
-  ) async {
+  testWidgets('next page changes URL', (tester) async {
     final source = RecordingSource();
     final router = createAppRouter(
       searchSource: source,
-      initialLocation: '/collecties?q=kerk',
+      initialLocation: '/zoeken?q=kerk',
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -254,7 +258,7 @@ void main() {
       final source = RecordingSource();
       final router = createAppRouter(
         searchSource: source,
-        initialLocation: '/',
+        initialLocation: '/collecties',
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));

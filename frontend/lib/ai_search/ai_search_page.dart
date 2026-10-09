@@ -14,11 +14,6 @@ import 'answer_pdf_saver.dart';
 import 'answer_sources_page.dart';
 import 'research_depth_selector.dart';
 
-/// Zet een afgeronde anonieme zoekopdracht in een dossier. Geeft de titel van het gekozen
-/// dossier terug, of null als de gebruiker annuleert.
-typedef AdoptSearchHandler =
-    Future<String?> Function(BuildContext context, String sessionId);
-
 class AiSearchPage extends StatefulWidget {
   const AiSearchPage({
     required this.source,
@@ -32,9 +27,7 @@ class AiSearchPage extends StatefulWidget {
     this.historyDescription,
     this.embedded = false,
     this.canAsk = true,
-    this.readOnlyMessage =
-        'Je kunt in dit dossier meelezen, maar geen vragen stellen.',
-    this.onAdopt,
+    this.readOnlyMessage = 'Je kunt hier meelezen, maar geen vragen stellen.',
     this.pdfSource,
     AnswerPdfSaver? pdfSaver,
     super.key,
@@ -68,9 +61,6 @@ class AiSearchPage extends StatefulWidget {
 
   /// Melding in plaats van het invoerveld als [canAsk] false is.
   final String readOnlyMessage;
-
-  /// Actie "In dossier zetten" per afgeronde zoekopdracht; alleen zichtbaar als gezet.
-  final AdoptSearchHandler? onAdopt;
 
   /// Haalt het geladen antwoord op als PDF; zonder bron is er geen exportactie.
   final AiAnswerPdfSource? pdfSource;
@@ -130,7 +120,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
     final router = GoRouter.maybeOf(context);
     if (router == null) return;
     final uri = router.routeInformationProvider.value.uri;
-    if (uri.path != '/vragen' && !uri.path.startsWith('/dossiers/')) return;
+    if (uri.path != '/vragen') return;
     final key = widget.embedded ? 'vraag' : 'id';
     final params = Map<String, String>.of(uri.queryParameters)..remove(key);
     if (id != null) params[key] = id;
@@ -319,24 +309,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
-  Future<void> _adoptSearch(AiSearchSummary search) async {
-    final handler = widget.onAdopt;
-    if (handler == null) return;
-    try {
-      final dossierTitle = await handler(context, search.id);
-      if (!mounted || dossierTitle == null) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Zoekopdracht toegevoegd aan dossier "$dossierTitle".'),
-        ),
-      );
-      await _loadSearches();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
-    }
-  }
-
   Future<void> _exportPdf(String answerId) async {
     final source = widget.pdfSource;
     if (source == null || _exporting) return;
@@ -465,11 +437,6 @@ class _AiSearchPageState extends State<AiSearchPage> {
                           onOpen: () => _openSearch(search.id),
                           onDelete: widget.canAsk
                               ? () => _deleteSearch(search)
-                              : null,
-                          onAdopt:
-                              widget.onAdopt != null &&
-                                  search.status == 'SUCCEEDED'
-                              ? () => _adoptSearch(search)
                               : null,
                         ),
                         const SizedBox(height: 8),
@@ -643,13 +610,11 @@ class _SearchSummaryCard extends StatelessWidget {
     required this.search,
     required this.onOpen,
     required this.onDelete,
-    this.onAdopt,
   });
 
   final AiSearchSummary search;
   final VoidCallback onOpen;
   final VoidCallback? onDelete;
-  final VoidCallback? onAdopt;
 
   @override
   Widget build(BuildContext context) {
@@ -729,12 +694,6 @@ class _SearchSummaryCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onAdopt != null)
-                IconButton(
-                  onPressed: onAdopt,
-                  icon: const Icon(Icons.folder_open_outlined),
-                  tooltip: 'In dossier zetten',
-                ),
               if (onDelete != null)
                 IconButton(
                   onPressed: onDelete,

@@ -145,7 +145,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: appDossierTheme(context),
+    data: appPageTheme(context),
     child: Builder(
       builder: (context) => Scaffold(
         appBar: HkhAppBar(

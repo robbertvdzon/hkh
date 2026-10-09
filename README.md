@@ -40,9 +40,32 @@ GET http://localhost:8080/swagger-ui.html
 mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 ```
 
+## Publieke site (fase 1: vaste inhoud)
+
+De frontend is de nieuwe publieke website van de HKH, ingedeeld naar wat een bezoeker komt doen:
+Agenda, Nieuws, Ontdek Heemskerk, Collecties, Educatie en Vereniging, plus de knop Lid worden.
+Het onderzoek naar de oude site en het structuurvoorstel staan in
+[docs/website-vernieuwing](docs/website-vernieuwing/README.md).
+
+In deze fase staat alle inhoud als vaste gegevens in de app, overgenomen van de oude site:
+
+- `frontend/lib/content/content_models.dart`: de modellen (pagina, activiteit, bericht,
+  nieuwsbrief, uitgave, bestuurslid, lesaanbod);
+- `frontend/lib/content/generated_content.dart`: gegenereerd uit de oude site met de scripts in
+  `docs/website-vernieuwing/scripts/` (niet met de hand bewerken);
+- `frontend/lib/content/site_structure.dart`: de indeling (menu, rubrieken, onderdelen van
+  Vereniging), het lesaanbod, de nieuwsbrieven, partnerlinks en praktische gegevens.
+
+Foto's worden in deze fase nog van de oude site geladen. De formulieren voor inschrijven (met
+wachtlijst), lesaanbod aanvragen, contact en lid worden tonen een voorbeeldbevestiging en bewaren
+nog niets; dat komt in fase 2 samen met de database en het beheer. De routes zijn `/#/agenda`,
+`/#/agenda/{slug}`, `/#/nieuws`, `/#/ontdek`, `/#/ontdek/{slug}`, `/#/collecties`, `/#/educatie`,
+`/#/vereniging/{onderdeel}` en `/#/lid-worden`; `/#/zoeken`, `/#/vragen` en `/#/luchtfoto`
+blijven bestaan.
+
 ## Zoeken en objectlinks
 
-De homepage verwijst met één knop naar de zoekpagina. Daar staan de vertrouwde ingangen Archief,
+De pagina Collecties verwijst naar de zoekpagina. Daar staan de vertrouwde ingangen Archief,
 Beeldbank, Bibliotheek, Bidprentjes, Artikelen en Objecten. Zonder zoekterm of ingevuld filter
 blijven de resultaten leeg. Een nieuwe zoekopdracht doorzoekt alle collecties; de collectieknoppen
 tonen het aantal treffers voor die opdracht, inclusief nul. Een klik beperkt de resultaten tot die
@@ -70,8 +93,8 @@ uitgeschakeld zolang de database geen documenttekst bevat. Deze functie voert ge
 op afbeeldingen of PDF’s.
 
 Objecten hebben een eigen route (`/#/objecten/{collectie}/{ident}`). Bij openen vanuit de
-resultaten blijft de zoekcontext in de object-URL staan. Dossiers, artikelen en AI-vragen
-hebben eveneens eigen routes. De importserver blijft een backend-databron: publieke bronlinks
+resultaten blijft de zoekcontext in de object-URL staan. AI-vragen hebben eveneens een eigen
+route. De importserver blijft een backend-databron: publieke bronlinks
 openen onze objecten en afbeeldingen/pdf’s worden via `/api/collection-media/{token}` gestreamd.
 Bestaande opgeslagen antwoorden worden bij uitlezen ook omgezet naar interne verwijzingen.
 
@@ -87,8 +110,8 @@ koppeling met de opgeslagen anonieme opdrachten.
 Na inloggen horen persoonlijke vragen bij het HKH-account achter de Google-login. De app koppelt
 bestaande browservragen automatisch via `POST /api/ai-search/sessions/claim`; ingelogde AI-aanvragen
 herhalen dit idempotent. Dezelfde gebruiker ziet op elke pc dezelfde vragen. Gekoppelde sessies
-verliezen hun bezoekers-ID en zijn na uitloggen niet meer via die cookie toegankelijk. Dossiervragen
-blijven onder de dossierautorisatie vallen; openbare deellinks blijven geldig.
+verliezen hun bezoekers-ID en zijn na uitloggen niet meer via die cookie toegankelijk. Openbare
+deellinks blijven geldig.
 
 De publieke API ondersteunt het overzicht en beheer via `GET /api/ai-search/sessions`,
 `GET /api/ai-search/sessions/{id}` en `DELETE /api/ai-search/sessions/{id}`. De backend controleert
@@ -109,28 +132,18 @@ bronnenlijst als tekst; er worden geen externe bronnen opgehaald. Onbekende antw
 van een andere bezoeker geven `404`, een renderfout geeft `500` zonder lichaam. PDF's worden
 on-demand gemaakt en nergens bewaard of gecachet.
 
-## Accounts en dossiers
+## Accounts
 
 Inloggen met Google is optioneel en staat aan zodra `HKH_GOOGLE_CLIENT_ID` is gezet. Het Google
 ID-token wordt één keer ingewisseld voor een eigen sessietoken (`POST /api/auth/google`) dat een jaar
 geldig is en bij gebruik verlengt; alleen de hash staat in de database. Beheerroutes accepteren
-uitsluitend dat sessietoken van een account op `HKH_ADMIN_ALLOWED_EMAILS`.
+uitsluitend dat sessietoken van een account op `HKH_ADMIN_ALLOWED_EMAILS`. In de publieke app dient
+de login alleen om AI-vragen aan een account te koppelen.
 
-Ingelogde gebruikers bouwen onderzoeksdossiers (`/api/dossiers`): vragen aan het archief met
-dossiercontext, een door AI bijgehouden feitenlijst, en artikelen in Markdown met versiegeschiedenis
-en AI-voorstellen (`/api/articles`). Dossiers zijn per e-mailadres deelbaar met de rollen lezer,
-onderzoeker en bewerker. Het volledige ontwerp staat in
+De onderzoeksdossiers zijn uit de publieke app verwijderd (oktober 2026); de backendmodule
+`dossier` en de routes `/api/dossiers` en `/api/articles` bestaan nog maar worden door de app niet
+meer gebruikt. Het oude ontwerp staat in
 [docs/architecture/accounts-en-dossiers.md](docs/architecture/accounts-en-dossiers.md).
-
-De huidige versie van een artikel is als PDF mee te nemen via
-`GET /api/dossiers/{dossierId}/articles/{articleId}/export/pdf`. Die route gebruikt exact dezelfde
-autorisatie als de overige artikel-endpoints (sessietoken plus dossiertoegang) en levert bij succes
-status 200 met `Content-Type: application/pdf` en `Content-Disposition: attachment`
-(`artikel-<articleId>.pdf`). De PDF bevat de artikeltitel, de al gesaniteerde artikel-HTML van het
-scherm en de bronvermeldingen als tekst. Een onbekend artikel, een artikel uit een ander dossier of
-een dossier zonder toegang geeft dezelfde foutstatus als de bestaande artikelroutes (`404`); een
-renderfout geeft `500` zonder lichaam. Ook deze PDF's worden on-demand gemaakt en nergens bewaard
-of gecachet; de gedeelde renderer uit `nl.vdzon.hkh.docexport` is dezelfde als bij de AI-antwoorden.
 
 Echte secrets, lokale overrides, buildoutput en IDE-bestanden worden niet gecommit.
 

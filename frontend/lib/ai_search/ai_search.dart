@@ -294,7 +294,7 @@ abstract interface class AiSearchSource {
 }
 
 /// Haalt een geslaagd AI-antwoord op als PDF-bytes. Staat los van [AiSearchSource]
-/// zodat schermen zonder exportactie (zoals het dossiertabblad) ongewijzigd blijven.
+/// zodat schermen zonder exportactie ongewijzigd blijven.
 abstract interface class AiAnswerPdfSource {
   Future<Uint8List> exportAnswerPdf(String answerId);
 }
