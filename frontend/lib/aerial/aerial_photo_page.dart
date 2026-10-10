@@ -364,57 +364,60 @@ class _AerialPhotoPageState extends State<AerialPhotoPage> {
           child: Semantics(
             label: 'Luchtfoto van Heemskerk, verschuifbaar en zoombaar',
             image: true,
-            child: InteractiveViewer(
-              key: const Key('aerial-viewer'),
-              transformationController: _transformation,
-              constrained: false,
-              alignment: Alignment.topLeft,
-              minScale: _fitScale(size),
-              maxScale: _fitScale(size) * 32,
-              // The shared controller applies exact image/viewport bounds,
-              // including centering on axes with unused white space.
-              boundaryMargin: const EdgeInsets.all(double.infinity),
-              child: SizedBox(
-                width: _imageSize.width,
-                height: _imageSize.height,
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: AerialPhotoAlignment.currentSize.width,
-                      height: AerialPhotoAlignment.currentSize.height,
-                      child: Transform(
-                        alignment: Alignment.topLeft,
-                        transform: AerialPhotoAlignment.currentToScene,
-                        child: RawImage(
-                          image: _currentImage,
-                          fit: BoxFit.fill,
-                          filterQuality: FilterQuality.medium,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: AerialPhotoAlignment.historicalSize.width,
-                      height: AerialPhotoAlignment.historicalSize.height,
-                      child: Opacity(
-                        key: const Key('aerial-historical-layer'),
-                        opacity: _historicalOpacity,
+            // Slepen moet de foto verschuiven, geen tekst selecteren.
+            child: SelectionContainer.disabled(
+              child: InteractiveViewer(
+                key: const Key('aerial-viewer'),
+                transformationController: _transformation,
+                constrained: false,
+                alignment: Alignment.topLeft,
+                minScale: _fitScale(size),
+                maxScale: _fitScale(size) * 32,
+                // The shared controller applies exact image/viewport bounds,
+                // including centering on axes with unused white space.
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                child: SizedBox(
+                  width: _imageSize.width,
+                  height: _imageSize.height,
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: AerialPhotoAlignment.currentSize.width,
+                        height: AerialPhotoAlignment.currentSize.height,
                         child: Transform(
                           alignment: Alignment.topLeft,
-                          transform: AerialPhotoAlignment.historicalToScene,
+                          transform: AerialPhotoAlignment.currentToScene,
                           child: RawImage(
-                            image: _historicalImage,
+                            image: _currentImage,
                             fit: BoxFit.fill,
                             filterQuality: FilterQuality.medium,
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: AerialPhotoAlignment.historicalSize.width,
+                        height: AerialPhotoAlignment.historicalSize.height,
+                        child: Opacity(
+                          key: const Key('aerial-historical-layer'),
+                          opacity: _historicalOpacity,
+                          child: Transform(
+                            alignment: Alignment.topLeft,
+                            transform: AerialPhotoAlignment.historicalToScene,
+                            child: RawImage(
+                              image: _historicalImage,
+                              fit: BoxFit.fill,
+                              filterQuality: FilterQuality.medium,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

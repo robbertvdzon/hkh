@@ -299,124 +299,124 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
             ),
           ],
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1160),
-              child: ListView(
-                controller: _scrollController,
-                padding: EdgeInsets.all(isNarrowLayout(context) ? 16 : 28),
-                children: [
-                  Text(
-                    'COLLECTIES VAN DE HKH',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: appMutedText,
-                      letterSpacing: 1.4,
+        body: SelectionArea(
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1160),
+                child: ListView(
+                  controller: _scrollController,
+                  padding: EdgeInsets.all(isNarrowLayout(context) ? 16 : 28),
+                  children: [
+                    Text(
+                      'COLLECTIES VAN DE HKH',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appMutedText,
+                        letterSpacing: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Wat wilt u ontdekken?',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontFamily: 'Georgia',
-                      color: appGreen,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Wat wilt u ontdekken?',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontFamily: 'Georgia', color: appGreen),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Zoek een naam, straat, onderwerp of collectienummer.',
-                    style: TextStyle(color: appMutedText),
-                  ),
-                  const SizedBox(height: 20),
-                  CollectionChips(
-                    overview: _overview,
-                    selected: _collection,
-                    onSelect: _selectCollection,
-                  ),
-                  const SizedBox(height: 20),
-                  LayoutBuilder(
-                    builder: (context, c) {
-                      final field = TextField(
-                        key: const Key('collection-query'),
-                        controller: _controller,
-                        textInputAction: TextInputAction.search,
-                        onChanged: (value) {
-                          if (value.trim().isEmpty) _runSearch();
-                        },
-                        onSubmitted: (_) => _submitSearch(),
-                        decoration: InputDecoration(
-                          labelText: 'Zoek overal',
-                          floatingLabelBehavior: FloatingLabelBehavior.always,
-                          hintText: _collection == 'bidprent'
-                              ? 'Naam, geboorteplaats of volgnummer'
-                              : 'Bijvoorbeeld: Marquette of Dorpskerk',
-                          prefixIcon: const Icon(Icons.search),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Zoek een naam, straat, onderwerp of collectienummer.',
+                      style: TextStyle(color: appMutedText),
+                    ),
+                    const SizedBox(height: 20),
+                    CollectionChips(
+                      overview: _overview,
+                      selected: _collection,
+                      onSelect: _selectCollection,
+                    ),
+                    const SizedBox(height: 20),
+                    LayoutBuilder(
+                      builder: (context, c) {
+                        final field = TextField(
+                          key: const Key('collection-query'),
+                          controller: _controller,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) {
+                            if (value.trim().isEmpty) _runSearch();
+                          },
+                          onSubmitted: (_) => _submitSearch(),
+                          decoration: InputDecoration(
+                            labelText: 'Zoek overal',
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            hintText: _collection == 'bidprent'
+                                ? 'Naam, geboorteplaats of volgnummer'
+                                : 'Bijvoorbeeld: Marquette of Dorpskerk',
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                        );
+                        final button = FilledButton.icon(
+                          onPressed: _submitSearch,
+                          icon: const Icon(Icons.search),
+                          label: const Text('Zoeken'),
+                        );
+                        if (_advancedOpen) return field;
+                        return c.maxWidth < 420
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  field,
+                                  const SizedBox(height: 10),
+                                  button,
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: field),
+                                  const SizedBox(width: 12),
+                                  button,
+                                ],
+                              );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          _collection == null
+                              ? 'Zoek in alle collecties, of kies hierboven een collectie.'
+                              : 'Zoek in alle gegevens van ${collectionConfig(_collection).label}.',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: appMutedText),
                         ),
-                      );
-                      final button = FilledButton.icon(
-                        onPressed: _submitSearch,
-                        icon: const Icon(Icons.search),
-                        label: const Text('Zoeken'),
-                      );
-                      if (_advancedOpen) return field;
-                      return c.maxWidth < 420
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                field,
-                                const SizedBox(height: 10),
-                                button,
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                Expanded(child: field),
-                                const SizedBox(width: 12),
-                                button,
-                              ],
-                            );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 16,
-                    runSpacing: 4,
-                    children: [
-                      Text(
-                        _collection == null
-                            ? 'Zoek in alle collecties, of kies hierboven een collectie.'
-                            : 'Zoek in alle gegevens van ${collectionConfig(_collection).label}.',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: appMutedText),
-                      ),
-                      TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _advancedOpen = !_advancedOpen),
-                        icon: const Icon(Icons.tune),
-                        label: const Text('Gericht zoeken'),
-                      ),
-                    ],
-                  ),
-                  if (_advancedOpen)
-                    CollectionAdvancedControls(
-                      collection: _collection,
-                      controllers: _fieldControllers,
-                      options: _options,
-                      onChanged: (o) => setState(() => _options = o),
-                      onSubmit: _submitSearch,
-                      onReset: _reset,
-                      onPeriod: _period,
-                      yearError: _yearError,
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _advancedOpen = !_advancedOpen),
+                          icon: const Icon(Icons.tune),
+                          label: const Text('Gericht zoeken'),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 12),
-                  _filters(context),
-                  if (_hasFilters) ...[const SizedBox(height: 12), _chips()],
-                  const SizedBox(height: 24),
-                  _body(context),
-                ],
+                    if (_advancedOpen)
+                      CollectionAdvancedControls(
+                        collection: _collection,
+                        controllers: _fieldControllers,
+                        options: _options,
+                        onChanged: (o) => setState(() => _options = o),
+                        onSubmit: _submitSearch,
+                        onReset: _reset,
+                        onPeriod: _period,
+                        yearError: _yearError,
+                      ),
+                    const SizedBox(height: 12),
+                    _filters(context),
+                    if (_hasFilters) ...[const SizedBox(height: 12), _chips()],
+                    const SizedBox(height: 24),
+                    _body(context),
+                  ],
+                ),
               ),
             ),
           ),

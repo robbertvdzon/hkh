@@ -136,7 +136,8 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   groupValue: _mode,
                   title:
                       'Met AI zoeken door alle collecties en hier een samenvatting van maken',
-                  subtitle: 'Meestal binnen 2 minuten een antwoord met bronnen.',
+                  subtitle:
+                      'Meestal binnen 2 minuten een antwoord met bronnen.',
                   onChanged: (m) => setState(() => _mode = m),
                 ),
                 _ModeOption(
@@ -154,7 +155,10 @@ class _CollectionsPageState extends State<CollectionsPage> {
               FilledButton.icon(
                 key: const Key('collection-search-button'),
                 onPressed: _submit,
-                icon: Icon(aiSelected ? Icons.auto_awesome : Icons.search, size: 18),
+                icon: Icon(
+                  aiSelected ? Icons.auto_awesome : Icons.search,
+                  size: 18,
+                ),
                 label: Text(aiSelected ? 'Onderzoek starten' : 'Zoeken'),
               ),
               if (widget.questionsEnabled) ...[
@@ -299,43 +303,6 @@ class _AboutCollections extends StatelessWidget {
               ),
             ),
         ],
-      ),
-      const SizedBox(height: 28),
-      AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Zelf iets aanleveren?',
-              style: TextStyle(
-                fontFamily: appSerifFont,
-                fontSize: 22,
-                color: appGreen,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Heeft u foto’s, bidprentjes, documenten of voorwerpen die voor de geschiedenis van Heemskerk van belang kunnen zijn? Breng ze langs in het Historisch Huis op maandagmiddag; dan kijken we samen of we er een mooie bestemming voor kunnen vinden. Een afdruk van een foto uit de beeldbank bestellen kan ook.',
-              style: TextStyle(height: 1.5),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                OutlinedButton(
-                  onPressed: () =>
-                      navigateTo(context, '/vereniging/historisch-huis'),
-                  child: const Text('Historisch Huis en openingstijden'),
-                ),
-                OutlinedButton(
-                  onPressed: () => navigateTo(context, '/vereniging/uitgaven'),
-                  child: const Text('Foto laten afdrukken'),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     ],
   );

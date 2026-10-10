@@ -59,32 +59,35 @@ class SitePage extends StatelessWidget {
             title: Text(title),
             showPageTitle: false,
           ),
-          body: SafeArea(
-            top: false,
-            child: ListView(
-              key: scrollKey,
-              padding: EdgeInsets.zero,
-              children: [
-                if (fullWidthHeader != null) fullWidthHeader!,
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: appContentMaxWidth,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: narrow ? 16 : 24,
+          // Alle tekst op de pagina is te selecteren en te kopiëren.
+          body: SelectionArea(
+            child: SafeArea(
+              top: false,
+              child: ListView(
+                key: scrollKey,
+                padding: EdgeInsets.zero,
+                children: [
+                  if (fullWidthHeader != null) fullWidthHeader!,
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: appContentMaxWidth,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: children,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: narrow ? 16 : 24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: children,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 40),
-                const SiteFooter(),
-              ],
+                  const SizedBox(height: 40),
+                  const SiteFooter(),
+                ],
+              ),
             ),
           ),
         ),
@@ -157,10 +160,7 @@ class PageHeading extends StatelessWidget {
         children: [
           Breadcrumbs(crumbs: crumbs, current: title),
           const SizedBox(height: 10),
-          if (label != null) ...[
-            MetaLabel(label!),
-            const SizedBox(height: 8),
-          ],
+          if (label != null) ...[MetaLabel(label!), const SizedBox(height: 8)],
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -283,7 +283,10 @@ class SectionHeader extends StatelessWidget {
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: [Expanded(child: heading), link],
+            children: [
+              Expanded(child: heading),
+              link,
+            ],
           );
         },
       ),
@@ -373,7 +376,10 @@ class SiteImage extends StatelessWidget {
         width: width,
         color: appSandBackground,
         alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported_outlined, color: appMutedText),
+        child: const Icon(
+          Icons.image_not_supported_outlined,
+          color: appMutedText,
+        ),
       ),
     );
     if (borderRadius == null) return image;
@@ -450,10 +456,7 @@ class ContentCard extends StatelessWidget {
                         color: appGreen,
                       ),
                     ),
-                    if (status != null) ...[
-                      const SizedBox(height: 8),
-                      status!,
-                    ],
+                    if (status != null) ...[const SizedBox(height: 8), status!],
                     if (text != null && text!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(

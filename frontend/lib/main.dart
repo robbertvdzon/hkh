@@ -167,6 +167,7 @@ class _HkhAppState extends State<HkhApp> {
           session: widget.session ?? DisabledUserSession(),
           googleButtonBuilder: widget.googleButtonBuilder,
         ),
+        // Alle tekst op de site is te selecteren en te kopiëren.
         child: AnswerSourceScope(source: widget.searchSource, child: child!),
       ),
     ),

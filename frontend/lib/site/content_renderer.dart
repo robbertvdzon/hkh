@@ -124,7 +124,7 @@ class _LinkedTextState extends State<LinkedText> {
     }
     _recognizers.clear();
     if (widget.links.isEmpty) {
-      return SelectableText(widget.text, style: _bodyStyle);
+      return Text(widget.text, style: _bodyStyle);
     }
     final spans = <InlineSpan>[];
     var rest = widget.text;

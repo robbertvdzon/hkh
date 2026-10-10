@@ -335,7 +335,7 @@ class MemoryStoryPage extends StatelessWidget {
               for (final paragraph in story.body)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: SelectableText(paragraph, style: bodyStyle),
+                  child: Text(paragraph, style: bodyStyle),
                 ),
               const SizedBox(height: 8),
               Text(

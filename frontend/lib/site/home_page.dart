@@ -47,109 +47,112 @@ class HomePage extends StatelessWidget {
             title: const Text(siteName),
             showPageTitle: false,
           ),
-          body: SafeArea(
-            top: false,
-            child: ListView(
-              key: const Key('home-scroll'),
-              padding: EdgeInsets.zero,
-              children: [
-                const _Hero(),
-                boxed([
-                  const SizedBox(height: 44),
-                  const SectionHeader(
-                    'Binnenkort',
-                    linkLabel: 'Hele agenda',
-                    linkPath: '/agenda',
+          body: SelectionArea(
+            child: SafeArea(
+              top: false,
+              child: ListView(
+                key: const Key('home-scroll'),
+                padding: EdgeInsets.zero,
+                children: [
+                  const _Hero(),
+                  boxed([
+                    const SizedBox(height: 44),
+                    const SectionHeader(
+                      'Binnenkort',
+                      linkLabel: 'Hele agenda',
+                      linkPath: '/agenda',
+                    ),
+                    CardGrid(
+                      children: [
+                        for (final activity in upcoming)
+                          ActivityCard(activity: activity),
+                      ],
+                    ),
+                    const SizedBox(height: 44),
+                  ]),
+                  FullWidthBand(
+                    color: appAccentBackground,
+                    child: _SearchAndAsk(questionsEnabled: questionsEnabled),
                   ),
-                  CardGrid(
-                    children: [
-                      for (final activity in upcoming)
-                        ActivityCard(activity: activity),
-                    ],
-                  ),
-                  const SizedBox(height: 44),
-                ]),
-                FullWidthBand(
-                  color: appAccentBackground,
-                  child: _SearchAndAsk(questionsEnabled: questionsEnabled),
-                ),
-                boxed([
-                  const SizedBox(height: 44),
-                  const SectionHeader(
-                    'Nieuws',
-                    linkLabel: 'Al het nieuws',
-                    linkPath: '/nieuws',
-                  ),
-                  CardGrid(
-                    children: [
-                      for (final post in news)
-                        ContentCard(
-                          image: post.image,
-                          label: formatDate(post.published),
-                          title: post.title,
-                          text: post.summary,
-                          onTap: () =>
-                              navigateTo(context, '/nieuws/${post.slug}'),
+                  boxed([
+                    const SizedBox(height: 44),
+                    const SectionHeader(
+                      'Nieuws',
+                      linkLabel: 'Al het nieuws',
+                      linkPath: '/nieuws',
+                    ),
+                    CardGrid(
+                      children: [
+                        for (final post in news)
+                          ContentCard(
+                            image: post.image,
+                            label: formatDate(post.published),
+                            title: post.title,
+                            text: post.summary,
+                            onTap: () =>
+                                navigateTo(context, '/nieuws/${post.slug}'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 44),
+                  ]),
+                  FullWidthBand(
+                    color: appSandBackground,
+                    padding: const EdgeInsets.symmetric(vertical: 44),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SectionHeader(
+                          'Ontdek Heemskerk',
+                          linkLabel: 'Meer ontdekken',
+                          linkPath: '/ontdek/kastelen',
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 44),
-                ]),
-                FullWidthBand(
-                  color: appSandBackground,
-                  padding: const EdgeInsets.symmetric(vertical: 44),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SectionHeader(
-                        'Ontdek Heemskerk',
-                        linkLabel: 'Meer ontdekken',
-                        linkPath: '/ontdek/kastelen',
-                      ),
-                      CardGrid(
-                        children: [
-                          for (final featured in homeFeaturedStories)
-                            if (pageBySlug(featured.pageSlug) case final page?)
-                              ContentCard(
-                                image: page.image,
-                                label: featured.category,
-                                title: page.title,
-                                text: page.summary,
-                                onTap: () => navigateTo(
-                                  context,
-                                  '/ontdek/${page.slug}',
+                        CardGrid(
+                          children: [
+                            for (final featured in homeFeaturedStories)
+                              if (pageBySlug(featured.pageSlug)
+                                  case final page?)
+                                ContentCard(
+                                  image: page.image,
+                                  label: featured.category,
+                                  title: page.title,
+                                  text: page.summary,
+                                  onTap: () => navigateTo(
+                                    context,
+                                    '/ontdek/${page.slug}',
+                                  ),
                                 ),
-                              ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                boxed([
-                  const SizedBox(height: 44),
-                  CallToActionBand(
-                    title: 'Geheugen van Heemskerk',
-                    text:
-                        '${generatedMemoryStories.length} herinneringen van Heemskerkers over school, werk, straat en buurt, verdwenen plekken en feesten, opgetekend door verhalenverzamelaars.',
-                    actionLabel: 'Lees de verhalen',
-                    onAction: () => navigateTo(context, '/geheugen'),
+                  boxed([
+                    const SizedBox(height: 44),
+                    CallToActionBand(
+                      title: 'Geheugen van Heemskerk',
+                      text:
+                          '${generatedMemoryStories.length} herinneringen van Heemskerkers over school, werk, straat en buurt, verdwenen plekken en feesten, opgetekend door verhalenverzamelaars.',
+                      actionLabel: 'Lees de verhalen',
+                      onAction: () => navigateTo(context, '/geheugen'),
+                    ),
+                    const SizedBox(height: 24),
+                    CallToActionBand(
+                      title: 'Voor basisscholen',
+                      text:
+                          'Rondleidingen in de kastelen, Heemskerk in oorlogstijd, wandelingen rond de school en het lesprogramma ‘Beroemd als Maerten’.',
+                      actionLabel: 'Bekijk het lesaanbod',
+                      onAction: () => navigateTo(context, '/educatie'),
+                    ),
+                    const SizedBox(height: 44),
+                  ]),
+                  const FullWidthBand(
+                    color: appAccentBackground,
+                    child: _Practical(),
                   ),
-                  const SizedBox(height: 24),
-                  CallToActionBand(
-                    title: 'Voor basisscholen',
-                    text:
-                        'Rondleidingen in de kastelen, Heemskerk in oorlogstijd, wandelingen rond de school en het lesprogramma ‘Beroemd als Maerten’.',
-                    actionLabel: 'Bekijk het lesaanbod',
-                    onAction: () => navigateTo(context, '/educatie'),
-                  ),
-                  const SizedBox(height: 44),
-                ]),
-                const FullWidthBand(
-                  color: appAccentBackground,
-                  child: _Practical(),
-                ),
-                const SiteFooter(),
-              ],
+                  const SiteFooter(),
+                ],
+              ),
             ),
           ),
         ),
@@ -247,8 +250,7 @@ class _Hero extends StatelessWidget {
                         ),
                         _HeroButton(
                           key: const Key('home-membership-button'),
-                          label:
-                              'Word lid voor ${practicalInfo.membershipFee}',
+                          label: 'Word lid voor ${practicalInfo.membershipFee}',
                           background: Colors.transparent,
                           foreground: Colors.white,
                           outlined: true,
