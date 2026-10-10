@@ -10,7 +10,7 @@ import 'generated_content.dart';
 import 'generated_memory.dart';
 
 const siteName = 'Historische Kring Heemskerk';
-const siteTagline = 'Vereniging voor de geschiedenis van Heemskerk sinds 1988';
+const siteTagline = 'Vereniging voor de geschiedenis van Heemskerk';
 
 /// Praktische gegevens; in fase 2 beheerbaar.
 const practicalInfo = (
@@ -78,6 +78,12 @@ const subMenus = <String, List<({String label, String path})>>{
     (label: 'Contact', path: '/vereniging/contact'),
   ],
 };
+
+/// Bestemming van een hoofditem: het eerste subitem als er een submenubalk is.
+String menuTargetFor(String menuPath) {
+  final subs = subMenus[menuPath];
+  return subs == null || subs.isEmpty ? menuPath : subs.first.path;
+}
 
 /// Hoofditem waar een route onder valt, of null.
 String? mainMenuPathFor(String location) {
@@ -256,7 +262,7 @@ const associationSections = [
   (
     slug: 'over-de-hkh',
     title: 'Over de HKH',
-    description: 'Doel, geschiedenis sinds 1988 en wat de vereniging doet.',
+    description: 'Doel en ontstaan van de vereniging, en wat zij doet.',
     pageSlug: 'over-historische-kring-heemskerk',
   ),
   (

@@ -202,7 +202,8 @@ GoRouter createAppRouter({
           // ---- Ontdek Heemskerk ----
           instantRoute(
             path: 'ontdek',
-            builder: (_, __) => const DiscoverPage(),
+            redirect: (_, state) =>
+                state.uri.path == '/ontdek' ? menuTargetFor('/ontdek') : null,
             routes: [
               instantRoute(
                 path: ':slug',
@@ -338,7 +339,9 @@ GoRouter createAppRouter({
           // ---- Vereniging ----
           instantRoute(
             path: 'vereniging',
-            builder: (_, __) => const AssociationPage(),
+            redirect: (_, state) => state.uri.path == '/vereniging'
+                ? menuTargetFor('/vereniging')
+                : null,
             routes: [
               instantRoute(
                 path: ':slug',

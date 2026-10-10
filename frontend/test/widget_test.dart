@@ -258,7 +258,7 @@ void main() {
       }
       expect(find.byKey(const Key('membership-action')), findsOneWidget);
       expect(
-        find.text('De geschiedenis van Heemskerk, verzameld en verteld sinds 1988'),
+        find.text('De geschiedenis van Heemskerk, verzameld en verteld'),
         findsOneWidget,
       );
       expect(find.text('Binnenkort'), findsOneWidget);
@@ -375,9 +375,12 @@ void main() {
       for (final item in mainMenu) {
         await tester.tap(find.byKey(Key('menu-${item.path.substring(1)}')));
         await tester.pumpAndSettle();
-        expect(_path(router), item.path, reason: item.label);
+        // Een hoofditem met submenubalk opent direct het eerste subitem.
+        expect(_path(router), menuTargetFor(item.path), reason: item.label);
         expect(tester.takeException(), isNull, reason: item.label);
       }
+      expect(menuTargetFor('/vereniging'), '/vereniging/over-de-hkh');
+      expect(menuTargetFor('/agenda'), '/agenda');
       await tester.tap(find.byKey(const Key('hkh-home')));
       await tester.pumpAndSettle();
       expect(_path(router), '/');
@@ -565,10 +568,9 @@ void main() {
         size: const Size(1200, 1300),
         route: '/ontdek',
       );
-      expect(find.byKey(const Key('discover-kastelen')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('discover-kastelen')));
-      await tester.pumpAndSettle();
+      // Ontdek Heemskerk opent direct de eerste rubriek.
       expect(_path(router), '/ontdek/kastelen');
+      expect(find.byKey(const Key('discover-luchtfoto')), findsOneWidget);
       await tester.tap(find.text('Kastelen - Assumburg'));
       await tester.pumpAndSettle();
       expect(_path(router), '/ontdek/kastelen-assumburg');
@@ -614,7 +616,9 @@ void main() {
         size: const Size(1200, 1300),
         route: '/vereniging',
       );
-      await tester.tap(find.byKey(const Key('association-bestuur')));
+      expect(_path(router), '/vereniging/over-de-hkh');
+      expect(find.byKey(const Key('about-membership')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('submenu-vereniging-bestuur')));
       await tester.pumpAndSettle();
       expect(find.text('Guus de Jonge'), findsOneWidget);
       expect(find.text('Voorzitter'), findsOneWidget);

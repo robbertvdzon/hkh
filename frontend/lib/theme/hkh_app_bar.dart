@@ -162,7 +162,8 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                                       item.path,
                                       path,
                                     ),
-                                    onPressed: () => go(item.path),
+                                    onPressed: () =>
+                                        go(menuTargetFor(item.path)),
                                   ),
                               ],
                             ),
@@ -432,7 +433,7 @@ class _MenuButton extends StatelessWidget {
                 selectedColor: appGreen,
                 onTap: () {
                   Navigator.of(sheet).pop();
-                  navigate(item.path);
+                  navigate(menuTargetFor(item.path));
                 },
               ),
             const Divider(),

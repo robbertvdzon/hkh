@@ -111,7 +111,7 @@ class _MembershipPageState extends State<MembershipPage> {
           ),
         const SizedBox(height: 10),
         const Text(
-          'De HKH is een levendige, actieve vereniging voor alle Heemskerkers. In 1988 gestart, inmiddels met ruim 1.800 leden en meer dan honderd actieve vrijwilligers.',
+          'De HKH is een levendige, actieve vereniging voor alle Heemskerkers, met ruim 1.800 leden en meer dan honderd actieve vrijwilligers.',
           style: TextStyle(height: 1.5, color: appMutedText),
         ),
       ],

@@ -103,8 +103,8 @@ class HomePage extends StatelessWidget {
                     children: [
                       const SectionHeader(
                         'Ontdek Heemskerk',
-                        linkLabel: 'Alle verhalen',
-                        linkPath: '/ontdek',
+                        linkLabel: 'Meer ontdekken',
+                        linkPath: '/ontdek/kastelen',
                       ),
                       CardGrid(
                         children: [
@@ -204,7 +204,7 @@ class _Hero extends StatelessWidget {
                       child: Semantics(
                         header: true,
                         child: Text(
-                          'De geschiedenis van Heemskerk, verzameld en verteld sinds 1988',
+                          'De geschiedenis van Heemskerk, verzameld en verteld',
                           style: TextStyle(
                             fontFamily: appSerifFont,
                             fontSize: narrow ? 28 : 40,

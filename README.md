@@ -45,7 +45,7 @@ mvn -B --no-transfer-progress -f backend/pom.xml clean verify
 De frontend is de nieuwe publieke website van de HKH, ingedeeld naar wat een bezoeker komt doen:
 Agenda, Nieuws, Ontdek Heemskerk, Geheugen van Heemskerk, Collecties, Educatie en Vereniging, plus
 de knop Lid worden. Onderdelen met meerdere ingangen tonen een submenubalk onder het hoofdmenu
-(`subMenus` in `site_structure.dart`).
+(`subMenus` in `site_structure.dart`); het hoofditem opent direct het eerste subitem.
 Het onderzoek naar de oude site en het structuurvoorstel staan in
 [docs/website-vernieuwing](docs/website-vernieuwing/README.md).
 

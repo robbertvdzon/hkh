@@ -7,79 +7,57 @@ import '../theme/app_style.dart';
 import 'content_renderer.dart';
 import 'site_widgets.dart';
 
-/// Ontdek Heemskerk: alle rubrieken met hun verhalen.
+/// Eén rubriek van Ontdek Heemskerk met haar verhalen.
 class DiscoverPage extends StatelessWidget {
-  const DiscoverPage({this.category, super.key});
-
-  /// Toont alleen deze rubriek.
-  final StoryCategory? category;
+  const DiscoverPage({required this.category, super.key});
+  final StoryCategory category;
 
   @override
-  Widget build(BuildContext context) {
-    final categories = category == null ? storyCategories : [category!];
-    return SitePage(
-      title: category?.title ?? 'Ontdek Heemskerk',
-      children: [
-        PageHeading(
-          title: category?.title ?? 'Ontdek Heemskerk',
-          crumbs: category == null ? const [] : const [('Ontdek Heemskerk', '/ontdek')],
-          intro: category?.description ??
-              'Verhalen over kastelen, gebouwen, personen en het dagelijks leven in Heemskerk, geschreven door de werkgroepen van de HKH.',
-        ),
-        if (category == null)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final c in storyCategories)
-                ActionChip(
-                  key: Key('discover-${c.slug}'),
-                  label: Text(c.title),
-                  onPressed: () => navigateTo(context, '/ontdek/${c.slug}'),
-                ),
-              ActionChip(
-                key: const Key('discover-luchtfoto'),
-                avatar: const Icon(Icons.map_outlined, size: 18),
-                label: const Text('Luchtfoto toen en nu'),
-                onPressed: () => navigateTo(context, '/luchtfoto'),
+  Widget build(BuildContext context) => SitePage(
+    title: category.title,
+    children: [
+      PageHeading(
+        title: category.title,
+        crumbs: const [('Ontdek Heemskerk', '/ontdek')],
+        intro: category.description,
+      ),
+      CardGrid(
+        children: [
+          for (final slug in category.pageSlugs)
+            if (pageBySlug(slug) case final page?)
+              ContentCard(
+                image: page.image,
+                label: category.title,
+                title: page.title,
+                text: page.summary,
+                onTap: () => navigateTo(context, '/ontdek/${page.slug}'),
               ),
-            ],
-          ),
-        for (final c in categories) ...[
-          const SizedBox(height: 32),
-          if (category == null)
-            SectionHeader(
-              c.title,
-              linkLabel: 'Alles over ${c.title.toLowerCase()}',
-              linkPath: '/ontdek/${c.slug}',
-            ),
-          CardGrid(
-            children: [
-              for (final slug in c.pageSlugs)
-                if (pageBySlug(slug) case final page?)
-                  ContentCard(
-                    image: page.image,
-                    label: c.title,
-                    title: page.title,
-                    text: page.summary,
-                    onTap: () => navigateTo(context, '/ontdek/${page.slug}'),
-                  ),
-            ],
-          ),
         ],
-        if (category == null || category!.slug == 'verhalen') ...[
-          const SizedBox(height: 32),
-          CallToActionBand(
-            title: 'Op zoek naar persoonlijke herinneringen?',
-            text:
-                'De verhalen van Heemskerkers zelf, opgetekend tussen 2005 en 2010, staan in het Geheugen van Heemskerk.',
-            actionLabel: 'Naar het Geheugen van Heemskerk',
-            onAction: () => navigateTo(context, '/geheugen'),
+      ),
+      if (category.slug == 'kastelen') ...[
+        const SizedBox(height: 32),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const Key('discover-luchtfoto'),
+            onPressed: () => navigateTo(context, '/luchtfoto'),
+            icon: const Icon(Icons.map_outlined, size: 18),
+            label: const Text('Luchtfoto van Heemskerk, toen en nu'),
           ),
-        ],
+        ),
       ],
-    );
-  }
+      if (category.slug == 'verhalen') ...[
+        const SizedBox(height: 32),
+        CallToActionBand(
+          title: 'Op zoek naar persoonlijke herinneringen?',
+          text:
+              'De verhalen van Heemskerkers zelf, opgetekend tussen 2005 en 2010, staan in het Geheugen van Heemskerk.',
+          actionLabel: 'Naar het Geheugen van Heemskerk',
+          onAction: () => navigateTo(context, '/geheugen'),
+        ),
+      ],
+    ],
+  );
 }
 
 /// Eén verhaal of informatiepagina, met de tekst en foto's van de oude site.

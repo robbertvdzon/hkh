@@ -11,48 +11,6 @@ import 'site_widgets.dart';
 
 const _crumbs = [('Vereniging', '/vereniging')];
 
-/// Vereniging: overzicht van alle onderdelen.
-class AssociationPage extends StatelessWidget {
-  const AssociationPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final about = pageBySlug('over-historische-kring-heemskerk');
-    return SitePage(
-      title: 'Vereniging',
-      children: [
-        PageHeading(
-          title: 'Vereniging',
-          intro: about?.summary ??
-              'De Historische Kring Heemskerk is gestart in 1988 en is een levendige, actieve vereniging voor alle Heemskerkers.',
-        ),
-        CardGrid(
-          children: [
-            for (final section in associationSections)
-              ContentCard(
-                key: Key('association-${section.slug}'),
-                title: section.title,
-                text: section.description,
-                actionLabel: 'Bekijk',
-                actionFilled: false,
-                onTap: () =>
-                    navigateTo(context, '/vereniging/${section.slug}'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 34),
-        CallToActionBand(
-          title: 'Lid worden?',
-          text:
-              'De HKH is een levendige, actieve vereniging voor alle Heemskerkers. Lidmaatschap kost ${practicalInfo.membershipFee}.',
-          actionLabel: 'Ja! Ik word graag lid',
-          onAction: () => navigateTo(context, '/lid-worden'),
-        ),
-      ],
-    );
-  }
-}
-
 /// Bouwt de pagina voor een onderdeel van Vereniging, of null bij een
 /// onbekende slug.
 Widget? associationSectionPage(String slug) {
@@ -102,6 +60,25 @@ Widget? associationSectionPage(String slug) {
             page: page,
             crumbs: _crumbs,
             label: 'Vereniging',
+            extraActions: slug == 'over-de-hkh'
+                ? [
+                    Builder(
+                      builder: (context) => FilledButton(
+                        key: const Key('about-membership'),
+                        onPressed: () => navigateTo(context, '/lid-worden'),
+                        child: Text(
+                          'Lid worden voor ${practicalInfo.membershipFee}',
+                        ),
+                      ),
+                    ),
+                    Builder(
+                      builder: (context) => OutlinedButton(
+                        onPressed: () => navigateTo(context, '/vereniging/links'),
+                        child: const Text('Partnerorganisaties'),
+                      ),
+                    ),
+                  ]
+                : const [],
           );
         }
       }

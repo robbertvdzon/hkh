@@ -112,9 +112,12 @@ bezoeker binnen dat onderdeel is, met het actieve subitem gemarkeerd. Alleen waa
 | Collecties | Overzicht · Zoeken in de collecties · Onderzoek |
 | Vereniging | Over de HKH · Bestuur · Werkgroepen · Historisch Huis · Uitgaven · ANBI · Contact |
 
-Agenda en Educatie hebben geen submenubalk. De ondertitel in de kop is "Vereniging voor de
-geschiedenis van Heemskerk sinds 1988", zodat de naam Geheugen van Heemskerk alleen nog de
-verhalen aanduidt.
+Agenda en Educatie hebben geen submenubalk. Een hoofditem met submenubalk opent direct het
+eerste subitem (Vereniging opent Over de HKH, Ontdek Heemskerk opent Kastelen); er zijn geen
+aparte overzichtspagina's per hoofditem. De ondertitel in de kop is "Vereniging voor de
+geschiedenis van Heemskerk", zodat de naam Geheugen van Heemskerk alleen nog de verhalen
+aanduidt. Het oprichtingsjaar 1988 wordt alleen genoemd bij Over de HKH: de site gaat over de
+hele geschiedenis van Heemskerk, niet over die sinds de oprichting.
 
 ## 3. Per hoofdonderdeel
 
