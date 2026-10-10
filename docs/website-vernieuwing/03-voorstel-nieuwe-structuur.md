@@ -109,10 +109,13 @@ bezoeker binnen dat onderdeel is, met het actieve subitem gemarkeerd. Alleen waa
 | Nieuws | Berichten · Nieuwsbrieven · Heemskring |
 | Ontdek Heemskerk | Kastelen · Gebouwen en monumenten · Personen · Verhalen · Exposities |
 | Geheugen van Heemskerk | Alle verhalen · Thema's · Buurten · Over het project |
-| Collecties | Overzicht · Zoeken in de collecties · Onderzoek |
+| Collecties | Zoeken · Uitgebreid zoeken in de collectie |
 | Vereniging | Over de HKH · Bestuur · Werkgroepen · Historisch Huis · Uitgaven · ANBI · Contact |
 
-Agenda en Educatie hebben geen submenubalk. Een hoofditem met submenubalk opent direct het
+Collecties › Zoeken is één zoekveld met daaronder de keuze: zoeken in alle collecties, zoeken in
+één collectie (keuzelijst), met AI zoeken door alle collecties met een samenvatting, of extra
+uitgebreid met AI zoeken. Uitgebreid zoeken in de collectie is de bestaande zoekpagina met
+filters per collectie. Agenda en Educatie hebben geen submenubalk. Een hoofditem met submenubalk opent direct het
 eerste subitem (Vereniging opent Over de HKH, Ontdek Heemskerk opent Kastelen); er zijn geen
 aparte overzichtspagina's per hoofditem. De ondertitel in de kop is "Vereniging voor de
 geschiedenis van Heemskerk", zodat de naam Geheugen van Heemskerk alleen nog de verhalen

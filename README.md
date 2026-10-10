@@ -63,8 +63,9 @@ Foto's worden in deze fase nog van de oude site geladen. De formulieren voor ins
 wachtlijst), lesaanbod aanvragen, contact en lid worden tonen een voorbeeldbevestiging en bewaren
 nog niets; dat komt in fase 2 samen met de database en het beheer. De routes zijn `/#/agenda`,
 `/#/agenda/{slug}`, `/#/nieuws`, `/#/ontdek`, `/#/ontdek/{slug}`, `/#/geheugen`,
-`/#/geheugen/verhaal/{slug}`, `/#/collecties`, `/#/educatie`, `/#/vereniging/{onderdeel}` en
-`/#/lid-worden`; `/#/zoeken`, `/#/vragen` (Onderzoek) en `/#/luchtfoto` blijven bestaan.
+`/#/geheugen/verhaal/{slug}`, `/#/collecties` (Zoeken: één zoekveld met keuze alle collecties, één collectie of AI), `/#/educatie`, `/#/vereniging/{onderdeel}` en
+`/#/lid-worden`; `/#/zoeken` (Uitgebreid zoeken in de collectie), `/#/vragen` (AI-onderzoek) en `/#/luchtfoto`
+blijven bestaan.
 
 ## Zoeken en objectlinks
 

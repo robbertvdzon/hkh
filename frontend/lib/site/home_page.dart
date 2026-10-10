@@ -243,7 +243,7 @@ class _Hero extends StatelessWidget {
                           label: 'Zoek in de collecties',
                           background: appAccentBackground,
                           foreground: appGreen,
-                          onPressed: () => navigateTo(context, '/zoeken'),
+                          onPressed: () => navigateTo(context, '/collecties'),
                         ),
                         _HeroButton(
                           key: const Key('home-membership-button'),

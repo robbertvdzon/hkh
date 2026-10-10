@@ -442,18 +442,9 @@ class _MenuButton extends StatelessWidget {
               title: const Text('Zoeken in de collecties'),
               onTap: () {
                 Navigator.of(sheet).pop();
-                navigate('/zoeken');
+                navigate('/collecties');
               },
             ),
-            if (questionsEnabled)
-              ListTile(
-                leading: const Icon(Icons.auto_awesome_outlined),
-                title: const Text('Onderzoek'),
-                onTap: () {
-                  Navigator.of(sheet).pop();
-                  navigate('/vragen');
-                },
-              ),
             ListTile(
               leading: const Icon(Icons.card_membership_outlined),
               title: const Text('Lid worden'),
@@ -514,7 +505,7 @@ class _HeaderSearchField extends StatelessWidget {
     label: 'Zoek in de collecties',
     child: InkWell(
       key: const Key('header-search-field'),
-      onTap: () => onSearch('/zoeken'),
+      onTap: () => onSearch('/collecties'),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         width: 300,

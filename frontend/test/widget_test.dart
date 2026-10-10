@@ -287,7 +287,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('home-search-button')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/zoeken');
+      expect(_path(router), '/collecties');
       await tester.tap(find.byKey(const Key('hkh-home')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('membership-action')));
@@ -393,7 +393,7 @@ void main() {
       expect(find.byKey(const Key('menu-agenda')), findsNothing);
       await tester.tap(find.byKey(const Key('menu-toggle')));
       await tester.pumpAndSettle();
-      expect(find.text('Onderzoek'), findsOneWidget);
+      expect(find.text('Zoeken in de collecties'), findsOneWidget);
       await tester.tap(find.byKey(const Key('menu-educatie')));
       await tester.pumpAndSettle();
       expect(_path(router), '/educatie');
@@ -407,8 +407,8 @@ void main() {
       final router = await _pumpApp(tester, size: const Size(1200, 1100));
       await tester.tap(find.byKey(const Key('header-search-field')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/zoeken');
-      expect(find.byKey(const Key('collection-query')), findsOneWidget);
+      expect(_path(router), '/collecties');
+      expect(find.byKey(const Key('collections-query')), findsOneWidget);
     });
   });
 
@@ -646,22 +646,31 @@ void main() {
         aiSource: aiSource,
         route: '/collecties',
       );
-      await tester.tap(find.byKey(const Key('collection-chip-bidprentjes')));
+      // Eén collectie kiezen en zoeken.
+      await tester.enterText(find.byKey(const Key('collections-query')), 'Adrichem');
+      await tester.tap(find.byKey(const Key('mode-single')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('mode-single-collection')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bidprentjes').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pumpAndSettle();
       expect(_path(router), '/zoeken');
-      expect(
-        router.routeInformationProvider.value.uri.queryParameters['collection'],
-        'bidprentjes',
-      );
+      final params = router.routeInformationProvider.value.uri.queryParameters;
+      expect(params['collection'], 'bidprentjes');
+      expect(params['q'], 'Adrichem');
+      // Met AI zoeken start een onderzoek.
       router.go('/collecties');
       await tester.pumpAndSettle();
-      await _scrollTo(tester, find.byKey(const Key('ai-question-field')));
       await tester.enterText(
-        find.byKey(const Key('ai-question-field')),
+        find.byKey(const Key('collections-query')),
         'Wie was Piet Diemeer?',
       );
-      await tester.ensureVisible(find.byKey(const Key('ai-question-button')));
-      await tester.tap(find.byKey(const Key('ai-question-button')));
+      await tester.tap(find.byKey(const Key('mode-ai-thorough')));
+      await tester.pumpAndSettle();
+      expect(find.text('Onderzoek starten'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(aiSource.startedQuestions, ['Wie was Piet Diemeer?']);
@@ -789,10 +798,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(_path(router), '/zoeken');
       expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('submenu-vragen')));
+      await tester.tap(find.byKey(const Key('submenu-collecties')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/vragen');
-      expect(find.text('Onderzoek'), findsWidgets);
+      expect(_path(router), '/collecties');
+      expect(activeSubMenuPath('/vragen'), '/collecties');
     });
 
     test('active submenu item is the longest matching path', () {
