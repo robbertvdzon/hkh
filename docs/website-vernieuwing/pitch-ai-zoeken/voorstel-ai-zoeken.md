@@ -40,7 +40,7 @@ Wie liever zelf zoekt, kan dat blijven doen: de bestaande zoekschermen met filte
 
 ## 3. Een echt voorbeeld
 
-Hieronder staat, letterlijk overgenomen, het antwoord dat de digitale onderzoeker op de proefomgeving gaf op de vraag "Wat is er bekend over de aardbeienteelt in Heemskerk?". Het antwoord is in één zoekronde gemaakt en kostte 2 minuten en 13 seconden.
+Hieronder staat, letterlijk overgenomen, het antwoord dat de digitale onderzoeker op de proefomgeving gaf op de vraag "Wat is er bekend over de aardbeienteelt in Heemskerk?". Het maken van dit antwoord duurde 2 minuten en 13 seconden. In die tijd heeft de digitale onderzoeker op de achtergrond de passende bronnen uit alle collecties opgehaald, gelezen en er met hulp van AI dit antwoord van gemaakt. De bezoeker ziet intussen op het scherm welke stap er bezig is.
 ![Het begin van het antwoord, met de korte disclaimer, de gestelde vraag en de eerste alinea's. Elke onderstreepte verwijzing is een bron uit onze collectie.](antwoord-boven.jpg)
 
 ![Verderop in hetzelfde antwoord: foto's uit de beeldbank staan tussen de tekst, met bijschrift en objectnummer. Het volledige antwoord telt ruim 1.000 woorden en 22 bronnen.](antwoord-met-foto.jpg)
