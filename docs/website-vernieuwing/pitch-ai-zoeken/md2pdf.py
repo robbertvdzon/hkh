@@ -29,8 +29,11 @@ CSS = """
   p { margin: 0 0 8pt; }
   ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
   li { margin-bottom: 4pt; }
-  section { page-break-before: auto; }
-  section:nth-of-type(2) { page-break-before: always; }
+  section { page-break-before: always; }
+  section:first-of-type { page-break-before: auto; }
+  .pair { display: flex; gap: 6mm; margin: 8pt 0 10pt; page-break-inside: avoid; }
+  .pair figure { flex: 1; margin: 0; }
+  .pair figure img { max-height: 120mm; }
   .cover { background: var(--dark); color: #fff; padding: 16mm 14mm; margin: 0 0 10mm 0; border-radius: 6pt; }
   .cover h1 { color: #fff; font-size: 30pt; line-height: 1.2; max-width: 150mm; }
   .cover p { font-size: 13pt; opacity: .9; margin: 8pt 0 0; max-width: 150mm; }
@@ -69,10 +72,25 @@ def render_blocks(lines):
             continue
         m = re.match(r'^!\[(.*?)\]\((.*?)\)\s*$', line)
         if m:
-            cap, src = m.groups()
-            out.append(f'<figure><img src="{html.escape(src)}" alt="{html.escape(cap)}">'
-                       + (f'<figcaption>{inline(cap)}</figcaption>' if cap else '') + '</figure>')
-            i += 1
+            # Opeenvolgende afbeeldingen (alleen lege regels ertussen) komen naast elkaar.
+            figures = []
+            j = i
+            while j < len(lines):
+                mm = re.match(r'^!\[(.*?)\]\((.*?)\)\s*$', lines[j])
+                if mm:
+                    cap, src = mm.groups()
+                    figures.append(f'<figure><img src="{html.escape(src)}" alt="{html.escape(cap)}">'
+                                   + (f'<figcaption>{inline(cap)}</figcaption>' if cap else '') + '</figure>')
+                    j += 1
+                elif not lines[j].strip() and j + 1 < len(lines) and re.match(r'^!\[', lines[j + 1]):
+                    j += 1
+                else:
+                    break
+            if len(figures) > 1:
+                out.append('<div class="pair">' + ''.join(figures) + '</div>')
+            else:
+                out.append(figures[0])
+            i = j
             continue
         if line.startswith('### '):
             # kader tot de volgende kop of de volgende lege regel na een alinea-blok

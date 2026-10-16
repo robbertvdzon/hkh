@@ -69,5 +69,3 @@ De proefomgeving staat op https://hkh.vdzonsoftware.nl. Typ een vraag en klik op
 - Wat is er bekend over de aardbeienteelt in Heemskerk?
 - Wie woonden er rond 1900 aan de Kerkweg?
 - Wat gebeurde er in Heemskerk tijdens de Tweede Wereldoorlog?
-
-Onderaan het zoekscherm staat een schakelaar "Nieuwe website". Daarachter staat, ter kennismaking, een proefversie van een vernieuwde website met dezelfde inhoud als de huidige site. Daar hoeft het bestuur nu niets over te besluiten.
