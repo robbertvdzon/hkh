@@ -67,6 +67,15 @@ nog niets; dat komt in fase 2 samen met de database en het beheer. De routes zij
 `/#/lid-worden`; `/#/zoeken` (Uitgebreid zoeken in de collectie), `/#/vragen` (AI-onderzoek) en `/#/luchtfoto`
 blijven bestaan.
 
+### Zoekscherm en nieuwe website
+
+Voor de demo van de AI-zoekfunctie aan het bestuur is het **zoekscherm** de standaard startpagina:
+één vraagveld, AI met één zoekronde standaard aan, achter het vinkje "Uitgebreid" de overige
+zoekwijzen (extra uitgebreid met AI, zelf zoeken in alle of één collectie) en drie voorbeeldvragen.
+De kop toont op de zoekschermen geen menu. De schakelaar onderaan elke pagina wisselt naar de
+**nieuwe website** (de volledige site); die keuze wordt per browser bewaard
+(`frontend/lib/site/site_mode.dart`). Directe links naar andere pagina's werken in beide standen.
+
 ## Zoeken en objectlinks
 
 De pagina Collecties verwijst naar de zoekpagina. Daar staan de vertrouwde ingangen Archief,

@@ -185,7 +185,8 @@ class HeemskringPage extends StatelessWidget {
                     child: const Text('Lid worden'),
                   ),
                   OutlinedButton(
-                    onPressed: () => navigateTo(context, '/vereniging/uitgaven'),
+                    onPressed: () =>
+                        navigateTo(context, '/vereniging/uitgaven'),
                     child: const Text('Uitgaven en winkel'),
                   ),
                 ],

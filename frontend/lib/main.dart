@@ -15,6 +15,7 @@ import 'collection/collection_search.dart';
 import 'navigation.dart';
 import 'config/app_config.dart';
 import 'self_update_prompt.dart';
+import 'site/site_mode.dart';
 import 'theme/app_style.dart';
 
 export 'site/home_page.dart' show HomePage;
@@ -51,6 +52,7 @@ class HkhApp extends StatefulWidget {
     this.session,
     this.googleButtonBuilder,
     this.now,
+    this.siteMode,
     super.key,
   });
 
@@ -67,12 +69,18 @@ class HkhApp extends StatefulWidget {
   /// Peilmoment voor de agenda; standaard de huidige tijd.
   final DateTime? now;
 
+  /// Weergave (zoekscherm of website); zonder controller een eigen, bewaarde.
+  final SiteModeController? siteMode;
+
   @override
   State<HkhApp> createState() => _HkhAppState();
 }
 
 class _HkhAppState extends State<HkhApp> {
+  late final SiteModeController _siteMode =
+      widget.siteMode ?? SiteModeController();
   late final _router = createAppRouter(
+    siteMode: _siteMode,
     searchSource: widget.searchSource,
     aiSearchSource: widget.aiSearchSource,
     pdfSource: widget.pdfSource,
@@ -90,6 +98,7 @@ class _HkhAppState extends State<HkhApp> {
     super.initState();
     widget.session?.addListener(_onAccountChanged);
     _onAccountChanged();
+    if (widget.siteMode == null) unawaited(_siteMode.load());
     if (!kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final context = _router.routerDelegate.navigatorKey.currentContext;
@@ -136,6 +145,7 @@ class _HkhAppState extends State<HkhApp> {
   void dispose() {
     widget.session?.removeListener(_onAccountChanged);
     _router.dispose();
+    if (widget.siteMode == null) _siteMode.dispose();
     super.dispose();
   }
 
@@ -158,10 +168,15 @@ class _HkhAppState extends State<HkhApp> {
       ),
     ),
     builder: (context, child) => ListenableBuilder(
-      listenable: _router.routeInformationProvider,
+      listenable: Listenable.merge([
+        _router.routeInformationProvider,
+        _siteMode,
+      ]),
       builder: (context, _) => AppNavigationScope(
         navigate: _router.go,
         questionsEnabled: widget.aiSearchSource != null,
+        simpleMode: _siteMode.simple,
+        onSimpleModeChanged: (simple) => _siteMode.setWebsite(!simple),
         location: _router.routeInformationProvider.value.uri.path,
         accountBuilder: (context) => AccountAction(
           session: widget.session ?? DisabledUserSession(),

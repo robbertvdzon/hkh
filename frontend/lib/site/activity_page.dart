@@ -353,9 +353,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
                   child: DropdownButtonFormField<bool>(
                     key: const Key('registration-member'),
                     initialValue: _member,
-                    decoration: const InputDecoration(
-                      labelText: 'HKH-lid?',
-                    ),
+                    decoration: const InputDecoration(labelText: 'HKH-lid?'),
                     items: const [
                       DropdownMenuItem(value: true, child: Text('Ja')),
                       DropdownMenuItem(value: false, child: Text('Nee')),

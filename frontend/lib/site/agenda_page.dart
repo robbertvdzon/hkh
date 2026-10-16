@@ -27,7 +27,9 @@ class _AgendaPageState extends State<AgendaPage> {
   @override
   Widget build(BuildContext context) {
     final now = widget.now ?? DateTime.now();
-    var activities = widget.past ? pastActivities(now) : upcomingActivities(now);
+    var activities = widget.past
+        ? pastActivities(now)
+        : upcomingActivities(now);
     if (_kind != null) {
       activities = activities.where((a) => a.kind == _kind).toList();
     }
@@ -36,7 +38,9 @@ class _AgendaPageState extends State<AgendaPage> {
     }
     final byMonth = <String, List<Activity>>{};
     for (final activity in activities) {
-      byMonth.putIfAbsent(formatMonthYear(activity.start), () => []).add(activity);
+      byMonth
+          .putIfAbsent(formatMonthYear(activity.start), () => [])
+          .add(activity);
     }
     final kinds = ActivityKind.values
         .where((k) => generatedActivities.any((a) => a.kind == k))
@@ -179,7 +183,10 @@ class _FixedMoments extends StatelessWidget {
         spacing: 28,
         runSpacing: 12,
         children: [
-          item('Historisch Huis open', practicalInfo.openingHours.toLowerCase()),
+          item(
+            'Historisch Huis open',
+            practicalInfo.openingHours.toLowerCase(),
+          ),
           item('Vaste momenten', '1e en 3e vrijdagmiddag · 4e dinsdagavond'),
         ],
       ),

@@ -105,7 +105,9 @@ class _MembershipPageState extends State<MembershipPage> {
               children: [
                 const Icon(Icons.check, size: 20, color: appGreen),
                 const SizedBox(width: 8),
-                Expanded(child: Text(benefit, style: const TextStyle(height: 1.5))),
+                Expanded(
+                  child: Text(benefit, style: const TextStyle(height: 1.5)),
+                ),
               ],
             ),
           ),

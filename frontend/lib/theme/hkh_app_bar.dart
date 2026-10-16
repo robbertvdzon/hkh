@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../content/site_structure.dart';
+import '../site/site_mode.dart';
 import 'app_style.dart';
 
 /// De hoofdnavigatie en accountbediening zijn op iedere pagina beschikbaar.
@@ -13,6 +14,8 @@ class AppNavigationScope extends InheritedWidget {
     required this.accountBuilder,
     required super.child,
     this.questionsEnabled = true,
+    this.simpleMode = false,
+    this.onSimpleModeChanged,
     super.key,
   });
 
@@ -24,6 +27,14 @@ class AppNavigationScope extends InheritedWidget {
   /// Zonder AI-bron ontbreekt 'Onderzoek' in het menu.
   final bool questionsEnabled;
 
+  /// Eenvoudige weergave: het zoekscherm is de startpagina en de kop toont op
+  /// de zoekschermen geen menu.
+  final bool simpleMode;
+  final ValueChanged<bool>? onSimpleModeChanged;
+
+  /// Of de kop op [location] zonder menu moet zijn.
+  bool get slimHeader => simpleMode && isSearchRoute(location);
+
   static AppNavigationScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppNavigationScope>();
 
@@ -32,6 +43,7 @@ class AppNavigationScope extends InheritedWidget {
       location != oldWidget.location ||
       navigate != oldWidget.navigate ||
       questionsEnabled != oldWidget.questionsEnabled ||
+      simpleMode != oldWidget.simpleMode ||
       accountBuilder != oldWidget.accountBuilder;
 }
 
@@ -53,7 +65,10 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
   }) : _layout = HeaderLayout(
          context,
-         subMenu: subMenuFor(AppNavigationScope.of(context)?.location ?? ''),
+         subMenu: (AppNavigationScope.of(context)?.slimHeader ?? false)
+             ? const []
+             : subMenuFor(AppNavigationScope.of(context)?.location ?? ''),
+         slim: AppNavigationScope.of(context)?.slimHeader ?? false,
        );
 
   final Widget title;
@@ -115,11 +130,11 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ),
                         ),
                       ),
-                      if (_layout.showSearchField) ...[
+                      if (_layout.showSearchField && !_layout.slim) ...[
                         const SizedBox(width: 16),
                         _HeaderSearchField(onSearch: go),
                       ],
-                      if (!_layout.compactBrand) ...[
+                      if (!_layout.compactBrand && !_layout.slim) ...[
                         const SizedBox(width: 12),
                         _MembershipButton(
                           compact: _layout.narrow,
@@ -134,43 +149,44 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
-              ColoredBox(
-                color: appMenuBackground,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: _layout.menuHeight,
-                  child: _HeaderContent(
-                    padding: _layout.horizontal - _layout.menuPadding,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _layout.narrow
-                          ? _MenuButton(
-                              layout: _layout,
-                              path: path,
-                              questionsEnabled:
-                                  navigation?.questionsEnabled ?? true,
-                              navigate: go,
-                            )
-                          : Wrap(
-                              children: [
-                                for (final item in mainMenu)
-                                  _NavigationButton(
-                                    layout: _layout,
-                                    label: item.label,
-                                    keyName: 'menu-${item.path.substring(1)}',
-                                    selected: isMenuPathActive(
-                                      item.path,
-                                      path,
+              if (!_layout.slim)
+                ColoredBox(
+                  color: appMenuBackground,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: _layout.menuHeight,
+                    child: _HeaderContent(
+                      padding: _layout.horizontal - _layout.menuPadding,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _layout.narrow
+                            ? _MenuButton(
+                                layout: _layout,
+                                path: path,
+                                questionsEnabled:
+                                    navigation?.questionsEnabled ?? true,
+                                navigate: go,
+                              )
+                            : Wrap(
+                                children: [
+                                  for (final item in mainMenu)
+                                    _NavigationButton(
+                                      layout: _layout,
+                                      label: item.label,
+                                      keyName: 'menu-${item.path.substring(1)}',
+                                      selected: isMenuPathActive(
+                                        item.path,
+                                        path,
+                                      ),
+                                      onPressed: () =>
+                                          go(menuTargetFor(item.path)),
                                     ),
-                                    onPressed: () =>
-                                        go(menuTargetFor(item.path)),
-                                  ),
-                              ],
-                            ),
+                                ],
+                              ),
+                      ),
                     ),
                   ),
                 ),
-              ),
               if (_layout.subMenu.isNotEmpty)
                 ColoredBox(
                   color: appSubMenuBackground,
@@ -190,8 +206,7 @@ class HkhAppBar extends StatelessWidget implements PreferredSizeWidget {
                                 label: item.label,
                                 keyName:
                                     'submenu-${item.path.substring(1).replaceAll('/', '-')}',
-                                selected:
-                                    activeSubMenuPath(path) == item.path,
+                                selected: activeSubMenuPath(path) == item.path,
                                 onPressed: () => go(item.path),
                               ),
                           ],
@@ -514,9 +529,7 @@ class _HeaderSearchField extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: appHeaderForeground.withValues(alpha: 0.4),
-          ),
+          border: Border.all(color: appHeaderForeground.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
@@ -562,6 +575,7 @@ class HeaderLayout {
   HeaderLayout(
     BuildContext context, {
     this.subMenu = const [],
+    this.slim = false,
   }) {
     final width = math.min(MediaQuery.sizeOf(context).width, 1160.0);
     narrow = width <= 900;
@@ -641,7 +655,9 @@ class HeaderLayout {
       return rows;
     }
 
-    menuHeight = narrow
+    menuHeight = slim
+        ? 0
+        : narrow
         ? menuRowHeight
         : rowsFor([for (final i in mainMenu) i.label], menuStyle) *
               menuRowHeight;
@@ -653,6 +669,9 @@ class HeaderLayout {
 
   /// Subitems van het onderdeel waarin de bezoeker zich bevindt.
   final List<({String label, String path})> subMenu;
+
+  /// Kop zonder menu, zoekvak en Lid worden (eenvoudige weergave).
+  final bool slim;
 
   late final bool narrow, compactBrand, showSearchField;
   late final double horizontal, logoWidth, brandGap, menuPadding;

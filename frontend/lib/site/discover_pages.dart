@@ -84,7 +84,8 @@ class StoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final category = storyCategoryOfPage(page.slug);
     final isCastleMap = page.slug == 'alle-kastelen-op-de-kaart';
-    final related = category?.pageSlugs
+    final related =
+        category?.pageSlugs
             .where((s) => s != page.slug)
             .map(pageBySlug)
             .whereType<ContentPage>()

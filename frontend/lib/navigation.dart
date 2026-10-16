@@ -21,6 +21,8 @@ import 'site/home_page.dart';
 import 'site/membership_page.dart';
 import 'site/memory_pages.dart';
 import 'site/news_pages.dart';
+import 'site/simple_search_page.dart';
+import 'site/site_mode.dart';
 import 'site/site_widgets.dart';
 
 String searchLocation({
@@ -106,6 +108,7 @@ GoRouter createAppRouter({
   Widget Function()? googleButtonBuilder,
   String? initialLocation,
   DateTime? now,
+  SiteModeController? siteMode,
 }) {
   GoRouter.optionURLReflectsImperativeAPIs = true;
   Widget objectPage(GoRouterState state) => CollectionDetailPage(
@@ -154,8 +157,17 @@ GoRouter createAppRouter({
     routes: [
       instantRoute(
         path: '/',
-        builder: (_, __) =>
-            HomePage(questionsEnabled: aiSearchSource != null, now: now),
+        builder: (_, __) {
+          Widget home() => (siteMode?.simple ?? false)
+              ? SimpleSearchPage(questionsEnabled: aiSearchSource != null)
+              : HomePage(questionsEnabled: aiSearchSource != null, now: now);
+          return siteMode == null
+              ? home()
+              : ListenableBuilder(
+                  listenable: siteMode,
+                  builder: (_, __) => home(),
+                );
+        },
         routes: [
           // ---- Agenda ----
           instantRoute(
@@ -169,7 +181,9 @@ GoRouter createAppRouter({
               instantRoute(
                 path: ':slug',
                 builder: (_, state) {
-                  final activity = activityBySlug(state.pathParameters['slug']!);
+                  final activity = activityBySlug(
+                    state.pathParameters['slug']!,
+                  );
                   return activity == null
                       ? notFound()
                       : ActivityPage(activity: activity, now: now);
@@ -194,7 +208,9 @@ GoRouter createAppRouter({
                 path: ':slug',
                 builder: (_, state) {
                   final post = newsBySlug(state.pathParameters['slug']!);
-                  return post == null ? notFound() : NewsArticlePage(post: post);
+                  return post == null
+                      ? notFound()
+                      : NewsArticlePage(post: post);
                 },
               ),
             ],
@@ -228,11 +244,13 @@ GoRouter createAppRouter({
             routes: [
               instantRoute(
                 path: 'themas',
-                builder: (_, __) => const MemoryGroupsPage(byNeighbourhood: false),
+                builder: (_, __) =>
+                    const MemoryGroupsPage(byNeighbourhood: false),
               ),
               instantRoute(
                 path: 'buurten',
-                builder: (_, __) => const MemoryGroupsPage(byNeighbourhood: true),
+                builder: (_, __) =>
+                    const MemoryGroupsPage(byNeighbourhood: true),
               ),
               instantRoute(
                 path: 'over',
@@ -255,7 +273,9 @@ GoRouter createAppRouter({
               instantRoute(
                 path: 'verhaal/:slug',
                 builder: (_, state) {
-                  final story = memoryStoryBySlug(state.pathParameters['slug']!);
+                  final story = memoryStoryBySlug(
+                    state.pathParameters['slug']!,
+                  );
                   return story == null
                       ? notFound()
                       : MemoryStoryPage(
@@ -358,9 +378,7 @@ GoRouter createAppRouter({
         ],
       ),
     ],
-    errorBuilder: (context, _) => Theme(
-      data: appPageTheme(context),
-      child: const NotFoundPage(),
-    ),
+    errorBuilder: (context, _) =>
+        Theme(data: appPageTheme(context), child: const NotFoundPage()),
   );
 }

@@ -51,9 +51,9 @@ class AnswerSourcesPage extends StatelessWidget {
               if (title != null) ...[
                 Text(
                   title!,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: appGreen,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: appGreen),
                 ),
                 const SizedBox(height: 6),
               ],

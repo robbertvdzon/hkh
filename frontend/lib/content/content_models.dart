@@ -104,7 +104,8 @@ class ActivityRegistration {
 
   bool get isExternal => externalUrl != null;
   bool get isFull => capacity != null && registered >= capacity!;
-  int get free => capacity == null ? 0 : (capacity! - registered).clamp(0, capacity!);
+  int get free =>
+      capacity == null ? 0 : (capacity! - registered).clamp(0, capacity!);
 }
 
 class Activity {
@@ -330,9 +331,8 @@ class MemoryStory {
   final List<MemoryFigure> figures;
   final List<String> relatedSlugs;
 
-  String get summary => intro.isNotEmpty
-      ? intro.first
-      : (body.isNotEmpty ? body.first : '');
+  String get summary =>
+      intro.isNotEmpty ? intro.first : (body.isNotEmpty ? body.first : '');
 
   String? get image => figures.isEmpty ? null : figures.first.src;
 }

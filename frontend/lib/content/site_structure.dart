@@ -27,8 +27,14 @@ const practicalInfo = (
 
 const socialLinks = [
   PartnerLink('YouTube', 'https://www.youtube.com/@HistorischeKringHeemskerk'),
-  PartnerLink('Instagram', 'https://www.instagram.com/historischekringheemskerk/'),
-  PartnerLink('Facebook', 'https://www.facebook.com/groups/historischekringheemskerk'),
+  PartnerLink(
+    'Instagram',
+    'https://www.instagram.com/historischekringheemskerk/',
+  ),
+  PartnerLink(
+    'Facebook',
+    'https://www.facebook.com/groups/historischekringheemskerk',
+  ),
 ];
 
 /// Hoofdmenu: label en route.
@@ -118,8 +124,8 @@ List<({String label, String path})> subMenuFor(String location) =>
 String? activeSubMenuPath(String location) {
   // Objecten en gedeelde antwoorden horen bij Uitgebreid zoeken; AI-onderzoek
   // start vanaf Zoeken.
-  final normalized = location.startsWith('/objecten') ||
-          location.startsWith('/gedeeld')
+  final normalized =
+      location.startsWith('/objecten') || location.startsWith('/gedeeld')
       ? '/zoeken'
       : location.startsWith('/vragen')
       ? '/collecties'
@@ -283,7 +289,8 @@ const associationSections = [
   (
     slug: 'historisch-huis',
     title: 'Historisch Huis',
-    description: 'Adres, openingstijden en de geschiedenis van de St. Mariaschool.',
+    description:
+        'Adres, openingstijden en de geschiedenis van de St. Mariaschool.',
     pageSlug: 'openstelling-historisch-huis',
   ),
   (
@@ -513,7 +520,8 @@ const educationItems = [
   ),
   EducationItem(
     slug: 'verjaardag-van-maerten',
-    title: 'Jaarlijkse activiteit rond de geboortedag van Maerten van Heemskerck',
+    title:
+        'Jaarlijkse activiteit rond de geboortedag van Maerten van Heemskerck',
     kind: 'Jaarlijks · rond 1 juli',
     groups: 'Nog te bepalen',
     description:
@@ -616,7 +624,8 @@ List<NewsPost> get newsPosts =>
 String? internalRouteFor(String href) {
   final uri = Uri.tryParse(href);
   if (uri == null) return null;
-  if (uri.host.isNotEmpty && !uri.host.endsWith('historischekringheemskerk.nl')) {
+  if (uri.host.isNotEmpty &&
+      !uri.host.endsWith('historischekringheemskerk.nl')) {
     return null;
   }
   if (uri.path.startsWith('/cgi-bin/')) {
@@ -644,19 +653,25 @@ String? internalRouteFor(String href) {
   if (slug.isEmpty) return '/';
   if (slug == 'evenementen') return '/agenda';
   if (slug.startsWith('evenement/')) return '/agenda/${slug.substring(10)}';
-  if (slug == 'alle-berichten-van-historische-kring-heemskerk') return '/nieuws';
+  if (slug == 'alle-berichten-van-historische-kring-heemskerk') {
+    return '/nieuws';
+  }
   if (slug == 'hkh-nieuwsbrieven') return '/nieuws/nieuwsbrieven';
   if (slug == 'hkh-producten' || slug.startsWith('hkh-product')) {
     return '/vereniging/uitgaven';
   }
-  if (slug == 'lid-worden-van-de-historische-kring-heemskerk') return '/lid-worden';
+  if (slug == 'lid-worden-van-de-historische-kring-heemskerk') {
+    return '/lid-worden';
+  }
   if (slug == 'hkh-bestuursleden') return '/vereniging/bestuur';
   if (slug == 'werkgroepen') return '/vereniging/werkgroepen';
   if (slug == 'openstelling-historisch-huis' || slug == 'historisch-huis') {
     return '/vereniging/historisch-huis';
   }
   if (slug == 'heemsstichting') return '/vereniging/heemsstichting';
-  if (slug == 'over-historische-kring-heemskerk') return '/vereniging/over-de-hkh';
+  if (slug == 'over-historische-kring-heemskerk') {
+    return '/vereniging/over-de-hkh';
+  }
   if (slug == 'links') return '/vereniging/links';
   if (slug == 'contact-formulier') return '/vereniging/contact';
   if (documentPageSlugs.contains(slug) || slug == 'juridische-disclaimer-2') {

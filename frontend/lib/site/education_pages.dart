@@ -130,11 +130,13 @@ class EducationItemPage extends StatelessWidget {
         const SizedBox(height: 22),
         _Section('Omschrijving', item.description),
         _ListSection('Koppeling aan kerndoelen en leergebieden', item.goals),
-        if (item.organisation != null) _Section('Organisatie', item.organisation!),
+        if (item.organisation != null)
+          _Section('Organisatie', item.organisation!),
         if (item.duration != null)
           _Section('Duur en voorbereidingstijd', item.duration!),
         if (item.status != null) _Section('Status', item.status!),
-        if (item.registration != null) _Section('Aanmelding', item.registration!),
+        if (item.registration != null)
+          _Section('Aanmelding', item.registration!),
         if (item.cost != null) _Section('Kosten', item.cost!),
       ],
     );
@@ -319,8 +321,9 @@ class _RequestFormState extends State<_RequestForm> {
             key: const Key('education-school'),
             controller: _school,
             decoration: const InputDecoration(labelText: 'School'),
-            validator: (v) =>
-                (v ?? '').trim().isEmpty ? 'Vul de naam van de school in.' : null,
+            validator: (v) => (v ?? '').trim().isEmpty
+                ? 'Vul de naam van de school in.'
+                : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -336,8 +339,9 @@ class _RequestFormState extends State<_RequestForm> {
             controller: _email,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(labelText: 'E-mailadres'),
-            validator: (v) =>
-                (v ?? '').contains('@') ? null : 'Vul een geldig e-mailadres in.',
+            validator: (v) => (v ?? '').contains('@')
+                ? null
+                : 'Vul een geldig e-mailadres in.',
           ),
           if (widget.item.requestable) ...[
             const SizedBox(height: 12),

@@ -129,7 +129,10 @@ class _LinkedTextState extends State<LinkedText> {
     final spans = <InlineSpan>[];
     var rest = widget.text;
     final links = [...widget.links]
-      ..sort((a, b) => widget.text.indexOf(a.text).compareTo(widget.text.indexOf(b.text)));
+      ..sort(
+        (a, b) =>
+            widget.text.indexOf(a.text).compareTo(widget.text.indexOf(b.text)),
+      );
     for (final link in links) {
       final index = rest.indexOf(link.text);
       if (index < 0 || link.text.isEmpty) continue;
@@ -152,7 +155,10 @@ class _LinkedTextState extends State<LinkedText> {
     }
     if (rest.isNotEmpty) spans.add(TextSpan(text: rest));
     return Text.rich(
-      TextSpan(style: _bodyStyle.copyWith(color: appHeaderBackground), children: spans),
+      TextSpan(
+        style: _bodyStyle.copyWith(color: appHeaderBackground),
+        children: spans,
+      ),
     );
   }
 }

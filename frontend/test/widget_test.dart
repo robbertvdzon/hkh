@@ -6,6 +6,8 @@ import 'package:hkh_app/auth/user_session.dart';
 import 'package:hkh_app/collection/collection_search.dart';
 import 'package:hkh_app/content/site_structure.dart';
 import 'package:hkh_app/main.dart';
+import 'package:hkh_app/site/simple_search_page.dart';
+import 'package:hkh_app/site/site_mode.dart';
 import 'package:hkh_app/theme/app_style.dart';
 
 /// Vast peilmoment: vrijdag 9 oktober 2026, zodat de agenda voorspelbaar is.
@@ -101,6 +103,7 @@ class _SearchSource implements CollectionSearchSource {
 
 class _AiSource implements AiSearchSource {
   final List<String> startedQuestions = [];
+  final List<AiResearchDepth> startedDepths = [];
   final List<(String, bool?, String?)> steerings = [];
   int listCalls = 0;
   AiSearchSession? current;
@@ -140,6 +143,7 @@ class _AiSource implements AiSearchSource {
     AiResearchDepth depth = AiResearchDepth.fast,
   }) async {
     startedQuestions.add(question);
+    startedDepths.add(depth);
     return current = _session(question);
   }
 
@@ -217,6 +221,7 @@ Future<GoRouter> _pumpApp(
   UserSessionController? session,
   double textScaleFactor = 1,
   String? route,
+  bool website = true,
 }) async {
   _setViewport(tester, size, textScaleFactor: textScaleFactor);
   await tester.pumpWidget(
@@ -225,6 +230,9 @@ Future<GoRouter> _pumpApp(
       aiSearchSource: aiSource ?? _AiSource(),
       session: session,
       now: _now,
+      // Tests draaien standaard in de websiteweergave; het zoekscherm wordt
+      // apart getest.
+      siteMode: SiteModeController(website: website, persist: false),
     ),
   );
   await tester.pumpAndSettle();
@@ -254,7 +262,10 @@ void main() {
     ) async {
       final router = await _pumpApp(tester, size: const Size(1200, 1100));
       for (final item in mainMenu) {
-        expect(find.byKey(Key('menu-${item.path.substring(1)}')), findsOneWidget);
+        expect(
+          find.byKey(Key('menu-${item.path.substring(1)}')),
+          findsOneWidget,
+        );
       }
       expect(find.byKey(const Key('membership-action')), findsOneWidget);
       expect(
@@ -339,27 +350,28 @@ void main() {
       expect(aiSource.startedQuestions, ['Wat gebeurde er aan de Kerklaan?']);
     });
 
-    testWidgets('without an AI source the question block and menu entry are gone', (
-      tester,
-    ) async {
-      _setViewport(tester, const Size(1200, 1100));
-      await tester.pumpWidget(
-        HkhApp(searchSource: _SearchSource(), now: _now),
-      );
-      await tester.pumpAndSettle();
-      await _scrollTo(tester, find.byKey(const Key('home-search-field')));
-      expect(find.byKey(const Key('home-question-field')), findsNothing);
-      expect(find.byKey(const Key('home-search-field')), findsOneWidget);
-    });
+    testWidgets(
+      'without an AI source the question block and menu entry are gone',
+      (tester) async {
+        _setViewport(tester, const Size(1200, 1100));
+        await tester.pumpWidget(
+          HkhApp(
+            searchSource: _SearchSource(),
+            now: _now,
+            siteMode: SiteModeController(website: true, persist: false),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _scrollTo(tester, find.byKey(const Key('home-search-field')));
+        expect(find.byKey(const Key('home-question-field')), findsNothing);
+        expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+      },
+    );
 
     testWidgets('320px at 200% text scaling has no horizontal overflow', (
       tester,
     ) async {
-      await _pumpApp(
-        tester,
-        size: const Size(320, 700),
-        textScaleFactor: 2,
-      );
+      await _pumpApp(tester, size: const Size(320, 700), textScaleFactor: 2);
       expect(tester.takeException(), isNull);
       for (final key in ['home-search-submit', 'home-question-submit']) {
         await _scrollTo(tester, find.byKey(Key(key)));
@@ -403,7 +415,9 @@ void main() {
       );
     });
 
-    testWidgets('header search box opens the collection search', (tester) async {
+    testWidgets('header search box opens the collection search', (
+      tester,
+    ) async {
       final router = await _pumpApp(tester, size: const Size(1200, 1100));
       await tester.tap(find.byKey(const Key('header-search-field')));
       await tester.pumpAndSettle();
@@ -423,7 +437,10 @@ void main() {
       );
       expect(find.text('oktober 2026'), findsOneWidget);
       expect(find.text('november 2026'), findsOneWidget);
-      expect(find.text('Piet Paree – De Terugkeer van een Kanaalgraver'), findsOneWidget);
+      expect(
+        find.text('Piet Paree – De Terugkeer van een Kanaalgraver'),
+        findsOneWidget,
+      );
       expect(find.text('Raad je straat'), findsNothing);
       await tester.tap(find.byKey(const Key('agenda-filter-lezing')));
       await tester.pumpAndSettle();
@@ -492,7 +509,10 @@ void main() {
         find.text('25 van de 25 plaatsen bezet · 3 op de wachtlijst'),
         findsOneWidget,
       );
-      expect(find.widgetWithText(FilledButton, 'Op de wachtlijst'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Op de wachtlijst'),
+        findsOneWidget,
+      );
       await tester.enterText(find.byKey(const Key('registration-name')), 'A');
       await tester.enterText(
         find.byKey(const Key('registration-email')),
@@ -596,12 +616,23 @@ void main() {
       for (final item in educationItems) {
         expect(find.byKey(Key('education-${item.slug}')), findsOneWidget);
       }
-      await tester.tap(find.byKey(const Key('education-heemskerk-in-oorlogstijd')));
+      await tester.tap(
+        find.byKey(const Key('education-heemskerk-in-oorlogstijd')),
+      );
       await tester.pumpAndSettle();
       expect(_path(router), '/educatie/heemskerk-in-oorlogstijd');
-      await tester.enterText(find.byKey(const Key('education-school')), 'De Otterkolken');
-      await tester.enterText(find.byKey(const Key('education-contact')), 'M. Bakker');
-      await tester.enterText(find.byKey(const Key('education-email')), 'm@school.nl');
+      await tester.enterText(
+        find.byKey(const Key('education-school')),
+        'De Otterkolken',
+      );
+      await tester.enterText(
+        find.byKey(const Key('education-contact')),
+        'M. Bakker',
+      );
+      await tester.enterText(
+        find.byKey(const Key('education-email')),
+        'm@school.nl',
+      );
       await _scrollTo(tester, find.byKey(const Key('education-submit')));
       await tester.tap(find.byKey(const Key('education-submit')));
       await tester.pumpAndSettle();
@@ -647,7 +678,10 @@ void main() {
         route: '/collecties',
       );
       // Eén collectie kiezen en zoeken.
-      await tester.enterText(find.byKey(const Key('collections-query')), 'Adrichem');
+      await tester.enterText(
+        find.byKey(const Key('collections-query')),
+        'Adrichem',
+      );
       await tester.tap(find.byKey(const Key('mode-single')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('mode-single-collection')));
@@ -726,7 +760,9 @@ void main() {
   group('old links', () {
     test('old site links map to the new routes', () {
       expect(
-        internalRouteFor('https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl'),
+        internalRouteFor(
+          'https://www.historischekringheemskerk.nl/cgi-bin/beeldbank.pl',
+        ),
         '/zoeken?collection=beeldbank',
       );
       expect(
@@ -736,7 +772,9 @@ void main() {
         '/zoeken?collection=bibliotheek&q=toen+',
       );
       expect(
-        internalRouteFor('https://www.historischekringheemskerk.nl/evenementen/'),
+        internalRouteFor(
+          'https://www.historischekringheemskerk.nl/evenementen/',
+        ),
         '/agenda',
       );
       expect(
@@ -746,13 +784,21 @@ void main() {
         '/agenda/de-verjaardag-van-maerten',
       );
       expect(internalRouteFor('/juridische-disclaimer/'), '/vereniging/anbi');
-      expect(internalRouteFor('/kastelen-assumburg/'), '/ontdek/kastelen-assumburg');
       expect(
-        internalRouteFor('https://www.historischekringheemskerk.nl/wp-content/uploads/x.pdf'),
+        internalRouteFor('/kastelen-assumburg/'),
+        '/ontdek/kastelen-assumburg',
+      );
+      expect(
+        internalRouteFor(
+          'https://www.historischekringheemskerk.nl/wp-content/uploads/x.pdf',
+        ),
         isNull,
       );
       expect(internalRouteFor('https://www.oerij.eu/'), isNull);
-      expect(internalRouteFor('mailto:opgeven@historischekringheemskerk.nl'), isNull);
+      expect(
+        internalRouteFor('mailto:opgeven@historischekringheemskerk.nl'),
+        isNull,
+      );
     });
   });
 
@@ -774,10 +820,12 @@ void main() {
       // De balk blijft staan binnen het onderdeel; het actieve item is gemarkeerd.
       expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
       final active = tester.widget<Semantics>(
-        find.ancestor(
-          of: find.byKey(const Key('submenu-vereniging-bestuur')),
-          matching: find.byType(Semantics),
-        ).first,
+        find
+            .ancestor(
+              of: find.byKey(const Key('submenu-vereniging-bestuur')),
+              matching: find.byType(Semantics),
+            )
+            .first,
       );
       expect(active.properties.selected, isTrue);
       await tester.tap(find.byKey(const Key('submenu-vereniging-contact')));
@@ -841,7 +889,10 @@ void main() {
       );
       await tester.enterText(find.byKey(const Key('memory-search')), 'aardbei');
       await tester.pumpAndSettle();
-      await _scrollTo(tester, find.byKey(const Key('memory-aardbeientijd-1390')));
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('memory-aardbeientijd-1390')),
+      );
       await tester.tap(find.byKey(const Key('memory-aardbeientijd-1390')));
       await tester.pumpAndSettle();
       expect(_path(router), startsWith('/geheugen/verhaal/aardbeientijd'));
@@ -851,16 +902,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('themes, neighbourhoods and about pages render', (tester) async {
+    testWidgets('themes, neighbourhoods and about pages render', (
+      tester,
+    ) async {
       final router = await _pumpApp(
         tester,
         size: const Size(1200, 1300),
         route: '/geheugen/themas',
       );
-      expect(find.byKey(const Key('memory-group-straat-buurt')), findsOneWidget);
+      expect(
+        find.byKey(const Key('memory-group-straat-buurt')),
+        findsOneWidget,
+      );
       router.go('/geheugen/buurten');
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('memory-group-hart-van-heemskerk')), findsOneWidget);
+      expect(
+        find.byKey(const Key('memory-group-hart-van-heemskerk')),
+        findsOneWidget,
+      );
       router.go('/geheugen/over');
       await tester.pumpAndSettle();
       expect(find.textContaining('Welschap Welzijn'), findsOneWidget);
@@ -876,6 +935,146 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       await _scrollTo(tester, find.text('Aardbeientijd'));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('zoekscherm', () {
+    testWidgets('the simple search screen is the default start page', (
+      tester,
+    ) async {
+      final aiSource = _AiSource();
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
+        aiSource: aiSource,
+        website: false,
+      );
+      expect(find.byKey(const Key('simple-query')), findsOneWidget);
+      // Slanke kop: geen menu, geen zoekvak, geen Lid worden.
+      expect(find.byKey(const Key('menu-agenda')), findsNothing);
+      expect(find.byKey(const Key('membership-action')), findsNothing);
+      expect(find.byKey(const Key('header-search-field')), findsNothing);
+      // Zonder vinkje is AI met één zoekronde de standaard.
+      expect(find.byKey(const Key('mode-ai')), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('simple-query')),
+        'Wie was burgemeester Nielen?',
+      );
+      await tester.tap(find.byKey(const Key('simple-submit')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(aiSource.startedQuestions, ['Wie was burgemeester Nielen?']);
+      expect(aiSource.startedDepths, [AiResearchDepth.fast]);
+      expect(_path(router), '/vragen');
+      // Ook het antwoordscherm houdt de slanke kop.
+      expect(find.byKey(const Key('menu-agenda')), findsNothing);
+    });
+
+    testWidgets('the advanced checkbox reveals the four modes with AI first', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        website: false,
+      );
+      await tester.tap(find.byKey(const Key('simple-advanced')));
+      await tester.pumpAndSettle();
+      final ai = tester.getTopLeft(find.byKey(const Key('mode-ai')));
+      final all = tester.getTopLeft(find.byKey(const Key('mode-all')));
+      expect(ai.dy, lessThan(all.dy));
+      expect(find.text('Onderzoek starten'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('mode-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('Zoeken'), findsWidgets);
+      await tester.enterText(find.byKey(const Key('simple-query')), 'Kerklaan');
+      await tester.tap(find.byKey(const Key('simple-submit')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['q'],
+        'Kerklaan',
+      );
+    });
+
+    testWidgets('example questions fill the field and links open search', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        website: false,
+      );
+      await tester.tap(find.text(exampleQuestions.first));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('simple-query')))
+            .controller!
+            .text,
+        exampleQuestions.first,
+      );
+      await tester.tap(find.byKey(const Key('simple-collections')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/zoeken');
+    });
+
+    testWidgets('the footer switch opens the website and remembers it', (
+      tester,
+    ) async {
+      final mode = SiteModeController(website: false, persist: false);
+      _setViewport(tester, const Size(1200, 1300));
+      await tester.pumpWidget(
+        HkhApp(
+          searchSource: _SearchSource(),
+          aiSearchSource: _AiSource(),
+          now: _now,
+          siteMode: mode,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+      await _scrollTo(tester, find.byKey(const Key('site-mode-switch')));
+      await tester.tap(find.text('Nieuwe website'));
+      await tester.pumpAndSettle();
+      expect(mode.website, isTrue);
+      expect(_path(router), '/');
+      expect(find.byKey(const Key('menu-agenda')), findsOneWidget);
+      expect(find.text('Binnenkort'), findsOneWidget);
+      // Terug naar het zoekscherm via dezelfde schakelaar in de voet.
+      await _scrollTo(tester, find.byKey(const Key('site-mode-switch')));
+      await tester.tap(find.text('Zoekscherm'));
+      await tester.pumpAndSettle();
+      expect(mode.simple, isTrue);
+      expect(find.byKey(const Key('simple-query')), findsOneWidget);
+    });
+
+    testWidgets('direct links show the full site even in search mode', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        size: const Size(1200, 1100),
+        website: false,
+        route: '/agenda',
+      );
+      expect(find.byKey(const Key('menu-agenda')), findsOneWidget);
+      expect(find.text('Agenda'), findsWidgets);
+    });
+
+    testWidgets('narrow search screen has no overflow', (tester) async {
+      await _pumpApp(
+        tester,
+        size: const Size(360, 800),
+        website: false,
+        textScaleFactor: 1.3,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const Key('simple-advanced')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await _scrollTo(tester, find.byKey(const Key('site-mode-switch')));
       expect(tester.takeException(), isNull);
     });
   });
@@ -919,7 +1118,9 @@ void main() {
       },
     );
 
-    testWidgets('logout removes an already open private answer', (tester) async {
+    testWidgets('logout removes an already open private answer', (
+      tester,
+    ) async {
       final session = _SignedInSession();
       final source = _AccountAiSource(session);
       await source.startAiSearch('Privévraag van Jan');

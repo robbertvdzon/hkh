@@ -318,6 +318,10 @@ De structuur hierboven is akkoord. Alle bestaande teksten worden 1-op-1 overgeno
 | 6. Collecties | de collecties blijven en worden ontsloten zoals nu al in de HKH-testapp (zoekpagina, filters, AI-vraag); de publieke ZCBS-ingang vervalt |
 | 7. Beheerrollen | geen vaste rollen per werkgroep maar permissies per beheerder: wie in het beheer mag inloggen krijgt per onderdeel (agenda, inschrijvingen, nieuws, …) een permissie |
 
+**Demo-stand (16 oktober 2026):** zolang het bestuur alleen nog over de AI-zoekfunctie besluit,
+is het eenvoudige zoekscherm de startpagina en staat de volledige site achter de schakelaar
+"Zoekscherm / Nieuwe website" onderaan elke pagina. Zie het README.
+
 ## 9. Aanpak in twee fasen
 
 **Fase 1: werkende site met vaste inhoud (POC).** Eerst wordt de complete nieuwe site gebouwd

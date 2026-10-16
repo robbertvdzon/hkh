@@ -73,7 +73,8 @@ Widget? associationSectionPage(String slug) {
                     ),
                     Builder(
                       builder: (context) => OutlinedButton(
-                        onPressed: () => navigateTo(context, '/vereniging/links'),
+                        onPressed: () =>
+                            navigateTo(context, '/vereniging/links'),
                         child: const Text('Partnerorganisaties'),
                       ),
                     ),
@@ -103,7 +104,9 @@ class BoardPage extends StatelessWidget {
         children: [
           for (final member in generatedBoard)
             AppCard(
-              key: Key('board-${member.name.toLowerCase().replaceAll(' ', '-')}'),
+              key: Key(
+                'board-${member.name.toLowerCase().replaceAll(' ', '-')}',
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -131,10 +134,14 @@ class BoardPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Actief sinds ${member.since}',
-                      style: const TextStyle(color: appMutedText, fontSize: 14)),
-                  Text(member.phone,
-                      style: const TextStyle(color: appMutedText, fontSize: 14)),
+                  Text(
+                    'Actief sinds ${member.since}',
+                    style: const TextStyle(color: appMutedText, fontSize: 14),
+                  ),
+                  Text(
+                    member.phone,
+                    style: const TextStyle(color: appMutedText, fontSize: 14),
+                  ),
                   InkWell(
                     onTap: () => launchUrl(Uri.parse('mailto:${member.email}')),
                     child: Text(
@@ -180,7 +187,10 @@ class HistoricHousePage extends StatelessWidget {
             final info = InfoBox(
               title: 'Bezoek',
               rows: [
-                ('Adres', '${practicalInfo.address}, ${practicalInfo.postalCode}'),
+                (
+                  'Adres',
+                  '${practicalInfo.address}, ${practicalInfo.postalCode}',
+                ),
                 ('Open', practicalInfo.openingHours),
                 ('Telefoon', practicalInfo.phone),
                 ('Post', practicalInfo.postbox),
@@ -408,7 +418,8 @@ class LinksPage extends StatelessWidget {
       const PageHeading(
         title: 'Links',
         crumbs: _crumbs,
-        intro: 'Organisaties waarmee de HKH samenwerkt of die u ook kunnen helpen.',
+        intro:
+            'Organisaties waarmee de HKH samenwerkt of die u ook kunnen helpen.',
       ),
       CardGrid(
         children: [
@@ -459,7 +470,9 @@ class _ContactPageState extends State<ContactPage> {
       if (!_agreed) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Ga akkoord met de privacyverklaring om door te gaan.'),
+            content: Text(
+              'Ga akkoord met de privacyverklaring om door te gaan.',
+            ),
           ),
         );
       }
@@ -516,8 +529,9 @@ class _ContactPageState extends State<ContactPage> {
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(labelText: 'E-mail'),
-              validator: (v) =>
-                  (v ?? '').contains('@') ? null : 'Vul een geldig e-mailadres in.',
+              validator: (v) => (v ?? '').contains('@')
+                  ? null
+                  : 'Vul een geldig e-mailadres in.',
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -528,7 +542,9 @@ class _ContactPageState extends State<ContactPage> {
             DropdownButtonFormField<String>(
               key: const Key('contact-recipient'),
               initialValue: _recipient,
-              decoration: const InputDecoration(labelText: 'Stuur bericht naar'),
+              decoration: const InputDecoration(
+                labelText: 'Stuur bericht naar',
+              ),
               items: [
                 for (final recipient in contactRecipients)
                   DropdownMenuItem(value: recipient, child: Text(recipient)),

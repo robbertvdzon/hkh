@@ -758,24 +758,38 @@ class SiteFooter extends StatelessWidget {
         ('Privacy · Disclaimer · ANBI', '/vereniging/anbi'),
       ]),
     ];
+    final navigation = AppNavigationScope.of(context);
+    final slim = navigation?.slimHeader ?? false;
+    final body = slim
+        ? address
+        : narrow
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              address,
+              for (final c in columns) ...[const SizedBox(height: 24), c],
+            ],
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: address),
+              for (final c in columns) Expanded(flex: 4, child: c),
+            ],
+          );
     return FullWidthBand(
       color: appHeaderBackground,
       padding: const EdgeInsets.symmetric(vertical: 40),
-      child: narrow
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                address,
-                for (final c in columns) ...[const SizedBox(height: 24), c],
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: address),
-                for (final c in columns) Expanded(flex: 4, child: c),
-              ],
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          body,
+          if (navigation?.onSimpleModeChanged != null) ...[
+            const SizedBox(height: 28),
+            SiteModeSwitch(navigation: navigation!),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -803,5 +817,65 @@ class DemoNotice extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+/// Schakelaar onderaan elke pagina tussen het zoekscherm en de nieuwe website.
+class SiteModeSwitch extends StatelessWidget {
+  const SiteModeSwitch({required this.navigation, super.key});
+  final AppNavigationScope navigation;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 14,
+    runSpacing: 10,
+    children: [
+      Text(
+        navigation.simpleMode ? 'Bekijk ook de nieuwe website' : 'Weergave',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.85),
+          fontSize: 14,
+        ),
+      ),
+      SegmentedButton<bool>(
+        key: const Key('site-mode-switch'),
+        segments: const [
+          ButtonSegment(
+            value: true,
+            label: Text('Zoekscherm'),
+            icon: Icon(Icons.search, size: 16),
+          ),
+          ButtonSegment(
+            value: false,
+            label: Text('Nieuwe website'),
+            icon: Icon(Icons.language, size: 16),
+          ),
+        ],
+        selected: {navigation.simpleMode},
+        showSelectedIcon: false,
+        style: ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? appHeaderBackground
+                : Colors.white,
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? Colors.white
+                : Colors.transparent,
+          ),
+          side: WidgetStateProperty.all(
+            BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+          ),
+        ),
+        onSelectionChanged: (selection) {
+          final simple = selection.first;
+          navigation.onSimpleModeChanged?.call(simple);
+          navigation.navigate('/');
+        },
+      ),
+    ],
   );
 }

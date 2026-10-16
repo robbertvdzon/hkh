@@ -10,11 +10,7 @@ const _crumbs = [('Geheugen van Heemskerk', '/geheugen')];
 
 /// Overzicht van alle verhalen, optioneel beperkt tot thema, buurt of auteur.
 class MemoryOverviewPage extends StatefulWidget {
-  const MemoryOverviewPage({
-    this.theme,
-    this.neighbourhood,
-    super.key,
-  });
+  const MemoryOverviewPage({this.theme, this.neighbourhood, super.key});
   final String? theme;
   final String? neighbourhood;
 
@@ -28,17 +24,18 @@ class _MemoryOverviewPageState extends State<MemoryOverviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = memoryStories(
-      theme: widget.theme,
-      neighbourhood: widget.neighbourhood,
-      author: _author,
-    ).where((s) {
-      if (_query.isEmpty) return true;
-      final q = _query.toLowerCase();
-      return s.title.toLowerCase().contains(q) ||
-          s.narrator.toLowerCase().contains(q) ||
-          s.summary.toLowerCase().contains(q);
-    }).toList();
+    final filtered =
+        memoryStories(
+          theme: widget.theme,
+          neighbourhood: widget.neighbourhood,
+          author: _author,
+        ).where((s) {
+          if (_query.isEmpty) return true;
+          final q = _query.toLowerCase();
+          return s.title.toLowerCase().contains(q) ||
+              s.narrator.toLowerCase().contains(q) ||
+              s.summary.toLowerCase().contains(q);
+        }).toList();
     final scope = widget.theme ?? widget.neighbourhood;
     final title = scope ?? 'Geheugen van Heemskerk';
     return SitePage(
@@ -51,7 +48,8 @@ class _MemoryOverviewPageState extends State<MemoryOverviewPage> {
               : [
                   ..._crumbs,
                   if (widget.theme != null) ('Thema’s', '/geheugen/themas'),
-                  if (widget.neighbourhood != null) ('Buurten', '/geheugen/buurten'),
+                  if (widget.neighbourhood != null)
+                    ('Buurten', '/geheugen/buurten'),
                 ],
           label: widget.theme != null
               ? 'Thema'
@@ -148,8 +146,10 @@ class _MemoryOverviewPageState extends State<MemoryOverviewPage> {
 String _capitalize(String s) =>
     s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
-String _slug(String s) =>
-    s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+String _slug(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-|-$'), '');
 
 class MemoryStoryCard extends StatelessWidget {
   const MemoryStoryCard({required this.story, super.key});
@@ -201,7 +201,8 @@ class MemoryGroupsPage extends StatelessWidget {
               ContentCard(
                 key: Key('memory-group-${_slug(group.name)}'),
                 title: _capitalize(group.name),
-                text: '${group.count} ${group.count == 1 ? 'verhaal' : 'verhalen'}',
+                text:
+                    '${group.count} ${group.count == 1 ? 'verhaal' : 'verhalen'}',
                 actionLabel: 'Bekijk de verhalen',
                 actionFilled: false,
                 onTap: () => navigateTo(
@@ -233,7 +234,10 @@ class MemoryAboutPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(memoryIntro, style: TextStyle(fontSize: 16.5, height: 1.55)),
+            const Text(
+              memoryIntro,
+              style: TextStyle(fontSize: 16.5, height: 1.55),
+            ),
             const SizedBox(height: 14),
             Text(
               'Samen geven de ${generatedMemoryStories.length} verhalen een levendige kijk op het leven in Heemskerk van vroeger en in de laatste decennia. De verhalen zijn ongewijzigd overgenomen; de verhalenverzamelaar staat bij elk verhaal vermeld.',
@@ -241,14 +245,20 @@ class MemoryAboutPage extends StatelessWidget {
             ),
             for (final paragraph in generatedMemoryAbout) ...[
               const SizedBox(height: 14),
-              Text(paragraph, style: const TextStyle(fontSize: 16.5, height: 1.55)),
+              Text(
+                paragraph,
+                style: const TextStyle(fontSize: 16.5, height: 1.55),
+              ),
             ],
             const SizedBox(height: 24),
             InfoBox(
               title: 'Zelf een verhaal?',
               rows: [
                 ('E-mail', practicalInfo.email),
-                ('Bezoek', '${practicalInfo.address}, ${practicalInfo.openingHours.toLowerCase()}'),
+                (
+                  'Bezoek',
+                  '${practicalInfo.address}, ${practicalInfo.openingHours.toLowerCase()}',
+                ),
               ],
             ),
           ],
@@ -277,7 +287,10 @@ class MemoryStoryPage extends StatelessWidget {
           title: story.title,
           crumbs: [
             ..._crumbs,
-            (story.theme, '/geheugen/thema/${Uri.encodeComponent(story.theme)}'),
+            (
+              story.theme,
+              '/geheugen/thema/${Uri.encodeComponent(story.theme)}',
+            ),
           ],
           label: [
             story.theme,
