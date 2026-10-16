@@ -53,11 +53,11 @@ Wie op een bron klikt, ziet het originele stuk zoals het in onze eigen beeldbank
 
 ## 4. Wat het kost
 
-| Onderdeel | Eenmalig | Per maand | Per jaar |
-|---|---|---|---|
-| Computer in het Historisch Huis | € 900 | – | – |
-| AI-abonnement bij normaal gebruik | – | € 18 | € 216 |
-| AI-abonnement bij veel gebruik (alleen als het druk wordt) | – | € 90 | € 1.080 |
+| Onderdeel | Eenmalig | Per maand |
+|---|---|---|
+| Computer in het Historisch Huis | € 900 | – |
+| AI-abonnement bij normaal gebruik | – | € 18 |
+| AI-abonnement bij veel gebruik (alleen als het druk wordt) | – | € 90 |
 
 Eerste jaar: ongeveer € 1.100 (computer plus abonnement). Daarna: ruim € 200 per jaar. Alleen als het zo populair wordt dat het drukker is dan verwacht, groeit dat naar ongeveer € 1.100 per jaar. Het abonnement is maandelijks opzegbaar; de computer blijft hoe dan ook bruikbaar voor de werkgroepen.
 
