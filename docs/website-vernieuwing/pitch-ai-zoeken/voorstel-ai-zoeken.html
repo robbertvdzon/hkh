@@ -1,176 +1,32 @@
-<!doctype html>
-<html lang="nl">
-<head>
-<meta charset="utf-8">
-<title>Vragen stellen aan ons archief – voorstel AI-zoeken</title>
-<style>
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Vragen stellen aan ons archief</title><style>
   @page { size: A4; margin: 18mm 18mm 20mm 18mm; }
   * { box-sizing: border-box; }
   :root { --green: #1f3b2e; --dark: #16302a; --sage: #dce9da; --sand: #f0e6d2; --muted: #5a6a5c; --line: #d9cfbb; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11.5pt; line-height: 1.5; color: #1d2320; }
   h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: normal; color: var(--green); margin: 0; }
-  h1 { font-size: 26pt; line-height: 1.2; }
-  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 4pt; border-bottom: 1.5px solid var(--line); }
-  h3 { font-size: 13pt; margin: 10pt 0 4pt; }
+  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 4pt; border-bottom: 1.5px solid var(--line); page-break-after: avoid; }
+  h3 { font-size: 13pt; margin: 0 0 4pt; }
   p { margin: 0 0 8pt; }
-  ul { margin: 0 0 8pt 18pt; padding: 0; }
+  ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
   li { margin-bottom: 4pt; }
-  .page { page-break-after: always; }
-  .page:last-child { page-break-after: auto; }
+  section { page-break-before: auto; }
+  section:nth-of-type(2) { page-break-before: always; }
   .cover { background: var(--dark); color: #fff; padding: 16mm 14mm; margin: 0 0 10mm 0; border-radius: 6pt; }
-  .cover h1 { color: #fff; font-size: 30pt; max-width: 150mm; }
-  .cover .sub { font-size: 13pt; opacity: .9; margin-top: 8pt; max-width: 150mm; }
-  .cover .meta { margin-top: 18pt; font-size: 10.5pt; opacity: .8; letter-spacing: 1px; text-transform: uppercase; }
+  .cover h1 { color: #fff; font-size: 30pt; line-height: 1.2; max-width: 150mm; }
+  .cover p { font-size: 13pt; opacity: .9; margin: 8pt 0 0; max-width: 150mm; }
+  .cover p.meta { font-size: 10.5pt; opacity: .8; letter-spacing: 1px; text-transform: uppercase; margin-top: 18pt; }
   .logo { font-family: Georgia, serif; font-size: 34pt; letter-spacing: 2px; border-bottom: 3px solid #fff; display: inline-block; line-height: 1; margin-bottom: 14pt; }
-  .box { background: var(--sage); border-radius: 8pt; padding: 10pt 12pt; margin: 8pt 0 12pt; }
-  .box.sand { background: var(--sand); }
-  .box h3 { margin-top: 0; }
-  .two { display: flex; gap: 10mm; }
-  .two > div { flex: 1; min-width: 0; }
-  figure { margin: 8pt 0 10pt; }
-  figure img { width: 100%; border: 1px solid var(--line); border-radius: 4pt; display: block; }
+  .box { background: var(--sage); border-radius: 8pt; padding: 10pt 12pt; margin: 8pt 0 12pt; page-break-inside: avoid; }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  figure { margin: 8pt 0 10pt; page-break-inside: avoid; }
+  figure img { max-width: 100%; max-height: 190mm; border: 1px solid var(--line); border-radius: 4pt; display: block; margin: 0 auto; }
   figcaption { font-size: 9.5pt; color: var(--muted); margin-top: 3pt; }
-  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 11pt; }
+  blockquote { border: 1px solid var(--line); border-radius: 8pt; padding: 10pt 12pt; margin: 8pt 0 10pt; background: #fff; font-size: 10.5pt; }
+  blockquote p { margin-bottom: 6pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 11pt; page-break-inside: avoid; }
   th, td { text-align: left; padding: 6pt 8pt; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { background: var(--sage); color: var(--green); font-weight: 600; }
   td.num, th.num { text-align: right; white-space: nowrap; }
-  .flow { display: flex; align-items: stretch; gap: 6mm; margin: 8pt 0 12pt; }
-  .flow .step { flex: 1; border: 1.5px solid var(--green); border-radius: 8pt; padding: 8pt 10pt; font-size: 10.5pt; }
-  .flow .step b { display: block; font-family: Georgia, serif; font-weight: normal; font-size: 12.5pt; color: var(--green); margin-bottom: 3pt; }
-  .flow .arrow { align-self: center; font-size: 20pt; color: var(--green); }
-  .answer { border: 1px solid var(--line); border-radius: 8pt; padding: 10pt 12pt; background: #fff; font-size: 10.5pt; }
-  .answer h3 { margin-top: 0; }
-  .answer h2 { font-size: 12.5pt; border: none; margin: 8pt 0 2pt; }
-  .answer p { margin-bottom: 6pt; }
-  .answer figure { display: none; }
-  .sources { font-size: 9.5pt; color: var(--muted); margin-top: 6pt; }
-  .sources li { margin-bottom: 2pt; }
-  .decision { border: 2px solid var(--green); border-radius: 8pt; padding: 10pt 12pt; margin: 8pt 0; }
-  .muted { color: var(--muted); font-size: 10pt; }
-</style>
-</head>
-<body>
-
-<!-- Pagina 1: omslag en samenvatting -->
-<section class="page">
-  <div class="cover">
-    <div class="logo">HKH</div>
-    <h1>Vragen stellen aan ons archief</h1>
-    <div class="sub">Voorstel om bezoekers in gewone taal te laten zoeken in alles wat de Historische Kring Heemskerk heeft verzameld, met hulp van kunstmatige intelligentie (AI).</div>
-    <div class="meta">Voorstel voor het bestuur · oktober 2026</div>
-  </div>
-
-  <h2>In het kort</h2>
-  <p>De HKH heeft ruim 18.000 foto's, documenten, boeken, bidprentjes en Heemskring-artikelen gedigitaliseerd. Wie daar iets in wil vinden, moet nu weten in welke van de zes beeldbanken het staat en welk zoekwoord werkt. Dit voorstel voegt één vraagveld toe: je typt een vraag zoals je die aan een vrijwilliger zou stellen, en een <em>digitale onderzoeker</em> zoekt in alle collecties tegelijk, schrijft een samenvatting en zet er de bronnen bij.</p>
-  <div class="box">
-    <h3>Wat wordt gevraagd</h3>
-    <ul>
-      <li>Aanschaf van een computer voor het Historisch Huis: eenmalig ongeveer <b>€ 900</b>.</li>
-      <li>Een AI-abonnement van <b>€ 18 per maand</b> (maandelijks opzegbaar). Alleen bij veel gebruik is een zwaarder abonnement van € 90 per maand nodig.</li>
-      <li>Evaluatie na een half jaar: wordt het gebruikt, en wat kost het werkelijk?</li>
-    </ul>
-    <p style="margin:0">Eerste jaar in totaal ongeveer € 1.100; daarna ruim € 200 per jaar.</p>
-  </div>
-  <p>De techniek is al gebouwd en getest. Het enige dat ontbreekt om het voor iedereen aan te zetten, is de computer en het abonnement. U kunt het zelf proberen op de proefomgeving; zie de laatste pagina.</p>
-  <p class="muted">Vragen over dit voorstel: robbert@vdzon.com</p>
-</section>
-
-<!-- Pagina 2: probleem -->
-<section class="page">
-  <h2>1. Waar bezoekers nu tegenaan lopen</h2>
-  <p>Onze collecties zijn goed beschreven, maar verdeeld over zes aparte beeldbanken, elk met een eigen zoekscherm en eigen zoekvelden. Een bezoeker die wil weten wat er bekend is over bijvoorbeeld de aardbeienteelt, moet:</p>
-  <ul>
-    <li>weten dat er een archiefbank, een fotobank, een bibliotheekbank, een bidprentjesbank, een artikelenbank en een objectenbank zijn;</li>
-    <li>in elke bank apart zoeken, met het juiste zoekwoord en het juiste veld;</li>
-    <li>de gevonden stukken zelf lezen en combineren tot een antwoord.</li>
-  </ul>
-  <p>Dat lukt onze eigen vrijwilligers, maar een inwoner, een leerkracht of een stamboomonderzoeker haakt vaak af voordat hij iets gevonden heeft. Het werk van jaren digitaliseren wordt daardoor minder gebruikt dan het verdient.</p>
-  <div class="two">
-    <div>
-      <figure><img src="oud-menu.jpg" alt="Het menu van de huidige website"><figcaption>De huidige website: de collecties zitten verstopt achter een uitklapmenu.</figcaption></figure>
-    </div>
-    <div>
-      <figure><img src="oud-beeldbank.jpg" alt="Het zoekscherm van de fotobeeldbank"><figcaption>Eén van de zes zoekschermen: zoekwijze, veld, periode en weergave moeten apart worden ingesteld.</figcaption></figure>
-    </div>
-  </div>
-</section>
-
-<!-- Pagina 3: oplossing -->
-<section class="page">
-  <h2>2. Wat het wordt: één vraagveld</h2>
-  <p>De bezoeker ziet een eenvoudig scherm met één veld. Hij typt een vraag in gewone taal. De digitale onderzoeker doorzoekt alle collecties, leest de gevonden stukken en schrijft een samenvatting. Onder elk antwoord staat de lijst met bronnen, met een link naar het originele stuk in onze eigen collectie. <b>Elk antwoord is dus te controleren.</b></p>
-  <figure><img src="zoekscherm.png" alt="Het nieuwe zoekscherm"><figcaption>Het nieuwe zoekscherm op de proefomgeving. Achter het vinkje "Uitgebreid" kan een bezoeker ook zelf in één collectie zoeken, zoals nu.</figcaption></figure>
-  <p>Wie liever zelf zoekt, kan dat blijven doen: de bestaande zoekschermen met filters op straat, thema, periode en auteur blijven bestaan en zijn vanaf hetzelfde scherm bereikbaar.</p>
-</section>
-
-<!-- Pagina 4: voorbeeldantwoord -->
-<section class="page">
-  <h2>3. Een echt voorbeeld</h2>
-  <p>Hieronder staat, letterlijk overgenomen, het antwoord dat de digitale onderzoeker op de proefomgeving gaf op de vraag <em>"Wat is er bekend over de aardbeienteelt in Heemskerk?"</em>. Het antwoord is in één zoekronde gemaakt en kostte 2 minuten en 13 seconden.</p>
-  <div class="answer"><h3>De aardbeienteelt in Heemskerk</h3><p>Ongeveer een eeuw lang, van grofweg 1860 tot 1970, was de aardbei hét gewas van Heemskerk. Volgens de Heemskring was in de bloeitijd tweederde van Heemskerk en Beverwijk bedekt met aardbeienplanten, en de Heemskerkse aardbeien stonden bekend om hun geur, volle smaak en zoetheid (<u>Watertanden bij een ouderwetse slof aardbeien</u>).</p>
-<h2>Begin en bloei</h2>
-<p>De tuinderij zoals we die nu kennen begon volgens het artikel over de familie Scheerman omstreeks 1850. Toen ging men aardbeien, bessen en sla telen (<u>De familie Scheerman: een tuindersgeslacht</u>). Rond 1880–1890 werd veel grond van het landgoed Commandeurs ontgonnen tot tuinderij en in kleine percelen verpacht aan de tuinders uit het dorp. De opbrengst wisselde sterk: bij extreem weer kon de oogst, vooral van aardbeien, deels of helemaal mislukken. Dan konden de tuinders de pacht niet betalen, en jhr. mr. Hugo Gevers van Marquette gaf hun vaak uitstel (<u>Commandeurs</u>).</p>
-<p>Ook volgens een artikel over het tuinbouwonderwijs was de aardbei jarenlang het meest geteelde product in Heemskerk, op tweederde van de tuinbouwgrond. Veel van de oogst ging naar Duitsland en Engeland, waar er jam van werd gemaakt. Een verslag van rond 1900 laat zien hoe groot de teelt was: Heemskerk had 103 ha aardbeien, tegen 82 ha in Velsen, 73 ha in Wijk aan Zee en Duin, 8 ha in Heiloo en 5 ha in Beverwijk (<u>Onderwijs, onderzoek en voorlichting in de tuinbouw</u>).</p>
-<h2>Rassen: van Anna tot Moulin Rouge</h2>
-<p>Eerst teelde men vooral de kleine 'Anna' (Fragaria vesca), een veredelde bosaardbei. Jan Beentjes, bijgenaamd 'De Snijder', zou het ras Jucunda in Kennemerland hebben geïntroduceerd. Hij leerde het ras rond 1840 kennen tijdens zijn militaire dienst in Oost-Indië en nam in 1842 stekken mee naar Heemskerk. In de regio heette het ras 'Amazone', naar het telegramadres van Veiling Kennemerland. Vanaf 1870 werd het op grote schaal geteeld, vooral voor de conservenfabrieken. Rond 1940 werd het verdrongen door de Obersleziën, hier bekend als 'Moulin Rouge' ('Molleroesj'), genoemd naar de Beverwijkse Exportveiling. Andere rassen waren de Beverwijkse Export, de Zoete Fransje en de Frau Mieze Schindler (<u>Watertanden bij een ouderwetse slof aardbeien</u>).</p>
-<p class="muted"><i>Het antwoord gaat nog verder met de kopjes: Tuimelaars en sloffen, Pluk, veiling en verkoop, Plukverlof en Marialiederen, Bijzondere gebeurtenissen, Het einde. In totaal ruim 1.000 woorden.</i></p><div class="sources"><b>Bronnen onder het antwoord (22: 10 Heemskring-artikelen, 7 foto's, 4 archiefstukken, 1 objecten), elk aanklikbaar naar het originele stuk:</b> Watertanden bij een ouderwetse slof aardbeien; De familie Scheerman: een tuindersgeslacht; Commandeurs; Onderwijs, onderzoek en voorlichting in de tuinbouw; De hakhoutcultuur; Aardbeien mandje; Aardbeien; Straten Heemskerkerduin; Heemskerkse wandelroute; Schoolverzuim in Heemskerk tussen 1920 en 1930; en nog 9 andere stukken.</div></div>
-  <p class="muted" style="margin-top:8pt">Op het scherm staat bij elk antwoord de waarschuwing dat het door AI is samengesteld en dat de bronnen leidend zijn; foto's uit de collectie zijn in deze afdruk weggelaten.</p>
-</section>
-
-<!-- Pagina 5: hoe het werkt en kosten -->
-<section class="page">
-  <h2>4. Hoe het werkt</h2>
-  <div class="flow">
-    <div class="step"><b>Onze collecties</b>De beeldbanken zoals ze nu zijn. Daar verandert niets aan; de vrijwilligers blijven er op dezelfde manier in werken.</div>
-    <div class="arrow">→</div>
-    <div class="step"><b>Een computer in het Historisch Huis</b>Hierop draait de digitale onderzoeker. Hij houdt een doorzoekbare kopie van de collecties bij en doet het zoekwerk.</div>
-    <div class="arrow">→</div>
-    <div class="step"><b>Het antwoord op de website</b>De AI-dienst (het abonnement) formuleert uit de gevonden stukken een leesbare samenvatting met bronnen.</div>
-  </div>
-  <p>De collecties blijven van ons en staan op onze eigen computer. Naar de AI-dienst gaan alleen de vraag en de teksten van de gevonden archiefstukken; er gaan geen gegevens van leden naar buiten.</p>
-
-  <h2 style="margin-top:14pt">5. Wat het kost</h2>
-  <table>
-    <tr><th>Onderdeel</th><th class="num">Eenmalig</th><th class="num">Per maand</th><th class="num">Per jaar</th></tr>
-    <tr><td>Computer in het Historisch Huis</td><td class="num">€ 900</td><td class="num">–</td><td class="num">–</td></tr>
-    <tr><td>AI-abonnement bij normaal gebruik</td><td class="num">–</td><td class="num">€ 18</td><td class="num">€ 216</td></tr>
-    <tr><td>AI-abonnement bij veel gebruik (alleen als het druk wordt)</td><td class="num">–</td><td class="num">€ 90</td><td class="num">€ 1.080</td></tr>
-  </table>
-  <div class="box sand">
-    <p style="margin:0"><b>Eerste jaar:</b> ongeveer € 1.100 (computer plus abonnement). <b>Daarna:</b> ruim € 200 per jaar. Alleen als het zo populair wordt dat het drukker is dan verwacht, groeit dat naar ongeveer € 1.100 per jaar. Het abonnement is maandelijks opzegbaar; de computer blijft hoe dan ook bruikbaar voor de werkgroepen.</p>
-  </div>
-
-  <h2 style="margin-top:14pt">6. Wat er al is</h2>
-  <p>Dit is geen plan op papier: de zoekfunctie werkt al op een proefomgeving, met een kopie van onze collecties. Daar is de afgelopen maanden mee getest. Het besluit gaat alleen over de computer en het abonnement om het voor iedereen beschikbaar te maken.</p>
-</section>
-
-<!-- Pagina 6: risico's, besluit, zelf proberen -->
-<section class="page">
-  <h2>7. Vragen die u misschien heeft</h2>
-  <table>
-    <tr><th style="width:38%">Vraag</th><th>Antwoord</th></tr>
-    <tr><td>Kan de AI onzin vertellen?</td><td>Ja, dat kan voorkomen. Daarom staat bij elk antwoord de bronnenlijst en de waarschuwing dat het een hulpmiddel is. De bron is altijd ons eigen archiefstuk; dat kan de bezoeker zelf nalezen.</td></tr>
-    <tr><td>Wat als niemand het gebruikt?</td><td>Dan zeggen we het abonnement op; het kost dan niets meer. De computer blijft bruikbaar in het Historisch Huis.</td></tr>
-    <tr><td>Wat als het juist heel druk wordt?</td><td>Dan stappen we over op het zwaardere abonnement van € 90 per maand. Dat is een luxeprobleem: het betekent dat de collectie eindelijk gebruikt wordt.</td></tr>
-    <tr><td>Hoe zit het met privacy?</td><td>Er gaan geen ledengegevens naar buiten. Alleen de gestelde vraag en de gevonden archiefteksten worden naar de AI-dienst gestuurd om het antwoord te formuleren.</td></tr>
-    <tr><td>Wie onderhoudt het?</td><td>De installatie en het onderhoud worden door de indiener van dit voorstel verzorgd; de werkgroepen hoeven niets anders te doen dan nu.</td></tr>
-  </table>
-
-  <h2 style="margin-top:14pt">8. Gevraagd besluit</h2>
-  <div class="decision">
-    <p style="margin:0">Het bestuur gaat akkoord met de aanschaf van een computer voor het Historisch Huis (ongeveer € 900) en een AI-abonnement van € 18 per maand, en evalueert na een half jaar het gebruik en de kosten.</p>
-  </div>
-
-  <h2 style="margin-top:14pt">Zelf proberen</h2>
-  <p>De proefomgeving staat op <b>https://hkh.vdzonsoftware.nl</b>. Typ een vraag en klik op "Zoek"; het antwoord verschijnt meestal binnen twee minuten. Probeer bijvoorbeeld:</p>
-  <ul>
-    <li>Wat is er bekend over de aardbeienteelt in Heemskerk?</li>
-    <li>Wie woonden er rond 1900 aan de Kerkweg?</li>
-    <li>Wat gebeurde er in Heemskerk tijdens de Tweede Wereldoorlog?</li>
-  </ul>
-  <p class="muted" style="margin-top:14pt">Onderaan het zoekscherm staat een schakelaar "Nieuwe website". Daarachter staat, ter kennismaking, een proefversie van een vernieuwde website met dezelfde inhoud als de huidige site. Daar hoeft het bestuur nu niets over te besluiten.</p>
-</section>
-
-</body>
-</html>
+  a { color: var(--green); }
+</style></head><body><section><div class="cover"><div class="logo">HKH</div><h1>Vragen stellen aan ons archief</h1><p>Voorstel om bezoekers in gewone taal te laten zoeken in alles wat de Historische Kring Heemskerk heeft verzameld, met hulp van kunstmatige intelligentie (AI).</p><p class="meta">Voorstel voor het bestuur · oktober 2026</p></div><h2>In het kort</h2><p>De HKH heeft ruim 18.000 foto's, documenten, boeken, bidprentjes en Heemskring-artikelen gedigitaliseerd. Wie daar iets in wil vinden, moet nu weten in welke van de zes beeldbanken het staat en welk zoekwoord werkt. Dit voorstel voegt één vraagveld toe: je typt een vraag zoals je die aan een historicus zou stellen. Een digitale onderzoeker zoekt dan in alle collecties tegelijk en schrijft een samenvatting en zet er de bronnen bij.</p><div class="box"><h3>Wat wordt gevraagd</h3><ul><li>Aanschaf van een computer: eenmalig ongeveer € 900.</li><li>Een AI-abonnement van € 18 per maand (maandelijks opzegbaar). Alleen bij veel gebruik is een zwaarder abonnement van € 90 per maand nodig.</li><li>Evaluatie na een half jaar: wordt het gebruikt, en wat kost het werkelijk?</li></ul><p>De techniek is al gebouwd en getest en draait op een PC bij Robbert en is te testen op <a href="https://hkh.vdzonsoftware.nl/">https://hkh.vdzonsoftware.nl/</a></p></div></section><section><h2>1. De huidige manier van zoeken</h2><p>Onze collecties zijn goed beschreven, maar verdeeld over zes aparte beeldbanken, elk met een eigen zoekscherm en eigen zoekvelden. Een bezoeker die wil weten wat er bekend is over bijvoorbeeld de aardbeienteelt, moet:</p><ul><li>weten dat er een archiefbank, een fotobank, een bibliotheekbank, een bidprentjesbank, een artikelenbank en een objectenbank zijn;</li><li>in elke bank apart zoeken, met het juiste zoekwoord en het juiste veld;</li><li>de gevonden stukken zelf lezen en combineren tot een antwoord.</li></ul><p>De zoekschermen zijn ook vrij complex voor personen die voor de eerste keer wat willen zoeken in het archief.</p><figure><img src="oud-beeldbank.jpg" alt="Eén van de zes zoekschermen: zoekwijze, veld, periode en weergave moeten apart worden ingesteld."><figcaption>Eén van de zes zoekschermen: zoekwijze, veld, periode en weergave moeten apart worden ingesteld.</figcaption></figure></section><section><h2>2. Voorstel voor een nieuwe manier van zoeken</h2><p>De bezoeker ziet een eenvoudig scherm met één veld. Hij typt een vraag in gewone taal. De digitale onderzoeker doorzoekt alle collecties, leest de gevonden stukken en schrijft een samenvatting. Onder elk antwoord staat de lijst met bronnen, met een link naar het originele stuk in onze eigen collectie. Elk antwoord is dus te controleren.</p><figure><img src="zoekscherm.png" alt="Het nieuwe zoekscherm op de proefomgeving. Achter het vinkje &quot;Uitgebreid&quot; kan een bezoeker ook zelf in één collectie zoeken, zoals nu."><figcaption>Het nieuwe zoekscherm op de proefomgeving. Achter het vinkje "Uitgebreid" kan een bezoeker ook zelf in één collectie zoeken, zoals nu.</figcaption></figure><p>Wie liever zelf zoekt, kan dat blijven doen: de bestaande zoekschermen met filters op straat, thema, periode en auteur blijven bestaan en zijn vanaf hetzelfde scherm bereikbaar.</p></section><section><h2>3. Een echt voorbeeld</h2><p>Hieronder staat, letterlijk overgenomen, het antwoord dat de digitale onderzoeker op de proefomgeving gaf op de vraag "Wat is er bekend over de aardbeienteelt in Heemskerk?". Het antwoord is in één zoekronde gemaakt en kostte 2 minuten en 13 seconden.</p><figure><img src="antwoord-boven.jpg" alt="Het begin van het antwoord, met de korte disclaimer, de gestelde vraag en de eerste alinea&#x27;s. Elke onderstreepte verwijzing is een bron uit onze collectie."><figcaption>Het begin van het antwoord, met de korte disclaimer, de gestelde vraag en de eerste alinea's. Elke onderstreepte verwijzing is een bron uit onze collectie.</figcaption></figure><figure><img src="antwoord-met-foto.jpg" alt="Verderop in hetzelfde antwoord: foto&#x27;s uit de beeldbank staan tussen de tekst, met bijschrift en objectnummer. Het volledige antwoord telt ruim 1.000 woorden en 22 bronnen."><figcaption>Verderop in hetzelfde antwoord: foto's uit de beeldbank staan tussen de tekst, met bijschrift en objectnummer. Het volledige antwoord telt ruim 1.000 woorden en 22 bronnen.</figcaption></figure><p>Op het scherm staat bij elk antwoord de waarschuwing dat het door AI is samengesteld en dat de bronnen leidend zijn.</p><p>Wie op een bron klikt, ziet het originele stuk zoals het in onze eigen beeldbank (ZCBS) staat: de foto of het document, het objectnummer, de titel, het thema en de overige velden. Zo kan iedereen de samenvatting controleren aan de hand van de bron.</p><figure><img src="bron-popup.jpg" alt="Een bron geopend vanuit het antwoord: de foto met alle gegevens zoals die in de beeldbank zijn vastgelegd."><figcaption>Een bron geopend vanuit het antwoord: de foto met alle gegevens zoals die in de beeldbank zijn vastgelegd.</figcaption></figure></section><section><h2>4. Wat het kost</h2><table><tr><th>Onderdeel</th><th class="num">Eenmalig</th><th class="num">Per maand</th><th class="num">Per jaar</th></tr><tr><td>Computer in het Historisch Huis</td><td class="num">€ 900</td><td class="num">–</td><td class="num">–</td></tr><tr><td>AI-abonnement bij normaal gebruik</td><td class="num">–</td><td class="num">€ 18</td><td class="num">€ 216</td></tr><tr><td>AI-abonnement bij veel gebruik (alleen als het druk wordt)</td><td class="num">–</td><td class="num">€ 90</td><td class="num">€ 1.080</td></tr></table><p>Eerste jaar: ongeveer € 1.100 (computer plus abonnement). Daarna: ruim € 200 per jaar. Alleen als het zo populair wordt dat het drukker is dan verwacht, groeit dat naar ongeveer € 1.100 per jaar. Het abonnement is maandelijks opzegbaar; de computer blijft hoe dan ook bruikbaar voor de werkgroepen.</p></section><section><h2>Zelf proberen</h2><p>De proefomgeving staat op <a href="https://hkh.vdzonsoftware.nl">https://hkh.vdzonsoftware.nl</a>. Typ een vraag en klik op "Zoek"; het antwoord verschijnt meestal binnen twee minuten. Probeer bijvoorbeeld:</p><ul><li>Wat is er bekend over de aardbeienteelt in Heemskerk?</li><li>Wie woonden er rond 1900 aan de Kerkweg?</li><li>Wat gebeurde er in Heemskerk tijdens de Tweede Wereldoorlog?</li></ul><p>Onderaan het zoekscherm staat een schakelaar "Nieuwe website". Daarachter staat, ter kennismaking, een proefversie van een vernieuwde website met dezelfde inhoud als de huidige site. Daar hoeft het bestuur nu niets over te besluiten.</p></section></body></html>
