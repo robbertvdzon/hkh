@@ -63,6 +63,12 @@ Drie runs van dezelfde vraag (wijk Commandeurs), gemeten in de transcripten van 
 - Lokaal model is geparkeerd tot de prompt-story is gemeten. Een lokaal model schrijft naar
   verwachting 30 tot 60 tokens/s, dus lange antwoorden blijven daar traag.
 
+## Vervolg (18 oktober 2026)
+
+Het idee van een pijplijn is teruggekomen in een eenvoudiger vorm: nachtelijke kaarten
+(samenvatting plus getypeerde trefwoorden), tolerant zoeken in code en schrijven door een vrij te
+kiezen model. Zie `ai-onderzoek-pijplijn-trefwoorden.md`.
+
 ## Stand van zaken
 
 Stories A, B, C en F zijn op 30 september 2026 gebouwd en naar `main` gepusht. De dieptekeuze
