@@ -50,7 +50,7 @@ class AiSearchAccountApiIntegrationTest(
     fun localRuntime() {
         val job = RuntimeJob("test-job", "SUCCEEDED", "COMPLETED", 100, "Test afgerond", null)
         doReturn(true).`when`(runtime).isConfigured()
-        doReturn(job).`when`(runtime).createJob(anyString(), anyString(), schemaMatcher(), anyInt())
+        doReturn(job).`when`(runtime).createJob(anyString(), anyString(), schemaMatcher(), anyInt(), org.mockito.ArgumentMatchers.any(nl.vdzon.hkh.research.AiRole::class.java) ?: nl.vdzon.hkh.research.AiRole.AGENT)
         doReturn(job).`when`(runtime).getJob(anyString())
         doReturn(mapper.readTree(
             """{"title":"Synthetisch antwoord","answerHtml":"<p>Testinhoud</p>","sources":[],"suggestedFollowUps":[]}""",

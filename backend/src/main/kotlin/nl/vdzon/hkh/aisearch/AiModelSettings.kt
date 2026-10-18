@@ -1,6 +1,7 @@
 package nl.vdzon.hkh.aisearch
 
 import java.time.Instant
+import nl.vdzon.hkh.research.AiRole
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
@@ -26,40 +27,55 @@ class AiModelSettings(
     private val objectMapper: ObjectMapper,
     private val properties: AiSearchProperties,
 ) {
-    fun current(): AiModelChoice {
+    fun current(): AiModelChoice = current(AiRole.AGENT)
+
+    /**
+     * De keuze per rol. Zonder eigen keuze erft een rol van AGENT (de instelling in het
+     * beheerscherm), en AGENT valt terug op de configuratie.
+     */
+    fun current(role: AiRole): AiModelChoice {
         val row = jdbc.query("SELECT value, updated_at, updated_by FROM app_setting WHERE key = ?", { rs, _ ->
             Triple(rs.getString("value"), rs.getTimestamp("updated_at")?.toInstant(), rs.getString("updated_by"))
-        }, KEY).singleOrNull()
+        }, key(role)).singleOrNull()
         val stored = row?.let { (value, _, _) ->
             runCatching {
                 val node = objectMapper.readTree(value)
                 AiExecution(node.path("vendorId").asText(), node.path("model").asText(), node.path("mode").asText())
             }.getOrNull()
         }?.takeIf { it.vendorId.isNotBlank() && it.model.isNotBlank() && it.mode.isNotBlank() }
-        return if (stored != null) AiModelChoice(stored, fromSetting = true, updatedAt = row.second, updatedBy = row.third)
-        else AiModelChoice(AiExecution(properties.vendorId, properties.model, properties.mode), fromSetting = false, updatedAt = null, updatedBy = null)
+        if (stored != null) return AiModelChoice(stored, fromSetting = true, updatedAt = row.second, updatedBy = row.third)
+        if (role != AiRole.AGENT) return current(AiRole.AGENT).copy(fromSetting = false, updatedAt = null, updatedBy = null)
+        return AiModelChoice(AiExecution(properties.vendorId, properties.model, properties.mode), fromSetting = false, updatedAt = null, updatedBy = null)
     }
 
     /** De uitvoering voor een nieuwe job: altijd de meest recente keuze, zonder cache. */
     fun execution(): AiExecution = current().execution
 
-    fun update(execution: AiExecution, updatedBy: String): AiModelChoice {
+    fun execution(role: AiRole): AiExecution = current(role).execution
+
+    fun update(execution: AiExecution, updatedBy: String): AiModelChoice = update(AiRole.AGENT, execution, updatedBy)
+
+    fun update(role: AiRole, execution: AiExecution, updatedBy: String): AiModelChoice {
         val value = objectMapper.writeValueAsString(mapOf("vendorId" to execution.vendorId, "model" to execution.model, "mode" to execution.mode))
         jdbc.update(
             """
             INSERT INTO app_setting (key, value, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
             """.trimIndent(),
-            KEY, value, updatedBy.take(320),
+            key(role), value, updatedBy.take(320),
         )
-        return current()
+        return current(role)
     }
 
-    /** Terug naar de configuratie. */
-    fun reset(): AiModelChoice {
-        jdbc.update("DELETE FROM app_setting WHERE key = ?", KEY)
-        return current()
+    /** Terug naar de configuratie (AGENT) of naar de AGENT-keuze (andere rollen). */
+    fun reset(): AiModelChoice = reset(AiRole.AGENT)
+
+    fun reset(role: AiRole): AiModelChoice {
+        jdbc.update("DELETE FROM app_setting WHERE key = ?", key(role))
+        return current(role)
     }
+
+    private fun key(role: AiRole) = if (role == AiRole.AGENT) KEY else "$KEY.${role.name.lowercase()}"
 
     private companion object {
         const val KEY = "ai-search.execution"

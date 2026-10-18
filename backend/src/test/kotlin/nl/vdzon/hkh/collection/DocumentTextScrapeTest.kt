@@ -1,6 +1,13 @@
 package nl.vdzon.hkh.collection
 
 import java.time.Instant
+import nl.vdzon.hkh.research.CardExtractionService
+import nl.vdzon.hkh.research.CardStats
+import nl.vdzon.hkh.research.DocumentCard
+import nl.vdzon.hkh.research.DocumentCardStore
+import nl.vdzon.hkh.research.PendingCardRecord
+import nl.vdzon.hkh.research.StructuredJobRequest
+import nl.vdzon.hkh.research.StructuredJobRunner
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -43,7 +50,7 @@ class DocumentTextScrapeTest {
         items.upsert(record("11000", pdfUrl = "$BASE/archief/pdf/broken.pdf"))
         items.upsert(record("11001", pdfUrl = null))
         val runs = InMemoryRuns()
-        val service = CollectionScrapeService(client(), items, runs, properties, DocumentTextService(client(), items))
+        val service = CollectionScrapeService(client(), items, runs, properties, DocumentTextService(client(), items), noCards())
 
         service.start("test@example.org", ScrapeMode.TEXT, force = false)
         val run = runs.awaitFinished()
@@ -77,7 +84,7 @@ class DocumentTextScrapeTest {
         val runs = InMemoryRuns()
         val requests = mutableListOf<String>()
         val zcbs = client(requests)
-        val service = CollectionScrapeService(zcbs, items, runs, properties, DocumentTextService(zcbs, items))
+        val service = CollectionScrapeService(zcbs, items, runs, properties, DocumentTextService(zcbs, items), noCards())
 
         service.start("test@example.org", ScrapeMode.FULL, force = false)
         val run = runs.awaitFinished()
@@ -103,6 +110,20 @@ class DocumentTextScrapeTest {
         assertEquals(0, forced.documents)
         assertEquals(0, forced.documentsFailed)
     }
+
+    /** Kaarten staan buiten deze test: een lege kaartenwinkel en een runner die nooit wordt aangeroepen. */
+    private fun noCards() = CardExtractionService(
+        object : DocumentCardStore {
+            override fun pending(collection: String, version: String, includeFailed: Boolean, limit: Int) = emptyList<PendingCardRecord>()
+            override fun pendingCount(version: String, includeFailed: Boolean) = 0L
+            override fun save(card: DocumentCard) = error("niet verwacht")
+            override fun saveError(collection: String, ident: String, version: String, model: String?, sourceHash: String, error: String) = error("niet verwacht")
+            override fun find(collection: String, ident: String): DocumentCard? = null
+            override fun stats(version: String) = CardStats(0, 0, 0, 0)
+        },
+        object : StructuredJobRunner { override fun run(request: StructuredJobRequest) = error("niet verwacht") },
+        tools.jackson.databind.ObjectMapper(),
+    )
 
     private fun record(ident: String, pdfUrl: String?) = ScrapedRecord(
         collection = "archief", ident = ident, title = "Titel $ident", description = "Beschrijving", year = null,

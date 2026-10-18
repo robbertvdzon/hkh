@@ -10,23 +10,27 @@ import '../auth/admin_session.dart';
 enum ScrapeMode {
   fast,
   full,
-  text;
+  text,
+  cards;
 
   String get apiValue => switch (this) {
     ScrapeMode.fast => 'FAST',
     ScrapeMode.full => 'FULL',
     ScrapeMode.text => 'TEXT',
+    ScrapeMode.cards => 'CARDS',
   };
 
   String get label => switch (this) {
     ScrapeMode.fast => 'snel',
     ScrapeMode.full => 'volledig',
     ScrapeMode.text => 'documenttekst',
+    ScrapeMode.cards => 'AI-kaarten',
   };
 
   static ScrapeMode fromApiValue(String? value) => switch (value) {
     'FAST' => ScrapeMode.fast,
     'TEXT' => ScrapeMode.text,
+    'CARDS' => ScrapeMode.cards,
     _ => ScrapeMode.full,
   };
 }
@@ -48,6 +52,8 @@ class ScrapeStatus {
     required this.finishedAt,
     this.documents = 0,
     this.documentsFailed = 0,
+    this.cards = 0,
+    this.cardsFailed = 0,
   });
 
   factory ScrapeStatus.fromJson(Map<String, dynamic> json) => ScrapeStatus(
@@ -60,9 +66,8 @@ class ScrapeStatus {
     failed: json['failed'] as int? ?? 0,
     currentCollection: json['currentCollection'] as String?,
     message: json['message'] as String?,
-    perCollection:
-        (json['perCollection'] as Map<String, dynamic>? ?? const {})
-            .map((key, value) => MapEntry(key, (value as num).toInt())),
+    perCollection: (json['perCollection'] as Map<String, dynamic>? ?? const {})
+        .map((key, value) => MapEntry(key, (value as num).toInt())),
     startedAt: json['startedAt'] == null
         ? null
         : DateTime.tryParse(json['startedAt'] as String),
@@ -71,6 +76,8 @@ class ScrapeStatus {
         : DateTime.tryParse(json['finishedAt'] as String),
     documents: json['documents'] as int? ?? 0,
     documentsFailed: json['documentsFailed'] as int? ?? 0,
+    cards: json['cards'] as int? ?? 0,
+    cardsFailed: json['cardsFailed'] as int? ?? 0,
   );
 
   final String status;
@@ -89,6 +96,10 @@ class ScrapeStatus {
   /// Documentteksten die deze run uit PDF's heeft gehaald, en hoeveel mislukten.
   final int documents;
   final int documentsFailed;
+
+  /// AI-kaarten (samenvatting en trefwoorden) die deze run maakte, en hoeveel mislukten.
+  final int cards;
+  final int cardsFailed;
 }
 
 abstract interface class AdminScrapeSource {

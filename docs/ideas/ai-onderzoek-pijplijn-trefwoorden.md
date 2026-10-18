@@ -95,11 +95,14 @@ viercijferig getal; onzekere lezingen (OCR-fouten) toch opnemen met de letterlij
 
 - Een scrape-modus `CARDS` naast FAST, FULL en TEXT: records zonder kaart, met een andere
   `extraction_version` of een andere `source_hash` dan de huidige invoer. Hervatbaar, met tellers
-  in `scrape_run`, startbaar vanuit het beheerscherm; de volledige scrape maakt voor nieuwe
-  records direct een kaart, net als nu de documenttekst.
-- Backfill van de bestaande collectie: ~23.000 records; met een klein model goedkoop. Nachtelijk
-  daarna alleen nieuwe of gewijzigde records.
-- Het model voor extractie is instelbaar (zie 5).
+  in `scrape_run`, startbaar vanuit het beheerscherm; een volledige scrape sluit af met een
+  kaartenronde voor de nieuwe records.
+- **Alles via de agent-runtime in SUBSCRIPTION-modus** (Claude Code of Codex in een container op
+  de worker); HKH kent geen API-sleutels. Omdat elke containerjob overhead heeft, gaan records in
+  batches van 50 tot 80 per job, met als uitvoer een lijst kaarten volgens het schema. De
+  backfill van ~23.000 records is dan zo'n 300 jobs, een nacht tot een dag; nachtelijk daarna
+  een handvol.
+- Het model voor extractie is instelbaar (zie 5); een klein model volstaat.
 
 ## 2. Onderzoek bij een vraag
 
@@ -107,18 +110,25 @@ De code bestuurt de rondes; het model levert per ronde één gestructureerd antw
 
 ### Ronde-lus
 
+Elke modelstap is een containerjob met 20 tot 40 seconden overhead, dus zo min mogelijk jobs:
+beoordelen en de volgende zoekopdracht zitten in één job per ronde.
+
 ```
+job 0 (A):  zoekspec = model.zoek(vraag)                                   # alleen zoektermen
 ronde = 1, gezien = {}, gekozen = {}
 herhaal tot stop:
-  zoekspec   = model.zoek(vraag, tussenconclusie, kaarten_tot_nu_toe)      # stap A
-  kandidaten = code.zoek(zoekspec) minus gezien, gerangschikt, plafond N  # stap B
-  oordeel    = model.beoordeel(vraag, kandidaten)                           # stap C
-  gekozen   += oordeel.relevant; gezien += kandidaten
-  tussenconclusie = oordeel.conclusie
+  kandidaten = code.zoek(zoekspec) minus gezien, gerangschikt, plafond N  # stap B (code)
+  oordeel    = model.beoordeel(vraag, kandidaten, gekozen)                 # stap C: oordeel,
+                                                                           #   conclusie én zoekspec
+  gekozen   += oordeel.relevant; gezien += kandidaten; zoekspec = oordeel.nextQueries
   meld ronde (logboek + voortgang); lees bijsturing (stop)
-  stop als: oordeel.genoeg, of geen nieuwe relevante kaarten, of ronde == maxRounds, of stop-knop
+  stop als: oordeel.genoeg, geen nieuwe relevante kaarten, geen nieuwe zoekopdrachten,
+            ronde == maxRounds, of stop-knop
 antwoord = model.schrijf(vraag, volledige documenten van gekozen)           # stap D
 ```
+
+Snel: job A, één zoekronde, en de schrijfjob krijgt de best gerangschikte kandidaten direct
+(geen aparte beoordeling): twee jobs. Doorzoeken en Uitgebreid: A, één job per ronde, en D.
 
 Diepte (bestaande keuze in de UI): Snel maxRounds 1, Doorzoeken 5, Uitgebreid 15. Het model
 beslist per ronde of het genoeg heeft; de code bewaakt de plafonds.
@@ -217,10 +227,11 @@ Drie rollen, elk apart instelbaar in het beheerscherm (uitbreiding van de huidig
 | onderzoek | A en C | klein tot middel: Mistral Small/Medium, Sonnet |
 | schrijven | D | groot: Mistral Large 4, Sonnet 5.5, Opus 5.5 |
 
-Uitvoering via de agent-runtime in `API`-modus met `STRUCTURED_GENERATION` en een JSON-schema;
-geen container en geen harnas. Daarvoor is in de runtime een Mistral-vendor nodig
-(OpenAI-compatibel endpoint, eigen sleutel) en later een lokale vendor. Kosten en tokens worden
-per stap geregistreerd, zodat per vraag zichtbaar is wat extractie, onderzoek en schrijven kosten.
+Uitvoering via de agent-runtime in `SUBSCRIPTION`-modus met `STRUCTURED_GENERATION` en een
+JSON-schema: het harnas (Claude Code of Codex) krijgt alleen een prompt en een schema en hoeft
+geen tools te gebruiken. Een Mistral-engine (Vibe CLI) of een lokale vendor past later in
+hetzelfde patroon. Tokens worden per job door de runtime geregistreerd, zodat per vraag zichtbaar
+is wat onderzoek en schrijven kosten.
 
 ## 6. Overgang
 

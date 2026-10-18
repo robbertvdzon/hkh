@@ -202,6 +202,28 @@ void main() {
     expect(find.text('Bezig met ophalen (documenttekst)…'), findsOneWidget);
   });
 
+  testWidgets('the AI cards button starts a cards-only run', (tester) async {
+    final scrapeSource = _ScrapeSource();
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        newsSource: _NewsSource(),
+        scrapeSource: scrapeSource,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey('scrape-cards'));
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(scrapeSource.started, [ScrapeMode.cards]);
+    expect(find.text('Laatste run: bezig (AI-kaarten)'), findsOneWidget);
+  });
+
   testWidgets('the administrator can switch the AI model and go back', (
     tester,
   ) async {

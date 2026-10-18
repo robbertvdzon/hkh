@@ -2,6 +2,11 @@ package nl.vdzon.hkh.aisearch
 
 import java.net.http.HttpClient
 import java.time.Duration
+import nl.vdzon.hkh.research.AiRole
+import nl.vdzon.hkh.research.StructuredJobFailedException
+import nl.vdzon.hkh.research.StructuredJobOutcome
+import nl.vdzon.hkh.research.StructuredJobRequest
+import nl.vdzon.hkh.research.StructuredJobRunner
 import org.springframework.http.HttpHeaders
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.stereotype.Component
@@ -26,7 +31,7 @@ class AgentRuntimeClient(
     private val fixtures: PreviewAiRuntimeFixtures,
     private val objectMapper: ObjectMapper,
     private val modelSettings: AiModelSettings,
-) {
+) : StructuredJobRunner {
     private val client: RestClient by lazy {
         val requestFactory = JdkClientHttpRequestFactory(
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
@@ -47,9 +52,10 @@ class AgentRuntimeClient(
         instruction: String,
         resultSchema: JsonNode = SEARCH_RESULT_SCHEMA,
         executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
+        role: AiRole = AiRole.AGENT,
     ): RuntimeJob {
         if (fixtures.enabled) return fixtures.create(idempotencyKey, resultSchema)
-        val execution = modelSettings.execution()
+        val execution = modelSettings.execution(role)
         val body = mapOf(
             "idempotencyKey" to idempotencyKey,
             "jobKind" to "APPLICATION_WORK",
@@ -75,11 +81,49 @@ class AgentRuntimeClient(
         return parseJob(objectMapper.readTree(json))
     }
 
-    fun getResult(jobId: String): JsonNode {
-        if (fixtures.enabled) return fixtures.result(jobId)
+    fun getResult(jobId: String): JsonNode = getResultEnvelope(jobId).path("result")
+
+    /** Het volledige resultaat, inclusief het verbruik (usageSummary) van de job. */
+    fun getResultEnvelope(jobId: String): JsonNode {
+        if (fixtures.enabled) return objectMapper.createObjectNode().set("result", fixtures.result(jobId))
         val json = client.get().uri("/v2/jobs/{jobId}/result", jobId).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen resultaat terug")
-        return objectMapper.readTree(json).path("result")
+        return objectMapper.readTree(json)
+    }
+
+    /**
+     * Eén gestructureerde aanroep: job aanmaken, pollen tot hij klaar is en het resultaat met
+     * verbruik teruggeven. Blokkeert de aanroepende thread (virtuele threads in de services).
+     */
+    override fun run(request: StructuredJobRequest): StructuredJobOutcome {
+        val execution = modelSettings.execution(request.role)
+        val job = createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role)
+        val deadline = System.currentTimeMillis() + (request.executionTimeoutSeconds + 600) * 1000L
+        while (true) {
+            val current = getJob(job.id)
+            when (current.status) {
+                "SUCCEEDED" -> {
+                    val envelope = getResultEnvelope(job.id)
+                    var input = 0L
+                    var output = 0L
+                    for (metric in envelope.path("usageSummary").path("metrics")) {
+                        val quantity = metric.path("quantity").asText("0").toBigDecimalOrNull()?.toLong() ?: 0L
+                        when (metric.path("metric").asText()) {
+                            "INPUT_TOKENS", "CACHED_INPUT_TOKENS", "CACHE_WRITE_TOKENS" -> input += quantity
+                            "OUTPUT_TOKENS" -> output += quantity
+                        }
+                    }
+                    return StructuredJobOutcome(job.id, envelope.path("result"), input, output, "${execution.vendorId}/${execution.model}")
+                }
+                "FAILED" -> throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.")
+                "CANCELLED" -> throw StructuredJobFailedException(job.id, "De opdracht is gestopt.")
+            }
+            if (System.currentTimeMillis() > deadline) {
+                runCatching { cancel(job.id) }
+                throw StructuredJobFailedException(job.id, "De AI-dienst reageerde niet op tijd.")
+            }
+            Thread.sleep(pollIntervalMs)
+        }
     }
 
     fun cancel(jobId: String) {

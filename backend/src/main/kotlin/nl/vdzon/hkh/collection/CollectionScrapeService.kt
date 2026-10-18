@@ -3,6 +3,7 @@ package nl.vdzon.hkh.collection
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import nl.vdzon.hkh.research.CardExtractionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -11,10 +12,12 @@ import org.springframework.stereotype.Service
  * velden die alleen op de detailpagina staan. FULL: haalt elk record apart op - langzaam
  * (rate-limited), maar met alle velden, en haalt direct de tekst uit de PDF van het record.
  * TEXT: alleen de documenttekst, voor records met PDF die nog geen tekst hebben (de eenmalige
- * backfill van de bestaande collectie). Alle drie zijn hervatbaar: bestaande records of
- * teksten worden overgeslagen tenzij force=true.
+ * backfill van de bestaande collectie). CARDS: alleen de AI-kaarten (samenvatting en trefwoorden)
+ * voor records zonder actuele kaart; een volledige scrape sluit hiermee af voor de nieuwe records.
+ * Alle vier zijn hervatbaar: bestaande records, teksten of kaarten worden overgeslagen tenzij
+ * force=true.
  */
-enum class ScrapeMode { FAST, FULL, TEXT }
+enum class ScrapeMode { FAST, FULL, TEXT, CARDS }
 
 /**
  * Start en bewaakt het scrapen van alle ZCBS-collecties. Draait op een
@@ -27,6 +30,7 @@ class CollectionScrapeService(
     private val runs: ScrapeRunStore,
     private val properties: ZcbsProperties,
     private val documents: DocumentTextService,
+    private val cards: CardExtractionService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val running = AtomicBoolean(false)
@@ -65,6 +69,15 @@ class CollectionScrapeService(
                     ScrapeMode.FAST -> scrapeCollectionFast(collection, force, progress)
                     ScrapeMode.FULL -> scrapeCollectionFull(collection, force, progress)
                     ScrapeMode.TEXT -> extractCollectionText(collection, force, progress)
+                    ScrapeMode.CARDS -> extractCollectionCards(runId, collection, force, progress)
+                }
+            }
+            if (mode == ScrapeMode.FULL) {
+                // Nieuwe of gewijzigde records krijgen direct een kaart; bestaande kaarten blijven staan.
+                for (collection in properties.collections) {
+                    progress.currentCollection = collection
+                    runs.update(progress)
+                    extractCollectionCards(runId, collection, force = false, progress)
                 }
             }
             runs.update(progress)
@@ -169,6 +182,32 @@ class CollectionScrapeService(
         runs.update(progress)
     }
 
+    /**
+     * Kaarten in batches via de runtime. Zonder force alleen records zonder actuele kaart; met force
+     * ook eerder mislukte. Records die in deze run al geprobeerd zijn komen niet nog eens aan bod.
+     */
+    private fun extractCollectionCards(runId: Long, collection: String, force: Boolean, progress: RunProgress) {
+        progress.perCollection.putIfAbsent(collection, 0)
+        val attempted = mutableSetOf<String>()
+        var batchNumber = 0
+        while (true) {
+            val batch = cards.nextBatch(collection, includeFailed = force).filter { it.ident !in attempted }
+            if (batch.isEmpty()) break
+            batch.forEach { attempted += it.ident }
+            batchNumber++
+            progress.total += batch.size
+            runs.update(progress)
+            val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$batchNumber")
+            progress.processed += outcome.cards
+            progress.failed += outcome.failed
+            progress.cards += outcome.cards
+            progress.cardsFailed += outcome.failed
+            progress.perCollection.merge(collection, outcome.cards, Int::plus)
+            logger.info("Kaartenbatch {}/{} #{}: {} kaarten, {} mislukt (job {})", collection, runId, batchNumber, outcome.cards, outcome.failed, outcome.jobId)
+            runs.update(progress)
+        }
+    }
+
     private fun count(progress: RunProgress, outcome: DocumentTextOutcome) {
         when (outcome) {
             is DocumentTextOutcome.Extracted -> progress.documents++
@@ -181,7 +220,8 @@ class CollectionScrapeService(
         val records = "${progress.processed} opgehaald, ${progress.skipped} overgeslagen, ${progress.failed} mislukt"
         return when (mode) {
             ScrapeMode.TEXT -> "Klaar: ${progress.processed} documentteksten opgehaald, ${progress.skipped} ongewijzigd, ${progress.failed} mislukt"
-            ScrapeMode.FULL -> "Klaar: $records; ${progress.documents} documentteksten, ${progress.documentsFailed} mislukt"
+            ScrapeMode.CARDS -> "Klaar: ${progress.cards} kaarten gemaakt, ${progress.cardsFailed} mislukt"
+            ScrapeMode.FULL -> "Klaar: $records; ${progress.documents} documentteksten, ${progress.documentsFailed} mislukt; ${progress.cards} kaarten, ${progress.cardsFailed} mislukt"
             ScrapeMode.FAST -> "Klaar: $records"
         }
     }

@@ -645,6 +645,29 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
               'opnieuw" worden ook al opgehaalde PDF\'s op wijzigingen gecontroleerd.',
               style: TextStyle(fontSize: 12),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const ValueKey('scrape-cards'),
+              onPressed: running || _loading
+                  ? null
+                  : () => _start(ScrapeMode.cards),
+              icon: running || _loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome_outlined),
+              label: const Text('AI-kaarten maken (ontbrekende)'),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Laat het AI-model per record een korte feitensamenvatting en trefwoorden '
+              '(personen, adressen, jaren, instellingen) maken, in batches via de '
+              'agent-runtime. Het AI-onderzoek zoekt hierin. Eenmalig voor de bestaande '
+              'collectie (uren); daarna alleen nieuwe records. Met "alles opnieuw" ook '
+              'eerder mislukte.',
+              style: TextStyle(fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -903,6 +926,14 @@ class _StatusView extends StatelessWidget {
           Text(
             'Documentteksten: ${status.documents}'
             '  ·  Mislukt: ${status.documentsFailed}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        if (status.mode == ScrapeMode.full &&
+            (status.cards > 0 || status.cardsFailed > 0)) ...[
+          const SizedBox(height: 4),
+          Text(
+            'AI-kaarten: ${status.cards}  ·  Mislukt: ${status.cardsFailed}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

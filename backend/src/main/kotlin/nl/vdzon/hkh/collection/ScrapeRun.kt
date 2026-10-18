@@ -22,4 +22,7 @@ data class ScrapeRun(
     /** Documentteksten die in deze run uit PDF's zijn gehaald, en hoeveel daarvan mislukten. */
     val documents: Int = 0,
     val documentsFailed: Int = 0,
+    /** AI-kaarten die in deze run zijn gemaakt, en hoeveel daarvan mislukten. */
+    val cards: Int = 0,
+    val cardsFailed: Int = 0,
 )
