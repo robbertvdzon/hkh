@@ -54,8 +54,17 @@ class _AiModelSource implements AdminAiModelSource {
   );
   bool fromSetting = false;
   final List<AiExecution> selected = [];
+  final List<AiRole> selectedRoles = [];
+  final List<AiRole> loadedRoles = [];
+  AiResearchMethod method = AiResearchMethod.agent;
 
-  AiModelState _state() => AiModelState(
+  AiModelState _state({AiRole role = AiRole.agent}) => AiModelState(
+    role: role,
+    method: method,
+    roles: [
+      for (final each in AiRole.values)
+        AiRoleModel(role: each, current: current, fromSetting: fromSetting),
+    ],
     current: current,
     fromSetting: fromSetting,
     updatedAt: null,
@@ -86,21 +95,32 @@ class _AiModelSource implements AdminAiModelSource {
   );
 
   @override
-  Future<AiModelState> load(AdminIdentity identity) async => _state();
+  Future<AiModelState> load(
+    AdminIdentity identity, {
+    AiRole role = AiRole.agent,
+  }) async {
+    loadedRoles.add(role);
+    return _state(role: role);
+  }
 
   @override
   Future<AiModelState> select(
     AdminIdentity identity,
-    AiExecution execution,
-  ) async {
+    AiExecution execution, {
+    AiRole role = AiRole.agent,
+  }) async {
     selected.add(execution);
+    selectedRoles.add(role);
     current = execution;
     fromSetting = true;
-    return _state();
+    return _state(role: role);
   }
 
   @override
-  Future<AiModelState> reset(AdminIdentity identity) async {
+  Future<AiModelState> reset(
+    AdminIdentity identity, {
+    AiRole role = AiRole.agent,
+  }) async {
     fromSetting = false;
     current = const AiExecution(
       vendorId: 'anthropic',
@@ -108,6 +128,15 @@ class _AiModelSource implements AdminAiModelSource {
       mode: 'SUBSCRIPTION',
       label: 'anthropic · claude-sonnet-5-5 · subscription',
     );
+    return _state(role: role);
+  }
+
+  @override
+  Future<AiModelState> selectMethod(
+    AdminIdentity identity,
+    AiResearchMethod method,
+  ) async {
+    this.method = method;
     return _state();
   }
 }
@@ -239,7 +268,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Nu actief: anthropic · claude-sonnet-5-5'),
+      find.textContaining(
+        'Nu actief voor agent: anthropic · claude-sonnet-5-5',
+      ),
       findsOneWidget,
     );
     expect(find.textContaining('(uit de configuratie)'), findsOneWidget);
@@ -258,8 +289,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(aiModelSource.selected.single.model, 'claude-opus-5');
+    expect(aiModelSource.selectedRoles, [AiRole.agent]);
     expect(
-      find.textContaining('Nu actief: anthropic · claude-opus-5'),
+      find.textContaining('Nu actief voor agent: anthropic · claude-opus-5'),
       findsOneWidget,
     );
     expect(find.text('Het model is gewijzigd.'), findsOneWidget);
@@ -267,5 +299,50 @@ void main() {
     await tester.tap(find.byKey(const Key('ai-model-reset')));
     await tester.pumpAndSettle();
     expect(find.textContaining('(uit de configuratie)'), findsOneWidget);
+  });
+
+  testWidgets('the administrator switches the research method and a role', (
+    tester,
+  ) async {
+    final aiModelSource = _AiModelSource();
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        newsSource: _NewsSource(),
+        scrapeSource: _ScrapeSource(),
+        aiModelSource: aiModelSource,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('ai-method-select')));
+    await tester.tap(find.text('Pijplijn'));
+    await tester.pumpAndSettle();
+    expect(aiModelSource.method, AiResearchMethod.pipeline);
+    expect(find.text('De onderzoeksmethode is gewijzigd.'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('ai-role-select')));
+    await tester.tap(find.byKey(const Key('ai-role-select')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schrijven').last);
+    await tester.pumpAndSettle();
+    expect(aiModelSource.loadedRoles.last, AiRole.writer);
+    expect(
+      find.textContaining(
+        'Nu actief voor schrijven: anthropic · claude-sonnet-5-5',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('ai-model-select')));
+    await tester.tap(find.byKey(const Key('ai-model-select')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text('anthropic · claude-opus-5 · subscription').last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ai-model-save')));
+    await tester.pumpAndSettle();
+    expect(aiModelSource.selectedRoles, [AiRole.writer]);
   });
 }

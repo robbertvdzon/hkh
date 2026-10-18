@@ -31,7 +31,8 @@ class AiModelSettings(
 
     /**
      * De keuze per rol. Zonder eigen keuze erft een rol van AGENT (de instelling in het
-     * beheerscherm), en AGENT valt terug op de configuratie.
+     * beheerscherm); EXTRACTION krijgt standaard het kleine extractiemodel uit de configuratie,
+     * en AGENT valt terug op de configuratie.
      */
     fun current(role: AiRole): AiModelChoice {
         val row = jdbc.query("SELECT value, updated_at, updated_by FROM app_setting WHERE key = ?", { rs, _ ->
@@ -44,6 +45,12 @@ class AiModelSettings(
             }.getOrNull()
         }?.takeIf { it.vendorId.isNotBlank() && it.model.isNotBlank() && it.mode.isNotBlank() }
         if (stored != null) return AiModelChoice(stored, fromSetting = true, updatedAt = row.second, updatedBy = row.third)
+        if (role == AiRole.EXTRACTION) {
+            // Bulkwerk: standaard een klein model met dezelfde leverancier en modus als de onderzoeker.
+            val base = current(AiRole.AGENT).execution
+            val execution = if (base.vendorId == properties.vendorId) base.copy(model = properties.extractionModel) else base
+            return AiModelChoice(execution, fromSetting = false, updatedAt = null, updatedBy = null)
+        }
         if (role != AiRole.AGENT) return current(AiRole.AGENT).copy(fromSetting = false, updatedAt = null, updatedBy = null)
         return AiModelChoice(AiExecution(properties.vendorId, properties.model, properties.mode), fromSetting = false, updatedAt = null, updatedBy = null)
     }
@@ -75,9 +82,24 @@ class AiModelSettings(
         return current(role)
     }
 
+    /** De onderzoeksmethode voor nieuwe vragen; zonder keuze de agent. */
+    fun method(): AiResearchMethod = jdbc.queryForList("SELECT value FROM app_setting WHERE key = ?", String::class.java, METHOD_KEY)
+        .singleOrNull()?.let(AiResearchMethod::parse) ?: AiResearchMethod.AGENT
+
+    fun updateMethod(method: AiResearchMethod, updatedBy: String) {
+        jdbc.update(
+            """
+            INSERT INTO app_setting (key, value, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
+            """.trimIndent(),
+            METHOD_KEY, method.name, updatedBy.take(320),
+        )
+    }
+
     private fun key(role: AiRole) = if (role == AiRole.AGENT) KEY else "$KEY.${role.name.lowercase()}"
 
     private companion object {
         const val KEY = "ai-search.execution"
+        const val METHOD_KEY = "ai-search.method"
     }
 }

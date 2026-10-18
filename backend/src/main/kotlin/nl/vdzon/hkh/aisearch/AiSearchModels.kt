@@ -4,6 +4,18 @@ import java.time.Instant
 
 enum class AiTurnStatus { SUBMITTING, QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELLED }
 
+/**
+ * Hoe een vraag onderzocht wordt. AGENT: de agent in de runtime zoekt zelf via de REST-API.
+ * PIPELINE: de code bestuurt de rondes; het model beoordeelt kaarten en schrijft het antwoord.
+ */
+enum class AiResearchMethod {
+    AGENT, PIPELINE;
+
+    companion object {
+        fun parse(value: String?): AiResearchMethod = entries.firstOrNull { it.name.equals(value?.trim(), ignoreCase = true) } ?: AGENT
+    }
+}
+
 data class AiSourceRef(val collection: String, val ident: String)
 
 data class AiSearchTurn(
@@ -33,6 +45,9 @@ data class AiSearchTurn(
     /** Geheim in de meld-URL van deze vraag; alleen de agent kent het. */
     val controlToken: String? = null,
     val steering: AiSteering = AiSteering(),
+    val method: AiResearchMethod = AiResearchMethod.AGENT,
+    /** Jobs, modellen en tokens van het onderzoek (JSON), voor vergelijking; null bij de agent-methode of oudere vragen. */
+    val researchStats: String? = null,
 )
 
 /** Verslag van één zoekronde, door de agent gemeld na afloop van die ronde. */

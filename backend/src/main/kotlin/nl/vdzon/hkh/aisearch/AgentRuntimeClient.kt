@@ -3,6 +3,7 @@ package nl.vdzon.hkh.aisearch
 import java.net.http.HttpClient
 import java.time.Duration
 import nl.vdzon.hkh.research.AiRole
+import nl.vdzon.hkh.research.StructuredJobCancelledException
 import nl.vdzon.hkh.research.StructuredJobFailedException
 import nl.vdzon.hkh.research.StructuredJobOutcome
 import nl.vdzon.hkh.research.StructuredJobRequest
@@ -117,6 +118,10 @@ class AgentRuntimeClient(
                 }
                 "FAILED" -> throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.")
                 "CANCELLED" -> throw StructuredJobFailedException(job.id, "De opdracht is gestopt.")
+            }
+            if (request.cancelled()) {
+                runCatching { cancel(job.id) }
+                throw StructuredJobCancelledException(job.id)
             }
             if (System.currentTimeMillis() > deadline) {
                 runCatching { cancel(job.id) }

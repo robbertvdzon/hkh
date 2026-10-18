@@ -1,6 +1,8 @@
 package nl.vdzon.hkh.aisearch.api
 
 import nl.vdzon.hkh.aisearch.AiModelSettings
+import nl.vdzon.hkh.aisearch.AiResearchMethod
+import nl.vdzon.hkh.research.AiRole
 import nl.vdzon.hkh.auth.PreviewRuntimeConfig
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -72,7 +74,55 @@ class AdminAiModelApiIntegrationTest(
             .andExpect {
                 status { isOk() }
                 jsonPath("$.fromSetting") { value(false) }
+                jsonPath("$.method") { value("AGENT") }
+                jsonPath("$.roles.length()") { value(4) }
             }
+    }
+
+    @Test
+    fun `models are chosen per role and the research method is a separate setting`() {
+        settings.reset(AiRole.WRITER)
+        // Zonder eigen keuze erft de schrijver het model van de agent; de extractie heeft een eigen klein standaardmodel.
+        mockMvc.get("/api/admin/ai-search/model?role=writer") { header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE) }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.role") { value("WRITER") }
+                jsonPath("$.current.model") { value("claude-sonnet-5-5") }
+                jsonPath("$.fromSetting") { value(false) }
+                jsonPath("$.roles[1].role") { value("EXTRACTION") }
+                jsonPath("$.roles[1].current.model") { value("claude-haiku-4-5-20251001") }
+            }
+        mockMvc.get("/api/admin/ai-search/model?role=bakker") { header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE) }
+            .andExpect { status { isBadRequest() } }
+
+        mockMvc.put("/api/admin/ai-search/model?role=WRITER") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"vendorId":"anthropic","model":"claude-sonnet-5-5","mode":"SUBSCRIPTION"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.role") { value("WRITER") }
+            jsonPath("$.fromSetting") { value(true) }
+        }
+        assertTrue(settings.current(AiRole.WRITER).fromSetting)
+        assertFalse(settings.current(AiRole.AGENT).fromSetting)
+
+        mockMvc.put("/api/admin/ai-search/method") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"method":"pipeline"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.method") { value("PIPELINE") }
+        }
+        assertEquals(AiResearchMethod.PIPELINE, settings.method())
+        mockMvc.put("/api/admin/ai-search/method") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"method":"magic"}"""
+        }.andExpect { status { isBadRequest() } }
+        settings.updateMethod(AiResearchMethod.AGENT, "test")
+        settings.reset(AiRole.WRITER)
     }
 
     companion object {

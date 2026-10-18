@@ -688,6 +688,7 @@ class _AiModelSection extends StatefulWidget {
 
 class _AiModelSectionState extends State<_AiModelSection> {
   AiModelState? _state;
+  AiRole _role = AiRole.agent;
   String? _selectedKey;
   bool _loading = true;
   bool _saving = false;
@@ -702,7 +703,7 @@ class _AiModelSectionState extends State<_AiModelSection> {
 
   Future<void> _load() async {
     try {
-      final state = await widget.source.load(widget.identity);
+      final state = await widget.source.load(widget.identity, role: _role);
       if (!mounted) return;
       setState(() {
         _state = state;
@@ -719,6 +720,16 @@ class _AiModelSectionState extends State<_AiModelSection> {
             : 'Modelinstelling kon niet worden geladen.';
       });
     }
+  }
+
+  Future<void> _switchRole(AiRole? role) async {
+    if (role == null || role == _role) return;
+    setState(() {
+      _role = role;
+      _loading = true;
+      _success = null;
+    });
+    await _load();
   }
 
   Future<void> _apply(
@@ -770,25 +781,92 @@ class _AiModelSectionState extends State<_AiModelSection> {
               children: [
                 const Icon(Icons.psychology_outlined),
                 const SizedBox(width: 8),
-                Text(
-                  'AI-onderzoeker: model',
-                  style: Theme.of(context).textTheme.titleLarge,
+                Expanded(
+                  child: Text(
+                    'AI-onderzoeker: methode en modellen',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             const Text(
-              'Het model waarmee de digitale onderzoeker vragen beantwoordt. De keuze geldt '
-              'direct voor nieuwe vragen; lopende onderzoeken maken hun huidige model af.',
+              'De onderzoeksmethode en het model per rol. Keuzes gelden direct voor nieuwe '
+              'vragen; lopende onderzoeken maken hun huidige methode en model af.',
             ),
             const SizedBox(height: 12),
+            if (state != null) ...[
+              Text(
+                'Onderzoeksmethode',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 6),
+              SegmentedButton<AiResearchMethod>(
+                key: const Key('ai-method-select'),
+                segments: [
+                  for (final method in AiResearchMethod.values)
+                    ButtonSegment(
+                      value: method,
+                      label: Text(method.label),
+                      tooltip: method.description,
+                    ),
+                ],
+                selected: {state.method},
+                onSelectionChanged: _saving
+                    ? null
+                    : (selection) => _apply(
+                        () => widget.source.selectMethod(
+                          widget.identity,
+                          selection.single,
+                        ),
+                        'De onderzoeksmethode is gewijzigd.',
+                      ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                state.method.description,
+                key: const Key('ai-method-description'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (state.roles.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Modellen per rol',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                for (final roleModel in state.roles)
+                  Text(
+                    '${roleModel.role.label}: ${roleModel.current.label}'
+                    '${roleModel.fromSetting ? '' : ' (standaard)'}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+              ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AiRole>(
+                key: const Key('ai-role-select'),
+                initialValue: _role,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Rol om in te stellen',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final role in AiRole.values)
+                    DropdownMenuItem(value: role, child: Text(role.label)),
+                ],
+                onChanged: _saving || _loading ? null : _switchRole,
+              ),
+              const SizedBox(height: 4),
+              Text(_role.description, style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 12),
+            ],
             if (_loading)
               const Center(child: CircularProgressIndicator())
             else ...[
               if (state != null)
                 Text(
-                  'Nu actief: ${state.current.label}'
-                  '${state.fromSetting ? '' : ' (uit de configuratie)'}'
+                  'Nu actief voor ${state.role.label.toLowerCase()}: ${state.current.label}'
+                  '${state.fromSetting ? '' : (state.role == AiRole.agent ? ' (uit de configuratie)' : ' (standaard)')}'
                   '${state.updatedBy == null ? '' : ' · gekozen door ${state.updatedBy}'}',
                   key: const Key('ai-model-current'),
                 ),
@@ -849,6 +927,7 @@ class _AiModelSectionState extends State<_AiModelSection> {
                             () => widget.source.select(
                               widget.identity,
                               selectedOption.execution,
+                              role: _role,
                             ),
                             'Het model is gewijzigd.',
                           ),
@@ -860,10 +939,13 @@ class _AiModelSectionState extends State<_AiModelSection> {
                     onPressed: _saving || !(state?.fromSetting ?? false)
                         ? null
                         : () => _apply(
-                            () => widget.source.reset(widget.identity),
-                            'Terug naar het model uit de configuratie.',
+                            () => widget.source.reset(
+                              widget.identity,
+                              role: _role,
+                            ),
+                            'Terug naar de standaardkeuze.',
                           ),
-                    child: const Text('Terug naar configuratie'),
+                    child: const Text('Terug naar standaard'),
                   ),
                   TextButton.icon(
                     onPressed: _saving ? null : _load,

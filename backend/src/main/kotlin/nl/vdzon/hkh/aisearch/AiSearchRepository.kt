@@ -136,7 +136,7 @@ class AiSearchRepository(
         dossierId,
     ) > 0
 
-    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchTurn {
+    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT, method: AiResearchMethod = AiResearchMethod.AGENT): AiSearchTurn {
         val id = UUID.randomUUID().toString()
         val number = jdbc.queryForObject(
             "SELECT COALESCE(MAX(turn_number), 0) + 1 FROM ai_search_turn WHERE session_id = ?::uuid",
@@ -145,10 +145,10 @@ class AiSearchRepository(
         ) ?: 1
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token)
-            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?)
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token, research_method)
+            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?, ?)
             """.trimIndent(),
-            id, sessionId, number, question, dossierContext, depth.name, newControlToken(),
+            id, sessionId, number, question, dossierContext, depth.name, newControlToken(), method.name,
         )
         return requireNotNull(findTurn(id))
     }
@@ -256,6 +256,11 @@ class AiSearchRepository(
             jobId, id,
         ) > 0
 
+    /** Jobs, modellen en tokens van een pijplijnonderzoek, ook bij mislukken. */
+    fun saveStats(id: String, statsJson: String) {
+        jdbc.update("UPDATE ai_search_turn SET research_stats = ?::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid", statsJson, id)
+    }
+
     fun updateProgress(id: String, status: AiTurnStatus, percent: Int?, message: String?) {
         jdbc.update(
             "UPDATE ai_search_turn SET status = ?, progress_percent = ?, progress_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid",
@@ -323,6 +328,8 @@ class AiSearchRepository(
                 hint = rs.getString("steer_hint"),
                 deliveredAt = rs.getTimestamp("steer_delivered_at")?.toInstant(),
             ),
+            method = AiResearchMethod.parse(rs.getString("research_method")),
+            researchStats = rs.getString("research_stats"),
         )
     }
 

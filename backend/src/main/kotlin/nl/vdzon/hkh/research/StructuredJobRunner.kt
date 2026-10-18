@@ -11,6 +11,8 @@ data class StructuredJobRequest(
     val instruction: String,
     val resultSchema: JsonNode,
     val executionTimeoutSeconds: Int,
+    /** Wordt tijdens het wachten gepeild; true breekt de job af (de runtime-job wordt geannuleerd). */
+    val cancelled: () -> Boolean = { false },
 )
 
 data class StructuredJobOutcome(
@@ -21,7 +23,10 @@ data class StructuredJobOutcome(
     val model: String,
 )
 
-class StructuredJobFailedException(val jobId: String?, message: String) : RuntimeException(message)
+open class StructuredJobFailedException(val jobId: String?, message: String) : RuntimeException(message)
+
+/** De aanroeper heeft de job afgebroken (gebruiker stopte het onderzoek). */
+class StructuredJobCancelledException(jobId: String?) : StructuredJobFailedException(jobId, "De opdracht is afgebroken.")
 
 /**
  * Eén gestructureerde modelaanroep via de agent-runtime: job aanmaken, wachten, resultaat
