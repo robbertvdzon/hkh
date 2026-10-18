@@ -227,7 +227,8 @@ instelling, gebeurtenis, overig; bron FIELD uit een metadataveld of MODEL uit de
 Trefwoorden uit metadatavelden (straatnaam, fotograaf, auteurs, uitgever, thema, wijk, datums)
 maakt de code zonder model; de vrije tekst (beschrijving, documenttekst) gaat in batches van
 maximaal 40 records (en 180.000 tekens) als job naar de runtime met de rol **extractie**
-(standaard een klein model, `hkh.ai-search.extraction-model`), vier batches tegelijk. Een kaart
+(standaard een klein model, `hkh.ai-search.extraction-model`), drie batches tegelijk (`hkh.zcbs.card-parallelism`; de worker heeft zes plekken voor
+applicatiewerk en de rest blijft vrij voor onderzoek). Een kaart
 wordt opnieuw gemaakt als de extractieversie of de invoer (hash van tekst en documenttekst)
 verandert. Het beheerscherm heeft de knop **AI-kaarten maken (ontbrekende)** (scrape-modus
 `CARDS`; met "alles opnieuw" ook eerder mislukte); een volledige collectie-import sluit af met
