@@ -17,6 +17,9 @@ data class ZcbsProperties(
     /** Veiligheidslimiet op het aantal lijstpagina's per collectie. */
     val maxPagesPerCollection: Int = 5000,
     val timeoutSeconds: Long = 20,
-    /** Aantal kaartenbatches dat tegelijk naar de runtime gaat. */
-    val cardParallelism: Int = 4,
+    /**
+     * Aantal kaartenbatches dat tegelijk naar de runtime gaat. De worker heeft een beperkt aantal
+     * plekken voor applicatiewerk; er moeten er vrij blijven voor het onderzoek van bezoekers.
+     */
+    val cardParallelism: Int = 3,
 )
