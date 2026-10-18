@@ -75,6 +75,24 @@ class CardExtractionServiceTest {
     }
 
     @Test
+    fun `a large batch sends the records as files and keeps the instruction short`() {
+        val store = InMemoryCards()
+        val requests = mutableListOf<StructuredJobRequest>()
+        val runner = StructuredJobRunner { request ->
+            requests += request
+            StructuredJobOutcome("job-2", mapper.readTree("""{"cards":[]}"""), 1, 1, "anthropic/test")
+        }
+        val batch = (1..30).map { record("$it", (1..1_500).joinToString(" ") { w -> "woord$w" }) }
+        CardExtractionService(store, runner, mapper).extract(batch, "big")
+        val request = requests.single()
+        assertTrue(request.instruction.length < JobPrompts.INLINE_LIMIT)
+        assertTrue(request.attachments.isNotEmpty())
+        assertTrue(request.instruction.contains("/job/input/objects/records-1/content"))
+        assertTrue(request.instruction.contains("Het gaat om 30 records: 1, 2, 3"))
+        assertTrue(request.attachments.joinToString { it.text }.contains("=== record ident=30 "))
+    }
+
+    @Test
     fun `batches stay within the character budget`() {
         val store = InMemoryCards()
         store.pendingRecords = (1..40).map { record("$it", "x".repeat(7_000)) }

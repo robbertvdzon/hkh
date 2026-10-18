@@ -4,6 +4,7 @@ import 'package:hkh_admin/auth/admin_session.dart';
 import 'package:hkh_admin/main.dart';
 import 'package:hkh_admin/news/admin_latest_news.dart';
 import 'package:hkh_admin/ai/admin_ai_model.dart';
+import 'package:hkh_admin/ai/admin_ai_research.dart';
 import 'package:hkh_admin/collection/admin_collection_scrape.dart';
 
 class _NewsSource implements AdminLatestNewsSource {
@@ -137,6 +138,76 @@ class _AiModelSource implements AdminAiModelSource {
     AiResearchMethod method,
   ) async {
     this.method = method;
+    return _state();
+  }
+}
+
+class _AiResearchSource implements AdminAiResearchSource {
+  final List<AiBenchmarkQuestion> questions = [];
+  bool running = false;
+  int runs = 0;
+
+  AiBenchmarkState _state() =>
+      AiBenchmarkState(questions: List.of(questions), running: running);
+
+  @override
+  Future<List<AiTurnComparison>> turns(
+    AdminIdentity identity, {
+    int limit = 40,
+  }) async => [
+    AiTurnComparison(
+      id: 't1',
+      question: 'Wie waren Toos en Ciska Oostrum?',
+      title: 'De tweelingjuffen',
+      status: 'SUCCEEDED',
+      depth: 'THOROUGH',
+      method: 'PIPELINE',
+      createdAt: DateTime(2026, 10, 18, 12, 0),
+      durationSeconds: 245,
+      rounds: 3,
+      sourceCount: 41,
+      models: ['anthropic/claude-sonnet-5-5', 'anthropic/claude-opus-5-5'],
+      jobs: 5,
+      inputTokens: 312000,
+      outputTokens: 14000,
+      askedBy: 'robbert@example.com',
+      benchmarkQuestionId: null,
+      errorMessage: null,
+    ),
+  ];
+
+  @override
+  Future<AiBenchmarkState> benchmark(AdminIdentity identity) async => _state();
+
+  @override
+  Future<AiBenchmarkState> addQuestion(
+    AdminIdentity identity,
+    String question,
+    String depth,
+  ) async {
+    questions.add(
+      AiBenchmarkQuestion(
+        id: questions.length + 1,
+        question: question,
+        depth: depth,
+      ),
+    );
+    return _state();
+  }
+
+  @override
+  Future<AiBenchmarkState> deleteQuestion(
+    AdminIdentity identity,
+    int id,
+  ) async {
+    questions.removeWhere((q) => q.id == id);
+    return _state();
+  }
+
+  @override
+  Future<AiBenchmarkState> runBenchmark(AdminIdentity identity) async {
+    runs++;
+    running = true;
     return _state();
   }
 }
@@ -345,4 +416,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(aiModelSource.selectedRoles, [AiRole.writer]);
   });
+
+  testWidgets(
+    'the administrator manages the test set and sees the comparison',
+    (tester) async {
+      final researchSource = _AiResearchSource();
+      await tester.pumpWidget(
+        HkhAdminApp(
+          sessionSource: _AuthenticatedSession(),
+          newsSource: _NewsSource(),
+          scrapeSource: _ScrapeSource(),
+          aiResearchSource: researchSource,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('ai-research-table')));
+      expect(find.text('De tweelingjuffen'), findsOneWidget);
+      expect(find.text('pijplijn'), findsOneWidget);
+      expect(find.text('4 min 5 s'), findsOneWidget);
+      expect(find.text('claude-sonnet-5-5, claude-opus-5-5'), findsOneWidget);
+      expect(find.text('312.0k / 14.0k'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('benchmark-run')))
+            .enabled,
+        isFalse,
+      );
+
+      await tester.ensureVisible(find.byKey(const Key('benchmark-question')));
+      await tester.enterText(
+        find.byKey(const Key('benchmark-question')),
+        'Wie was burgemeester Nielen?',
+      );
+      await tester.ensureVisible(find.byKey(const Key('benchmark-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('benchmark-add')));
+      await tester.pumpAndSettle();
+      expect(
+        researchSource.questions.single.question,
+        'Wie was burgemeester Nielen?',
+      );
+      expect(find.text('Vraag toegevoegd.'), findsOneWidget);
+      expect(
+        find.textContaining('snel · Wie was burgemeester Nielen?'),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.byKey(const Key('benchmark-run')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('benchmark-run')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(researchSource.runs, 1);
+      expect(find.text('Testset draait…'), findsOneWidget);
+    },
+  );
 }

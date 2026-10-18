@@ -50,11 +50,11 @@ class AiSearchAccountApiIntegrationTest(
     fun localRuntime() {
         val job = RuntimeJob("test-job", "SUCCEEDED", "COMPLETED", 100, "Test afgerond", null)
         doReturn(true).`when`(runtime).isConfigured()
-        doReturn(job).`when`(runtime).createJob(anyString(), anyString(), schemaMatcher(), anyInt(), org.mockito.ArgumentMatchers.any(nl.vdzon.hkh.research.AiRole::class.java) ?: nl.vdzon.hkh.research.AiRole.AGENT)
+        doReturn(job).`when`(runtime).createJob(anyString(), anyString(), schemaMatcher(), anyInt(), org.mockito.ArgumentMatchers.any(nl.vdzon.hkh.research.AiRole::class.java) ?: nl.vdzon.hkh.research.AiRole.AGENT, org.mockito.ArgumentMatchers.anyList())
         doReturn(job).`when`(runtime).getJob(anyString())
         doReturn(mapper.readTree(
-            """{"title":"Synthetisch antwoord","answerHtml":"<p>Testinhoud</p>","sources":[],"suggestedFollowUps":[]}""",
-        )).`when`(runtime).getResult(anyString())
+            """{"result":{"title":"Synthetisch antwoord","answerHtml":"<p>Testinhoud</p>","sources":[],"suggestedFollowUps":[]},"usageSummary":{"metrics":[{"metric":"INPUT_TOKENS","quantity":"1200"},{"metric":"OUTPUT_TOKENS","quantity":"300"}]}}""",
+        )).`when`(runtime).getResultEnvelope(anyString())
         doReturn(nl.vdzon.hkh.aisearch.RuntimeActivity(0, null)).`when`(runtime).getActivity(anyString(), org.mockito.ArgumentMatchers.anyLong())
     }
 

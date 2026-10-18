@@ -46,8 +46,10 @@ data class AiSearchTurn(
     val controlToken: String? = null,
     val steering: AiSteering = AiSteering(),
     val method: AiResearchMethod = AiResearchMethod.AGENT,
-    /** Jobs, modellen en tokens van het onderzoek (JSON), voor vergelijking; null bij de agent-methode of oudere vragen. */
+    /** Jobs, modellen en tokens van het onderzoek (JSON), voor vergelijking; null bij oudere vragen. */
     val researchStats: String? = null,
+    /** De testsetvraag waaruit deze beurt komt; null bij gewone vragen. */
+    val benchmarkQuestionId: Long? = null,
 )
 
 /** Verslag van één zoekronde, door de agent gemeld na afloop van die ronde. */

@@ -9,6 +9,7 @@ import 'google_signin_button_stub.dart'
     if (dart.library.html) 'google_signin_button_web.dart'
     as google_button;
 import 'ai/admin_ai_model.dart';
+import 'ai/admin_ai_research.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'news/admin_latest_news.dart';
 
@@ -27,6 +28,7 @@ void main() {
       newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
       scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
       aiModelSource: AdminAiModelClient(AppConfig.apiBaseUrl),
+      aiResearchSource: AdminAiResearchClient(AppConfig.apiBaseUrl),
     ),
   );
 }
@@ -37,6 +39,7 @@ class HkhAdminApp extends StatelessWidget {
     required this.newsSource,
     required this.scrapeSource,
     this.aiModelSource,
+    this.aiResearchSource,
     this.googleButtonBuilder,
     super.key,
   });
@@ -47,6 +50,9 @@ class HkhAdminApp extends StatelessWidget {
 
   /// Modelkeuze van de digitale onderzoeker; zonder bron wordt het blok niet getoond.
   final AdminAiModelSource? aiModelSource;
+
+  /// Vergelijkingsoverzicht en testset; zonder bron wordt het blok niet getoond.
+  final AdminAiResearchSource? aiResearchSource;
   final Widget Function()? googleButtonBuilder;
 
   @override
@@ -63,6 +69,7 @@ class HkhAdminApp extends StatelessWidget {
         newsSource: newsSource,
         scrapeSource: scrapeSource,
         aiModelSource: aiModelSource,
+        aiResearchSource: aiResearchSource,
         googleButtonBuilder:
             googleButtonBuilder ?? google_button.renderGoogleButton,
       ),
@@ -77,6 +84,7 @@ class AdminGate extends StatefulWidget {
     required this.scrapeSource,
     required this.googleButtonBuilder,
     this.aiModelSource,
+    this.aiResearchSource,
     super.key,
   });
 
@@ -84,6 +92,7 @@ class AdminGate extends StatefulWidget {
   final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
+  final AdminAiResearchSource? aiResearchSource;
   final Widget Function() googleButtonBuilder;
 
   @override
@@ -177,6 +186,7 @@ class _AdminGateState extends State<AdminGate> {
         newsSource: widget.newsSource,
         scrapeSource: widget.scrapeSource,
         aiModelSource: widget.aiModelSource,
+        aiResearchSource: widget.aiResearchSource,
         onSignOut: _signOut,
       );
     }
@@ -263,12 +273,14 @@ class _AdminHome extends StatefulWidget {
     required this.scrapeSource,
     required this.onSignOut,
     this.aiModelSource,
+    this.aiResearchSource,
   });
 
   final AdminIdentity identity;
   final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
+  final AdminAiResearchSource? aiResearchSource;
   final VoidCallback onSignOut;
 
   @override
@@ -357,6 +369,13 @@ class _AdminHomeState extends State<_AdminHome> {
                     _AiModelSection(
                       identity: widget.identity,
                       source: aiModelSource,
+                    ),
+                  ],
+                  if (widget.aiResearchSource case final aiResearchSource?) ...[
+                    const SizedBox(height: 32),
+                    AdminAiResearchSection(
+                      identity: widget.identity,
+                      source: aiResearchSource,
                     ),
                   ],
                   const SizedBox(height: 32),

@@ -136,7 +136,7 @@ class AiSearchRepository(
         dossierId,
     ) > 0
 
-    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT, method: AiResearchMethod = AiResearchMethod.AGENT): AiSearchTurn {
+    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT, method: AiResearchMethod = AiResearchMethod.AGENT, benchmarkQuestionId: Long? = null): AiSearchTurn {
         val id = UUID.randomUUID().toString()
         val number = jdbc.queryForObject(
             "SELECT COALESCE(MAX(turn_number), 0) + 1 FROM ai_search_turn WHERE session_id = ?::uuid",
@@ -145,10 +145,10 @@ class AiSearchRepository(
         ) ?: 1
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token, research_method)
-            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?, ?)
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token, research_method, benchmark_question_id)
+            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?, ?, ?)
             """.trimIndent(),
-            id, sessionId, number, question, dossierContext, depth.name, newControlToken(), method.name,
+            id, sessionId, number, question, dossierContext, depth.name, newControlToken(), method.name, benchmarkQuestionId,
         )
         return requireNotNull(findTurn(id))
     }
@@ -171,6 +171,22 @@ class AiSearchRepository(
         """.trimIndent(),
         rowMapper,
         dossierId, excludingTurnId, excludingTurnId, limit,
+    )
+
+    /** Recente beurten over alle sessies, nieuwste eerst, met wie de vraag stelde (e-mail of "bezoeker"). */
+    fun recentTurns(limit: Int, benchmarkOnly: Boolean): List<Pair<AiSearchTurn, String?>> = jdbc.query(
+        """
+        SELECT t.*, s.created_by_email, s.dossier_id
+        FROM ai_search_turn t JOIN ai_search_session s ON s.id = t.session_id
+        ${if (benchmarkOnly) "WHERE t.benchmark_question_id IS NOT NULL" else ""}
+        ORDER BY t.created_at DESC
+        LIMIT ?
+        """.trimIndent(),
+        { rs, index ->
+            val askedBy = rs.getString("created_by_email") ?: if (rs.getString("dossier_id") != null) "dossier" else "bezoeker"
+            rowMapper.mapRow(rs, index)!! to askedBy
+        },
+        limit,
     )
 
     fun findTurn(id: String): AiSearchTurn? = jdbc.query(
@@ -330,6 +346,7 @@ class AiSearchRepository(
             ),
             method = AiResearchMethod.parse(rs.getString("research_method")),
             researchStats = rs.getString("research_stats"),
+            benchmarkQuestionId = (rs.getObject("benchmark_question_id") as Number?)?.toLong(),
         )
     }
 

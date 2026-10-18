@@ -41,14 +41,16 @@ class CardExtractionService(
 
     fun extract(batch: List<PendingCardRecord>, idempotencyKey: String): CardBatchOutcome {
         if (batch.isEmpty()) return CardBatchOutcome(0, 0, null)
+        val (instruction, attachments) = JobPrompts.assemble(buildPrompt(batch), buildRecords(batch), "records", "records")
         val outcome = try {
             runner.run(
                 StructuredJobRequest(
                     idempotencyKey = idempotencyKey,
                     role = AiRole.EXTRACTION,
-                    instruction = buildPrompt(batch),
+                    instruction = instruction,
                     resultSchema = schema,
                     executionTimeoutSeconds = 900,
+                    attachments = attachments,
                 ),
             )
         } catch (ex: Exception) {
@@ -115,10 +117,13 @@ class CardExtractionService(
               literal = exact zoals in de tekst; normalized = standaardvorm: namen voluit als "Voornaam Achternaam" (bij alleen een achternaam: de achternaam), adressen als "Straatnaam huisnummer", straten als "Straatnaam", jaren als viercijferig getal.
               Bij YEAR: yearFrom en yearTo als getal (exact jaar: beide gelijk; "ca. 1930": 1925 en 1935; "jaren vijftig": 1950 en 1959). Bij andere types: 0.
             - Spellingvarianten in de tekst (bijv. Oostrum en Oostrom) neem je apart op, elk met de standaardvorm die het record zelf ondersteunt.
-            - Lever voor IEDER record precies één kaart, met hetzelfde ident.
+            - Lever voor IEDER record precies één kaart, met hetzelfde ident. Het gaat om ${batch.size} records: ${batch.joinToString(", ") { it.ident }}.
+            - Geef uitsluitend het JSON-object conform het schema: {"cards": [{"ident", "summary", "keywords": [{"type", "literal", "normalized", "yearFrom", "yearTo"}]}]}.
             """.trimIndent(),
         )
-        appendLine()
+    }
+
+    internal fun buildRecords(batch: List<PendingCardRecord>): String = buildString {
         appendLine("Records:")
         for (record in batch) {
             appendLine()
@@ -134,8 +139,6 @@ class CardExtractionService(
                 appendLine("Documenttekst${if (clipped.length < text.length) " (ingekort)" else ""}: $clipped")
             }
         }
-        appendLine()
-        appendLine("Geef uitsluitend het JSON-object conform het schema: {\"cards\": [{\"ident\", \"summary\", \"keywords\": [{\"type\", \"literal\", \"normalized\", \"yearFrom\", \"yearTo\"}]}]}.")
     }
 
     val schema: JsonNode by lazy {

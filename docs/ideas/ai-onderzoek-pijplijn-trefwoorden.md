@@ -265,7 +265,7 @@ is wat onderzoek en schrijven kosten.
 3. ✅ Ronde-lus met stap A en C (`ResearchPipelineService`), logboek en stop-knop door de code.
 4. ✅ Stap D met genummerde bronnen; resultaat door de bestaande renderer.
 5. ✅ Instelling onderzoeksmethode en de modelrollen in het beheerscherm; `research_stats` per beurt.
-6. ⬜ Testset en vergelijkingsrun in het beheerscherm (hoofdstuk 7).
+6. ✅ Testset en vergelijkingsrun in het beheerscherm (hoofdstuk 7); overlap met referentiebronnen nog niet.
 7. ⬜ Mistral-vendor in de runtime; vergelijking Claude tegen Mistral op dezelfde invoer.
 8. ⬜ Agent-pad verwijderen als de pijplijn wint.
 

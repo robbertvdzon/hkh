@@ -136,6 +136,18 @@ class AiSearchService(
 
     fun activeTurnCountForUser(userId: String): Int = repository.activeTurnCountForUser(userId)
 
+    /**
+     * Een vraag uit de testset, in een eigen sessie van de testset-eigenaar (een vaste bezoekers-id
+     * die geen browser heeft). Wacht niet op capaciteit: de testsetrun stelt de vragen één voor één.
+     */
+    fun startBenchmark(question: AiBenchmarkQuestion, startedBy: String): String {
+        ensureAvailable()
+        val sessionId = repository.createSession(AiSearchOwner(visitorId = BENCHMARK_VISITOR_ID, userEmail = "testset:$startedBy".take(320)))
+        val turn = repository.createTurn(sessionId, validateQuestion(question.question), depth = question.depth, method = modelSettings.method(), benchmarkQuestionId = question.id)
+        schedule(turn)
+        return turn.id
+    }
+
     // ---- Bijsturen tijdens het onderzoek ----
 
     /** Bijsturing door de eigenaar van een persoonlijke zoekopdracht. */
@@ -269,7 +281,17 @@ class AiSearchService(
                         visibleActivity ?: progressMessage(job.phase),
                     )
                     "SUCCEEDED" -> {
-                        val rendered = renderer.render(runtime.getResult(jobId))
+                        val envelope = runtime.getResultEnvelope(jobId)
+                        val rendered = renderer.render(envelope.path("result"))
+                        runCatching {
+                            val (input, output) = runtime.usage(envelope)
+                            val execution = modelSettings.execution(nl.vdzon.hkh.research.AiRole.AGENT)
+                            val job = mapOf(
+                                "role" to "AGENT", "step" to "agent", "jobId" to jobId, "model" to "${execution.vendorId}/${execution.model}",
+                                "inputTokens" to input, "outputTokens" to output, "seconds" to Duration.between(turn.createdAt, Instant.now()).seconds,
+                            )
+                            repository.saveStats(turnId, objectMapper.writeValueAsString(mapOf("jobs" to listOf(job), "rounds" to turn.researchLog.size, "candidatesSeen" to 0, "chosen" to rendered.sources.size)))
+                        }
                         repository.succeed(turnId, rendered)
                         repository.sessionDossierId(turn.sessionId)?.let { dossierId ->
                             runCatching { events.publishEvent(AiDossierTurnCompleted(dossierId, turn.sessionId, turnId)) }
@@ -484,6 +506,7 @@ class AiSearchService(
         const val DOSSIER_CONTEXT_CHARS = 20_000
         val ACTIVE_STATUSES = setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING)
         const val PIPELINE_JOB_PREFIX = "pipeline:"
+        const val BENCHMARK_VISITOR_ID = "00000000-0000-4000-8000-00000000be0c"
     }
 }
 

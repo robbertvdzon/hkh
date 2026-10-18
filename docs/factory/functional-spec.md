@@ -233,6 +233,23 @@ verandert. Het beheerscherm heeft de knop **AI-kaarten maken (ontbrekende)** (sc
 `CARDS`; met "alles opnieuw" ook eerder mislukte); een volledige collectie-import sluit af met
 kaarten voor nieuwe records. De status toont het aantal gemaakte en mislukte kaarten.
 
+Grote invoer (records voor kaarten, kandidaten voor een ronde, documenten voor de schrijver)
+gaat niet in de instructie van de runtime-job (maximaal 65.536 tekens) maar als genummerde
+tekstbestanden (`/job/input/objects/<naam>-<n>/content`, elk hoogstens 45.000 tekens, regels
+afgebroken op 400 tekens); de instructie verwijst ernaar en vraagt ze volledig te lezen.
+
+## Beheer: vergelijken en testset
+
+Het blok **AI-onderzoek: vergelijken** in het beheerscherm toont de testset (vaste vragen met
+diepte; toevoegen en verwijderen) met de knop **Testset draaien**, die de vragen één voor één
+opnieuw stelt met de nu ingestelde methode en modellen (sessies van de testset-eigenaar, niet
+zichtbaar voor bezoekers), en een tabel van recente onderzoeken over alle gebruikers: wanneer,
+vraag/titel, methode (met "(testset)"), diepte, status, duur, rondes, bronnen, modellen, tokens
+in/uit en wie vroeg. De tokens en modellen komen uit `research_stats` (per job: rol, stap,
+runtime-job, model, tokens, seconden), dat ook voor de agent-methode wordt gevuld. API:
+`GET /api/admin/ai-search/turns?limit=&benchmarkOnly=`, `GET/POST /api/admin/ai-search/benchmark`,
+`DELETE /api/admin/ai-search/benchmark/{id}`, `POST /api/admin/ai-search/benchmark/run`.
+
 ## Beheer: methode en modellen van de AI-onderzoeker
 
 Het beheerscherm toont onder de collectie-import het blok **AI-onderzoeker: methode en

@@ -3,6 +3,7 @@ package nl.vdzon.hkh.aisearch
 import java.net.http.HttpClient
 import java.time.Duration
 import nl.vdzon.hkh.research.AiRole
+import nl.vdzon.hkh.research.JobAttachment
 import nl.vdzon.hkh.research.StructuredJobCancelledException
 import nl.vdzon.hkh.research.StructuredJobFailedException
 import nl.vdzon.hkh.research.StructuredJobOutcome
@@ -54,9 +55,14 @@ class AgentRuntimeClient(
         resultSchema: JsonNode = SEARCH_RESULT_SCHEMA,
         executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
         role: AiRole = AiRole.AGENT,
+        attachments: List<JobAttachment> = emptyList(),
     ): RuntimeJob {
         if (fixtures.enabled) return fixtures.create(idempotencyKey, resultSchema)
         val execution = modelSettings.execution(role)
+        require(instruction.length <= MAX_INSTRUCTION_LENGTH) { "De instructie is te lang voor de runtime (${instruction.length} tekens); zet grote inhoud in een bijlage." }
+        val objects = attachments.map { attachment ->
+            mapOf("objectId" to upload(attachment), "name" to attachment.name, "role" to "DOCUMENT")
+        }
         val body = mapOf(
             "idempotencyKey" to idempotencyKey,
             "jobKind" to "APPLICATION_WORK",
@@ -66,13 +72,32 @@ class AgentRuntimeClient(
                 "model" to execution.model,
                 "mode" to execution.mode,
             ),
-            "input" to mapOf("instruction" to instruction.take(MAX_INSTRUCTION_LENGTH), "objects" to emptyList<Any>()),
+            "input" to mapOf("instruction" to instruction, "objects" to objects),
             "output" to mapOf("resultSchema" to resultSchema, "artifacts" to emptyList<Any>()),
             "executionTimeoutSeconds" to executionTimeoutSeconds,
         )
         val json = client.post().uri("/v2/jobs").body(body).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen job terug")
         return parseJob(objectMapper.readTree(json))
+    }
+
+    /** Zet een tekstbijlage als invoerobject bij de runtime: reserveren, bytes sturen, afronden. */
+    private fun upload(attachment: JobAttachment): String {
+        val bytes = attachment.text.toByteArray(Charsets.UTF_8)
+        val sha256 = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val reserved = client.post().uri("/v2/uploads")
+            .body(mapOf("filename" to attachment.filename, "mimeType" to attachment.mimeType, "sizeBytes" to bytes.size, "sha256" to sha256))
+            .retrieve().body(String::class.java) ?: error("Agent Runtime gaf geen upload terug")
+        val uploadId = objectMapper.readTree(reserved).path("uploadId").asText()
+        require(uploadId.isNotBlank()) { "Agent Runtime gaf geen upload-id terug" }
+        client.patch().uri("/v2/uploads/{id}", uploadId)
+            .header("Upload-Offset", "0")
+            .contentType(org.springframework.http.MediaType.parseMediaType("application/offset+octet-stream"))
+            .body(bytes)
+            .retrieve().toBodilessEntity()
+        val completed = client.post().uri("/v2/uploads/{id}/complete", uploadId).retrieve().body(String::class.java)
+            ?: error("Agent Runtime gaf geen object terug")
+        return objectMapper.readTree(completed).path("objectId").asText().ifBlank { error("Agent Runtime gaf geen object-id terug") }
     }
 
     fun getJob(jobId: String): RuntimeJob {
@@ -98,22 +123,14 @@ class AgentRuntimeClient(
      */
     override fun run(request: StructuredJobRequest): StructuredJobOutcome {
         val execution = modelSettings.execution(request.role)
-        val job = createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role)
+        val job = createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments)
         val deadline = System.currentTimeMillis() + (request.executionTimeoutSeconds + 600) * 1000L
         while (true) {
             val current = getJob(job.id)
             when (current.status) {
                 "SUCCEEDED" -> {
                     val envelope = getResultEnvelope(job.id)
-                    var input = 0L
-                    var output = 0L
-                    for (metric in envelope.path("usageSummary").path("metrics")) {
-                        val quantity = metric.path("quantity").asText("0").toBigDecimalOrNull()?.toLong() ?: 0L
-                        when (metric.path("metric").asText()) {
-                            "INPUT_TOKENS", "CACHED_INPUT_TOKENS", "CACHE_WRITE_TOKENS" -> input += quantity
-                            "OUTPUT_TOKENS" -> output += quantity
-                        }
-                    }
+                    val (input, output) = usage(envelope)
                     return StructuredJobOutcome(job.id, envelope.path("result"), input, output, "${execution.vendorId}/${execution.model}")
                 }
                 "FAILED" -> throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.")
@@ -129,6 +146,20 @@ class AgentRuntimeClient(
             }
             Thread.sleep(pollIntervalMs)
         }
+    }
+
+    /** Invoer- en uitvoertokens uit het verbruiksoverzicht van een resultaat. */
+    fun usage(envelope: JsonNode): Pair<Long, Long> {
+        var input = 0L
+        var output = 0L
+        for (metric in envelope.path("usageSummary").path("metrics")) {
+            val quantity = metric.path("quantity").asText("0").toBigDecimalOrNull()?.toLong() ?: 0L
+            when (metric.path("metric").asText()) {
+                "INPUT_TOKENS", "CACHED_INPUT_TOKENS", "CACHE_WRITE_TOKENS" -> input += quantity
+                "OUTPUT_TOKENS" -> output += quantity
+            }
+        }
+        return input to output
     }
 
     fun cancel(jobId: String) {
