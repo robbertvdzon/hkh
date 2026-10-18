@@ -189,6 +189,7 @@ class DocumentTextScrapeTest {
         @Synchronized
         override fun latest(): ScrapeRun? = runs.lastOrNull()
         override fun anyRunning() = runs.any { it.status == ScrapeStatus.RUNNING }
+        override fun failRunning(message: String) = 0
 
         @Synchronized
         private fun replace(id: Long, change: (ScrapeRun) -> ScrapeRun) {

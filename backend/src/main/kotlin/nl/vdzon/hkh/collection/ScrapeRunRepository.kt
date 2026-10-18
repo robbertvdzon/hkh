@@ -12,6 +12,9 @@ interface ScrapeRunStore {
     fun finish(id: Long, status: ScrapeStatus, message: String?)
     fun latest(): ScrapeRun?
     fun anyRunning(): Boolean
+
+    /** Runs die nog op RUNNING staan terwijl er geen scraper draait (na een herstart): afsluiten als mislukt. */
+    fun failRunning(message: String): Int
 }
 
 /** Mutabele voortgang die de scraper tijdens het draaien bijwerkt. */
@@ -87,6 +90,11 @@ class ScrapeRunRepository(
     override fun latest(): ScrapeRun? =
         jdbc.query("SELECT * FROM scrape_run ORDER BY started_at DESC, id DESC LIMIT 1", rowMapper)
             .singleOrNull()
+
+    override fun failRunning(message: String): Int = jdbc.update(
+        "UPDATE scrape_run SET status = 'FAILED', message = ?, current_collection = NULL, finished_at = CURRENT_TIMESTAMP WHERE status = 'RUNNING'",
+        message,
+    )
 
     override fun anyRunning(): Boolean =
         (jdbc.queryForObject("SELECT COUNT(*) FROM scrape_run WHERE status = 'RUNNING'", Long::class.java) ?: 0) > 0

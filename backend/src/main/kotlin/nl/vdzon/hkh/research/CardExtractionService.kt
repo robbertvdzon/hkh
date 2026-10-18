@@ -27,8 +27,11 @@ class CardExtractionService(
     private val maxTextChars = 7_000
     private val maxBatchChars = 180_000
 
-    fun nextBatch(collection: String, includeFailed: Boolean): List<PendingCardRecord> {
-        val pending = cards.pending(collection, CARD_EXTRACTION_VERSION, includeFailed, batchSize * 3).take(batchSize)
+    /** De volgende batch; [exclude] zijn records die in deze run al (parallel) onderweg zijn. */
+    fun nextBatch(collection: String, includeFailed: Boolean, exclude: Set<String> = emptySet()): List<PendingCardRecord> {
+        val pending = cards.pending(collection, CARD_EXTRACTION_VERSION, includeFailed, batchSize * 3 + exclude.size)
+            .filter { it.ident !in exclude }
+            .take(batchSize)
         var budget = maxBatchChars
         return pending.takeWhile { record ->
             budget -= record.documentText.orEmpty().take(maxTextChars).length + record.description.length + 400

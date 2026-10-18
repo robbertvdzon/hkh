@@ -1,7 +1,9 @@
 package nl.vdzon.hkh.collection
 
+import jakarta.annotation.PostConstruct
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 import nl.vdzon.hkh.research.CardExtractionService
 import org.slf4j.LoggerFactory
@@ -36,6 +38,14 @@ class CollectionScrapeService(
     private val running = AtomicBoolean(false)
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "zcbs-scraper").apply { isDaemon = true }
+    }
+    private val cardWorkers: ExecutorService = Executors.newVirtualThreadPerTaskExecutor()
+
+    /** Een run die bij een herstart nog liep kan niet hervat worden; hij blijft anders eeuwig "bezig". */
+    @PostConstruct
+    fun closeInterruptedRuns() {
+        val closed = runs.failRunning("Afgebroken door een herstart van de dienst; start de run opnieuw (hij gaat verder waar hij was).")
+        if (closed > 0) logger.warn("{} onderbroken scrape-run(s) als mislukt gemarkeerd", closed)
     }
 
     /** Start een scrape. Gooit [ScrapeAlreadyRunningException] als er al één loopt. */
@@ -183,28 +193,44 @@ class CollectionScrapeService(
     }
 
     /**
-     * Kaarten in batches via de runtime. Zonder force alleen records zonder actuele kaart; met force
-     * ook eerder mislukte. Records die in deze run al geprobeerd zijn komen niet nog eens aan bod.
+     * Kaarten in batches via de runtime, met [ZcbsProperties.cardParallelism] batches tegelijk (de
+     * worker draait meerdere containers naast elkaar). Zonder force alleen records zonder actuele
+     * kaart; met force ook eerder mislukte. Records die in deze run al geprobeerd zijn komen niet
+     * nog eens aan bod.
      */
     private fun extractCollectionCards(runId: Long, collection: String, force: Boolean, progress: RunProgress) {
         progress.perCollection.putIfAbsent(collection, 0)
         val attempted = mutableSetOf<String>()
+        val inFlight = mutableListOf<Future<Unit>>()
         var batchNumber = 0
+        val parallelism = properties.cardParallelism.coerceIn(1, 8)
         while (true) {
-            val batch = cards.nextBatch(collection, includeFailed = force).filter { it.ident !in attempted }
-            if (batch.isEmpty()) break
-            batch.forEach { attempted += it.ident }
+            inFlight.removeAll { it.isDone }
+            if (inFlight.size >= parallelism) {
+                inFlight.first().runCatching { get() }
+                continue
+            }
+            val batch = synchronized(attempted) { cards.nextBatch(collection, includeFailed = force, exclude = attempted).also { b -> b.forEach { attempted += it.ident } } }
+            if (batch.isEmpty()) {
+                if (inFlight.isEmpty()) break
+                inFlight.first().runCatching { get() }
+                continue
+            }
             batchNumber++
-            progress.total += batch.size
-            runs.update(progress)
-            val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$batchNumber")
-            progress.processed += outcome.cards
-            progress.failed += outcome.failed
-            progress.cards += outcome.cards
-            progress.cardsFailed += outcome.failed
-            progress.perCollection.merge(collection, outcome.cards, Int::plus)
-            logger.info("Kaartenbatch {}/{} #{}: {} kaarten, {} mislukt (job {})", collection, runId, batchNumber, outcome.cards, outcome.failed, outcome.jobId)
-            runs.update(progress)
+            val number = batchNumber
+            synchronized(progress) { progress.total += batch.size; runs.update(progress) }
+            inFlight += cardWorkers.submit<Unit> {
+                val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$number")
+                synchronized(progress) {
+                    progress.processed += outcome.cards
+                    progress.failed += outcome.failed
+                    progress.cards += outcome.cards
+                    progress.cardsFailed += outcome.failed
+                    progress.perCollection.merge(collection, outcome.cards, Int::plus)
+                    runs.update(progress)
+                }
+                logger.info("Kaartenbatch {}/{} #{}: {} kaarten, {} mislukt (job {})", collection, runId, number, outcome.cards, outcome.failed, outcome.jobId)
+            }
         }
     }
 

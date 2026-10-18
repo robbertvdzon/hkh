@@ -17,4 +17,6 @@ data class ZcbsProperties(
     /** Veiligheidslimiet op het aantal lijstpagina's per collectie. */
     val maxPagesPerCollection: Int = 5000,
     val timeoutSeconds: Long = 20,
+    /** Aantal kaartenbatches dat tegelijk naar de runtime gaat. */
+    val cardParallelism: Int = 4,
 )
