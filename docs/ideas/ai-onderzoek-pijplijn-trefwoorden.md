@@ -229,7 +229,23 @@ per stap geregistreerd, zodat per vraag zichtbaar is wat extractie, onderzoek en
 - Vergelijkingsmaat per vraag: doorlooptijd, aantal rondes, aantal bronnen, overlap met de
   referentie-antwoorden, kosten, en een leesoordeel van Robbert.
 
-## 7. Bouwvolgorde
+## 7. Vergelijken en testset
+
+- **Vastlegging per beurt** in `ai_search_turn`: methode (`AGENT` of `PIPELINE`), model per rol,
+  de runtime-jobs die eraan bijdroegen (bij de pijplijn meerdere per vraag) en na afloop de
+  opgetelde tokens en API-equivalente kosten uit de runtime. Voor oude beurten is dat met
+  terugwerkende kracht te vullen via hun `runtime_job_id`, zolang de runtime de job bewaart.
+- **Testset**: een vaste lijst vragen uit de geschiedenis (Oostrum, Commandeurs, Hertaing,
+  Denneman, aan te vullen door Robbert), elk met het beste antwoord tot nu toe als referentie.
+  Tabel `ai_benchmark_question` (vraag, diepte, referentie-beurt).
+- **Vergelijkingsrun** vanuit het beheerscherm: kies methode en modellen per rol, draai de testset
+  en lees per vraag doorlooptijd, rondes, aantal bronnen, overlap met de referentiebronnen,
+  tokens en kosten af, met de antwoorden naast elkaar. Omdat de pijplijn elk model dezelfde
+  documenten geeft, meet dit het model en niet het zoekgeluk van een agent.
+- **Terugdraaien**: de pijplijn voegt alleen tabellen en kolommen toe; de agent-route blijft
+  beschikbaar via de instelling onderzoeksmethode. Terugdraaien is de instelling omzetten.
+
+## 8. Bouwvolgorde
 
 1. Datamodel (`document_card`, `keyword`, `keyword_mention`, `pg_trgm`) en de `CARDS`-scrape-modus
    met extractie via de runtime; beheerschermknop; backfill draaien.
@@ -242,7 +258,7 @@ per stap geregistreerd, zodat per vraag zichtbaar is wat extractie, onderzoek en
    invoer.
 7. Agent-pad verwijderen als de pijplijn wint.
 
-## 8. Risico's en open punten
+## 9. Risico's en open punten
 
 - **Extractiekwaliteit bepaalt alles.** Een naam die de kaart mist is alleen nog via het
   volledige-tekstvangnet vindbaar. Steekproefsgewijs kaarten nakijken na de backfill.
