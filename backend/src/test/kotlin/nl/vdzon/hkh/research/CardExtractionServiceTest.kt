@@ -14,7 +14,7 @@ class CardExtractionServiceTest {
         val errors = mutableMapOf<String, String>()
         var pendingRecords = listOf<PendingCardRecord>()
         override fun pending(collection: String, version: String, includeFailed: Boolean, limit: Int) = pendingRecords.take(limit)
-        override fun pendingCount(version: String, includeFailed: Boolean) = pendingRecords.size.toLong()
+        override fun pendingCount(version: String, includeFailed: Boolean, collection: String?) = pendingRecords.size.toLong()
         override fun save(card: DocumentCard) { saved[card.ident] = card; errors.remove(card.ident) }
         override fun saveError(collection: String, ident: String, version: String, model: String?, sourceHash: String, error: String) { errors[ident] = error }
         override fun find(collection: String, ident: String) = saved[ident]

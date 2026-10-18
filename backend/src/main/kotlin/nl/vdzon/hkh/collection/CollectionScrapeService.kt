@@ -200,6 +200,8 @@ class CollectionScrapeService(
      */
     private fun extractCollectionCards(runId: Long, collection: String, force: Boolean, progress: RunProgress) {
         progress.perCollection.putIfAbsent(collection, 0)
+        // Het totaal vooraf, zodat de voortgangsbalk de hele collectie laat zien en niet alleen wat al onderweg is.
+        synchronized(progress) { progress.total += cards.pendingCount(collection, includeFailed = force).toInt(); runs.update(progress) }
         val attempted = mutableSetOf<String>()
         val inFlight = mutableListOf<Future<Unit>>()
         var batchNumber = 0
@@ -218,7 +220,6 @@ class CollectionScrapeService(
             }
             batchNumber++
             val number = batchNumber
-            synchronized(progress) { progress.total += batch.size; runs.update(progress) }
             inFlight += cardWorkers.submit<Unit> {
                 val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$number")
                 synchronized(progress) {

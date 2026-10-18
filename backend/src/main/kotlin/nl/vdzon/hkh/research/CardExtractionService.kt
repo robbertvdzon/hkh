@@ -39,6 +39,9 @@ class CardExtractionService(
         }.ifEmpty { pending.take(1) }
     }
 
+    /** Hoeveel records in een collectie nog een kaart nodig hebben, voor de voortgang vooraf. */
+    fun pendingCount(collection: String, includeFailed: Boolean): Long = cards.pendingCount(CARD_EXTRACTION_VERSION, includeFailed, collection)
+
     fun extract(batch: List<PendingCardRecord>, idempotencyKey: String): CardBatchOutcome {
         if (batch.isEmpty()) return CardBatchOutcome(0, 0, null)
         val (instruction, attachments) = JobPrompts.assemble(buildPrompt(batch), buildRecords(batch), "records", "records")

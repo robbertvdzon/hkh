@@ -115,7 +115,7 @@ class DocumentTextScrapeTest {
     private fun noCards() = CardExtractionService(
         object : DocumentCardStore {
             override fun pending(collection: String, version: String, includeFailed: Boolean, limit: Int) = emptyList<PendingCardRecord>()
-            override fun pendingCount(version: String, includeFailed: Boolean) = 0L
+            override fun pendingCount(version: String, includeFailed: Boolean, collection: String?) = 0L
             override fun save(card: DocumentCard) = error("niet verwacht")
             override fun saveError(collection: String, ident: String, version: String, model: String?, sourceHash: String, error: String) = error("niet verwacht")
             override fun find(collection: String, ident: String): DocumentCard? = null

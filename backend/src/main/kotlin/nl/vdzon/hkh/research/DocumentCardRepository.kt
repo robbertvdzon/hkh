@@ -9,7 +9,8 @@ import tools.jackson.databind.ObjectMapper
 interface DocumentCardStore {
     /** Records zonder kaart, met een verouderde extractieversie of gewijzigde invoer; met [includeFailed] ook eerder mislukte. */
     fun pending(collection: String, version: String, includeFailed: Boolean, limit: Int): List<PendingCardRecord>
-    fun pendingCount(version: String, includeFailed: Boolean): Long
+    /** Aantal records dat een kaart nodig heeft; met [collection] alleen die collectie. */
+    fun pendingCount(version: String, includeFailed: Boolean, collection: String? = null): Long
     fun save(card: DocumentCard)
     fun saveError(collection: String, ident: String, version: String, model: String?, sourceHash: String, error: String)
     fun find(collection: String, ident: String): DocumentCard?
@@ -54,14 +55,15 @@ class DocumentCardRepository(
             collection, version, includeFailed, includeFailed, version, limit,
         )
 
-    override fun pendingCount(version: String, includeFailed: Boolean): Long = jdbc.queryForObject(
+    override fun pendingCount(version: String, includeFailed: Boolean, collection: String?): Long = jdbc.queryForObject(
         """
         SELECT COUNT(*) FROM collection_item i
         LEFT JOIN document_card c ON c.collection = i.collection AND c.ident = i.ident
-        WHERE (c.collection IS NULL OR c.extraction_version <> ? OR c.source_hash <> $sourceHashSql OR (? AND c.error IS NOT NULL))
+        WHERE (?::text IS NULL OR i.collection = ?::text)
+          AND (c.collection IS NULL OR c.extraction_version <> ? OR c.source_hash <> $sourceHashSql OR (? AND c.error IS NOT NULL))
           AND (? OR c.error IS NULL OR c.extraction_version <> ? OR c.source_hash <> $sourceHashSql)
         """.trimIndent(),
-        Long::class.java, version, includeFailed, includeFailed, version,
+        Long::class.java, collection, collection, version, includeFailed, includeFailed, version,
     ) ?: 0
 
     @Transactional
