@@ -29,7 +29,17 @@ Nog niet gebouwd.
 
 Per record in `collection_item` één kaart, gemaakt uit titel, beschrijving, velden en (indien
 aanwezig) `document_text`. Beeldbankrecords hebben geen documenttekst; hun kaart komt uit de
-beschrijving en velden en krijgt `hasImage`.
+beschrijving en velden en krijgt `hasImage`. Foto's hebben vaak rijke metadata: een beschrijving
+die straten, panden en personen benoemt, en velden als Thema, Straatnaam, Wijk, Fotograaf, Datum
+opname en Bijzonderheden.
+
+- **Gestructureerde velden worden rechtstreeks trefwoord**, zonder model: Straatnaam → STREET,
+  Wijk en Thema → OTHER, Fotograaf en Auteur(s) → PERSON, Uitgever → ORGANISATION. Het model vult
+  alleen aan uit de vrije tekst (beschrijving, documenttekst). Dat maakt de extractie voor de
+  12.000 foto's betrouwbaarder en goedkoper.
+- **Periodes zonder jaarveld**: veel foto's hebben geen jaartal in het veld maar wel "ca. 1930"
+  of "jaren vijftig" in de tekst. De extractie levert dat als YEAR-trefwoord met een bereik
+  (`year_from`, `year_to`), zodat zulke records bij een periodezoekopdracht meedoen.
 
 ### Datamodel
 
@@ -53,10 +63,12 @@ keyword
 keyword_mention
   keyword_id, collection, ident   PK
   literal            TEXT      vorm zoals in het document, bijv. "Grad Oostrom"
-  year_value         INTEGER   alleen bij type YEAR, voor bereikzoeken
+  year_from, year_to INTEGER   alleen bij type YEAR; een exact jaar heeft from = to,
+                               "jaren vijftig" 1950-1959, "ca. 1930" 1925-1935
+  source             VARCHAR   FIELD (uit een metadataveld) of MODEL (uit de vrije tekst)
 
 Indexen: GIN trigram op keyword.normalized en keyword_mention.literal (pg_trgm),
-         B-tree op keyword_mention.year_value, B-tree op (collection, ident).
+         B-tree op keyword_mention.year_from/year_to, B-tree op (collection, ident).
 ```
 
 ### Extractieprompt (schema)
@@ -69,7 +81,8 @@ transcripties in delen, kaarten samengevoegd). Uitvoer (JSON-schema, strikt):
   "summary": "string, 2-8 zinnen, feitelijk, alle namen/adressen/jaartallen uit de bron behouden",
   "keywords": [
     {"type": "PERSON|ADDRESS|STREET|YEAR|ORGANISATION|EVENT|OTHER",
-     "literal": "zoals in de tekst", "normalized": "standaardvorm"}
+     "literal": "zoals in de tekst", "normalized": "standaardvorm",
+     "yearFrom": 1925, "yearTo": 1935}
   ]
 }
 ```
