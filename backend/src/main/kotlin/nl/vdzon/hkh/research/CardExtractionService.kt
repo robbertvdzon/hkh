@@ -21,12 +21,19 @@ class CardExtractionService(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Records per job; de prompt blijft daarmee ruim onder de invoerlimiet van de runtime. */
-    val batchSize: Int = 40
+    /** Records per job (korte records); records met documenttekst wegen zwaarder, zie [nextBatch]. */
+    val batchSize: Int = 30
 
     /** Documenttekst per record afgekapt; langer dan dit verliest alleen staarttekst. */
     private val maxTextChars = 7_000
     private val maxBatchChars = 180_000
+
+    /**
+     * Gewichtsbudget per job: een record met documenttekst telt voor drie (lange samenvatting en veel
+     * trefwoorden), een kort record voor één. Zo blijft de uitvoer van het model per job beperkt;
+     * een te grote uitvoer kapt het model af en levert een onvolledig resultaat op.
+     */
+    private val maxBatchWeight = 30
 
     /** De volgende batch; [exclude] zijn records die in deze run al (parallel) onderweg zijn. */
     fun nextBatch(collection: String, includeFailed: Boolean, exclude: Set<String> = emptySet()): List<PendingCardRecord> {
@@ -34,9 +41,11 @@ class CardExtractionService(
             .filter { it.ident !in exclude }
             .take(batchSize)
         var budget = maxBatchChars
+        var weight = maxBatchWeight
         return pending.takeWhile { record ->
             budget -= record.documentText.orEmpty().take(maxTextChars).length + record.description.length + 400
-            budget > 0
+            weight -= if (record.documentText.orEmpty().length > 1_500) 3 else 1
+            budget > 0 && weight >= 0
         }.ifEmpty { pending.take(1) }
     }
 

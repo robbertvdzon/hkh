@@ -99,7 +99,10 @@ class CardExtractionServiceTest {
     fun `batches stay within the character budget`() {
         val store = InMemoryCards()
         store.pendingRecords = (1..40).map { record("$it", "x".repeat(7_000)) }
-        val batch = CardExtractionService(store, StructuredJobRunner { error("niet verwacht") }, mapper).nextBatch("archief", includeFailed = false)
-        assertTrue(batch.size in 20..26, "batch ${batch.size}")
+        val service = CardExtractionService(store, StructuredJobRunner { error("niet verwacht") }, mapper)
+        // Records met documenttekst wegen drie: hoogstens tien per job, zodat de uitvoer van het model beperkt blijft.
+        assertEquals(10, service.nextBatch("archief", includeFailed = false).size)
+        store.pendingRecords = (1..40).map { record("$it") }
+        assertEquals(30, service.nextBatch("beeldbank", includeFailed = false).size)
     }
 }
