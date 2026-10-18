@@ -256,18 +256,18 @@ is wat onderzoek en schrijven kosten.
 - **Terugdraaien**: de pijplijn voegt alleen tabellen en kolommen toe; de agent-route blijft
   beschikbaar via de instelling onderzoeksmethode. Terugdraaien is de instelling omzetten.
 
-## 8. Bouwvolgorde
+## 8. Bouwvolgorde en stand (18 oktober 2026)
 
-1. Datamodel (`document_card`, `keyword`, `keyword_mention`, `pg_trgm`) en de `CARDS`-scrape-modus
-   met extractie via de runtime; beheerschermknop; backfill draaien.
-2. Tolerant zoeken in code (stap B) als interne service, met tests op spellingvarianten en
-   jaarbereiken, nog zonder model.
-3. Ronde-lus met stap A en C, logboek en stop-knop; eerst met Claude als model.
-4. Stap D met genummerde bronnen; resultaat door de bestaande renderer.
-5. Instelling onderzoeksmethode en de drie modelrollen in het beheerscherm.
-6. Mistral-vendor in de runtime (API-modus); vergelijking Claude tegen Mistral op dezelfde
-   invoer.
-7. Agent-pad verwijderen als de pijplijn wint.
+1. ✅ Datamodel (`document_card`, `keyword`, `keyword_mention`, `pg_trgm`) en de `CARDS`-scrape-modus
+   met extractie via de runtime (vier batches tegelijk); beheerschermknop. Backfill gestart.
+2. ✅ Tolerant zoeken in code (stap B, `KeywordSearchService`), met tests op spellingvarianten,
+   jaarbereiken, filters en het volledige-tekstvangnet.
+3. ✅ Ronde-lus met stap A en C (`ResearchPipelineService`), logboek en stop-knop door de code.
+4. ✅ Stap D met genummerde bronnen; resultaat door de bestaande renderer.
+5. ✅ Instelling onderzoeksmethode en de modelrollen in het beheerscherm; `research_stats` per beurt.
+6. ⬜ Testset en vergelijkingsrun in het beheerscherm (hoofdstuk 7).
+7. ⬜ Mistral-vendor in de runtime; vergelijking Claude tegen Mistral op dezelfde invoer.
+8. ⬜ Agent-pad verwijderen als de pijplijn wint.
 
 ## 9. Risico's en open punten
 

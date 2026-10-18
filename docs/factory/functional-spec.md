@@ -193,16 +193,61 @@ nieuw tabblad. De bronpopup sluit via Escape, het kruisje of **Sluiten** zonder
 de leespositie van het antwoord te veranderen. Externe bronnen krijgen waar
 mogelijk een ingesloten voorbeeld met dezelfde knop naar de volledige pagina.
 
-## Beheer: model van de AI-onderzoeker
+## AI-onderzoek: methode agent of pijplijn
 
-Het beheerscherm toont onder de collectie-import het blok **AI-onderzoeker: model**: het nu
-actieve model (met "uit de configuratie" zolang geen beheerder heeft gekozen, anders wie het
-koos), een keuzelijst met alle modellen uit de catalogus van de agent-runtime voor dit project
-(leverancier · model · uitvoeringswijze, met de melding "geen worker online" waar dat zo is),
-de knop **Dit model gebruiken**, **Terug naar configuratie** en **Catalogus verversen**. De
-keuze staat in `app_setting` (sleutel `ai-search.execution`) en geldt direct voor nieuwe
-vragen; lopende onderzoeken maken hun huidige model af. Alleen modellen uit de catalogus zijn
-te kiezen. API: `GET`/`PUT`/`DELETE /api/admin/ai-search/model`.
+Een vraag wordt op één van twee manieren onderzocht; de beheerder kiest de methode voor nieuwe
+vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast welke methode geldt
+(`ai_search_turn.research_method`).
+
+- **Agent**: de agent in de agent-runtime zoekt zelf via de REST-API en meldt rondes via de
+  meld-URL (zie hierboven).
+- **Pijplijn**: de code bestuurt de rondes; het model levert per stap één gestructureerd antwoord
+  via de runtime (abonnementsmodus, `STRUCTURED_GENERATION`). Stap A bepaalt zoektermen; stap B
+  zoekt in code: trigram-tolerant op de trefwoorden van de AI-kaarten (Oostrum vindt ook Oostrom
+  en Van Oostrum), losse jaartallen als periode van ±2 jaar, de volledige tekst als vangnet,
+  gerangschikt op aantal gematchte termen en score met een plafond van 40 kaarten per ronde; stap C
+  (één job per ronde) kiest relevante records, geeft een tussenconclusie, volgende sporen en de
+  zoekopdrachten voor de volgende ronde en zegt of er genoeg is; stap D schrijft het antwoord uit de
+  volledige documenten met genummerde bronnen, die de code terugvertaalt naar collection/ident
+  zodat renderer, bronnenpagina en PDF ongewijzigd blijven. **Snel** is plan + schrijven (de best
+  gerangschikte 25 kaarten gaan direct naar de schrijver); **Doorzoeken** en **Uitgebreid** doen
+  maximaal 5 of 15 beoordelingsrondes. De lus stopt als het model genoeg heeft, een ronde niets
+  nieuws oplevert, er geen volgende zoekopdrachten zijn, het maximum is bereikt of de gebruiker op
+  **Genoeg gevonden, schrijf het antwoord** drukt (werkt op de rondegrens). Het logboek en de
+  voortgang (ronde / maxRounds tot ~70%, schrijven daarna) vult de code. Niet-gevolgde sporen
+  worden vervolgvragen. Een vervolgvraag start met de bronnen van het vorige antwoord als bekende
+  kaarten. Per vraag worden jobs, modellen en tokens bewaard in `research_stats` voor
+  vergelijking. Een pijplijnonderzoek dat bij een herstart liep, wordt als mislukt gemeld.
+
+## AI-kaarten en trefwoorden
+
+Voor de pijplijn heeft elk record een kaart (`document_card`): een korte feitensamenvatting en
+getypeerde trefwoorden (`keyword`, `keyword_mention`: persoon, adres, straat, jaar met bereik,
+instelling, gebeurtenis, overig; bron FIELD uit een metadataveld of MODEL uit de vrije tekst).
+Trefwoorden uit metadatavelden (straatnaam, fotograaf, auteurs, uitgever, thema, wijk, datums)
+maakt de code zonder model; de vrije tekst (beschrijving, documenttekst) gaat in batches van
+maximaal 40 records (en 180.000 tekens) als job naar de runtime met de rol **extractie**
+(standaard een klein model, `hkh.ai-search.extraction-model`), vier batches tegelijk. Een kaart
+wordt opnieuw gemaakt als de extractieversie of de invoer (hash van tekst en documenttekst)
+verandert. Het beheerscherm heeft de knop **AI-kaarten maken (ontbrekende)** (scrape-modus
+`CARDS`; met "alles opnieuw" ook eerder mislukte); een volledige collectie-import sluit af met
+kaarten voor nieuwe records. De status toont het aantal gemaakte en mislukte kaarten.
+
+## Beheer: methode en modellen van de AI-onderzoeker
+
+Het beheerscherm toont onder de collectie-import het blok **AI-onderzoeker: methode en
+modellen**: een keuze **Agent / Pijplijn** voor de onderzoeksmethode, een overzicht van het
+huidige model per rol (agent, extractie, onderzoek, schrijven; "(standaard)" zolang geen
+beheerder voor die rol koos), een keuzelijst **Rol om in te stellen**, het nu actieve model van
+die rol (met wie het koos), een keuzelijst met alle modellen uit de catalogus van de
+agent-runtime voor dit project (leverancier · model · uitvoeringswijze, met "geen worker
+online" waar dat zo is), de knop **Dit model gebruiken**, **Terug naar standaard** en
+**Catalogus verversen**. Keuzes staan in `app_setting` (`ai-search.execution` voor de agent,
+`ai-search.execution.<rol>` voor de andere rollen, `ai-search.method`) en gelden direct voor
+nieuwe vragen; lopende onderzoeken maken hun huidige methode en model af. Zonder eigen keuze
+erven onderzoek en schrijven het model van de agent; extractie krijgt het kleine
+extractiemodel uit de configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
+`GET`/`PUT`/`DELETE /api/admin/ai-search/model?role=…`, `PUT /api/admin/ai-search/method`.
 
 ## PDF-export van een AI-antwoord
 
