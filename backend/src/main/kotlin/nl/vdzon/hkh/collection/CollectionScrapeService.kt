@@ -206,8 +206,24 @@ class CollectionScrapeService(
         val inFlight = mutableListOf<Future<Unit>>()
         var batchNumber = 0
         val parallelism = properties.cardParallelism.coerceIn(1, 8)
+        val consecutiveJobFailures = java.util.concurrent.atomic.AtomicInteger(0)
+        var lastFailure: String? = null
+        var pauses = 0
         while (true) {
             inFlight.removeAll { it.isDone }
+            if (consecutiveJobFailures.get() >= MAX_CONSECUTIVE_CARD_JOB_FAILURES) {
+                // Meestal de gebruikslimiet van het abonnement: wachten en opnieuw proberen in plaats van
+                // de hele collectie als mislukt afwerken.
+                inFlight.forEach { it.runCatching { get() } }
+                if (++pauses > MAX_CARD_PAUSES) {
+                    throw IllegalStateException("De AI-dienst wees kaartenbatches steeds af (${lastFailure ?: "onbekende reden"}); de run is gestopt. Start hem later opnieuw; hij gaat verder waar hij was.")
+                }
+                logger.warn("Kaartenbatches worden afgewezen ({}); pauze {} van {} minuten", lastFailure, pauses, CARD_PAUSE_MINUTES)
+                synchronized(attempted) { attempted.clear() }
+                consecutiveJobFailures.set(0)
+                Thread.sleep(CARD_PAUSE_MINUTES * 60_000L)
+                continue
+            }
             if (inFlight.size >= parallelism) {
                 inFlight.first().runCatching { get() }
                 continue
@@ -222,6 +238,12 @@ class CollectionScrapeService(
             val number = batchNumber
             inFlight += cardWorkers.submit<Unit> {
                 val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$number")
+                if (outcome.jobFailed) {
+                    consecutiveJobFailures.incrementAndGet()
+                    lastFailure = outcome.reason
+                } else {
+                    consecutiveJobFailures.set(0)
+                }
                 synchronized(progress) {
                     progress.processed += outcome.cards
                     progress.failed += outcome.failed
@@ -233,6 +255,14 @@ class CollectionScrapeService(
                 logger.info("Kaartenbatch {}/{} #{}: {} kaarten, {} mislukt (job {})", collection, runId, number, outcome.cards, outcome.failed, outcome.jobId)
             }
         }
+    }
+
+    private companion object {
+        /** Zoveel mislukte jobs op rij betekent een storing of limiet bij de dienst, niet slechte records. */
+        const val MAX_CONSECUTIVE_CARD_JOB_FAILURES = 3
+        const val CARD_PAUSE_MINUTES = 20L
+        /** Maximaal zes uur wachten op de dienst voordat de run opgeeft. */
+        const val MAX_CARD_PAUSES = 18
     }
 
     private fun count(progress: RunProgress, outcome: DocumentTextOutcome) {

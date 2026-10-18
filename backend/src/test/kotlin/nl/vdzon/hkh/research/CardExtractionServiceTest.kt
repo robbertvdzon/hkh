@@ -64,14 +64,17 @@ class CardExtractionServiceTest {
     }
 
     @Test
-    fun `a failed job marks every record of the batch as failed`() {
+    fun `a failed job leaves the records pending and reports the failure`() {
         val store = InMemoryCards()
         val runner = StructuredJobRunner { throw StructuredJobFailedException("job-x", "De AI-dienst kon de opdracht niet afronden.") }
         val outcome = CardExtractionService(store, runner, mapper).extract(listOf(record("1"), record("2")), "test")
         assertEquals(0, outcome.cards)
         assertEquals(2, outcome.failed)
         assertEquals("job-x", outcome.jobId)
-        assertEquals(setOf("1", "2"), store.errors.keys)
+        assertTrue(outcome.jobFailed)
+        assertEquals("De AI-dienst kon de opdracht niet afronden.", outcome.reason)
+        // De records zelf zijn niet gemarkeerd: de dienst faalde, niet de invoer.
+        assertTrue(store.errors.isEmpty())
     }
 
     @Test

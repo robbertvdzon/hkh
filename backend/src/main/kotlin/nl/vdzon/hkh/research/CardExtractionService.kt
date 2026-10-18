@@ -5,7 +5,8 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
-data class CardBatchOutcome(val cards: Int, val failed: Int, val jobId: String?)
+/** [jobFailed]: de hele job mislukte (dienst, limiet, time-out); de records zijn dan niet als mislukt vastgelegd. */
+data class CardBatchOutcome(val cards: Int, val failed: Int, val jobId: String?, val jobFailed: Boolean = false, val reason: String? = null)
 
 /**
  * Maakt kaarten in batches: een handvol records per runtime-job (SUBSCRIPTION-modus, dus één
@@ -57,10 +58,11 @@ class CardExtractionService(
                 ),
             )
         } catch (ex: Exception) {
+            // Een mislukte job zegt iets over de dienst (limiet, storing), niet over de records: die blijven
+            // "nog te doen" en komen in een volgende run opnieuw aan bod.
             val reason = (ex.message ?: ex.javaClass.simpleName).take(500)
             logger.warn("Kaartenbatch {} mislukt: {}", idempotencyKey, reason)
-            batch.forEach { cards.saveError(it.collection, it.ident, CARD_EXTRACTION_VERSION, null, it.sourceHash, reason) }
-            return CardBatchOutcome(0, batch.size, (ex as? StructuredJobFailedException)?.jobId)
+            return CardBatchOutcome(0, batch.size, (ex as? StructuredJobFailedException)?.jobId, jobFailed = true, reason = reason)
         }
         val byIdent = mutableMapOf<String, JsonNode>()
         for (node in outcome.result.path("cards")) byIdent[node.path("ident").asText().trim()] = node
