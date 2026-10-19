@@ -66,6 +66,17 @@ class AdminScrapeController(
         }
     }
 
+    /** Stopt de lopende run op de eerstvolgende grens; de run is later te hervatten door hem opnieuw te starten. */
+    @PostMapping("/stop")
+    fun stop(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+    ): ScrapeRunResponse? {
+        authenticator.authenticate(authorization, previewHeader)
+        if (!service.stop()) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt geen scrape.")
+        return service.status()?.toResponse(running = service.isRunning())
+    }
+
     @GetMapping("/status")
     fun status(
         @RequestHeader("Authorization", required = false) authorization: String?,

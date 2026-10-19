@@ -44,6 +44,24 @@ class _ScrapeSource implements AdminScrapeSource {
       'failed': 0,
     });
   }
+
+  int stops = 0;
+  @override
+  Future<ScrapeStatus?> stop(AdminIdentity identity) async {
+    stops++;
+    final c = current;
+    if (c == null) return null;
+    return current = ScrapeStatus.fromJson({
+      'status': 'FAILED',
+      'running': false,
+      'mode': c.mode.apiValue,
+      'total': c.total,
+      'processed': c.processed,
+      'skipped': 0,
+      'failed': 0,
+      'message': 'Gestopt door de beheerder',
+    });
+  }
 }
 
 class _AiModelSource implements AdminAiModelSource {
@@ -322,6 +340,16 @@ void main() {
 
     expect(scrapeSource.started, [ScrapeMode.cards]);
     expect(find.text('Laatste run: bezig (AI-kaarten)'), findsOneWidget);
+
+    // Een lopende run is te stoppen; daarna is de startknop weer vrij.
+    final stop = find.byKey(const ValueKey('scrape-stop'));
+    await tester.ensureVisible(stop);
+    await tester.pump();
+    await tester.tap(stop);
+    await tester.pumpAndSettle();
+    expect(scrapeSource.stops, 1);
+    expect(find.byKey(const ValueKey('scrape-stop')), findsNothing);
+    expect(find.text('Laatste run: mislukt (AI-kaarten)'), findsOneWidget);
   });
 
   testWidgets('the administrator can switch the AI model and go back', (

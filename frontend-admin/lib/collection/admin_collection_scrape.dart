@@ -109,6 +109,9 @@ abstract interface class AdminScrapeSource {
     required ScrapeMode mode,
     required bool force,
   });
+
+  /// Vraagt de lopende run te stoppen; de run is later te hervatten door opnieuw te starten.
+  Future<ScrapeStatus?> stop(AdminIdentity identity);
 }
 
 class AdminScrapeClient implements AdminScrapeSource {
@@ -156,6 +159,26 @@ class AdminScrapeClient implements AdminScrapeSource {
     if (response.statusCode != 202) {
       throw StateError('Scrape starten mislukt (${response.statusCode}).');
     }
+    return ScrapeStatus.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<ScrapeStatus?> stop(AdminIdentity identity) async {
+    final response = await _client
+        .post(
+          Uri.parse('$apiBaseUrl/api/admin/collections/scrape/stop'),
+          headers: identity.requestHeaders,
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 409) {
+      throw StateError('Er loopt geen scrape.');
+    }
+    if (response.statusCode != 200) {
+      throw StateError('Stoppen mislukt (${response.statusCode}).');
+    }
+    if (response.body.isEmpty) return null;
     return ScrapeStatus.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );

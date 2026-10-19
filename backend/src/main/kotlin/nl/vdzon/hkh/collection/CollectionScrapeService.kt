@@ -36,6 +36,7 @@ class CollectionScrapeService(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val running = AtomicBoolean(false)
+    private val stopRequested = AtomicBoolean(false)
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "zcbs-scraper").apply { isDaemon = true }
     }
@@ -53,6 +54,7 @@ class CollectionScrapeService(
         if (!running.compareAndSet(false, true)) {
             throw ScrapeAlreadyRunningException()
         }
+        stopRequested.set(false)
         val runId = runs.start(startedBy, mode, force)
         executor.submit {
             try {
@@ -67,6 +69,17 @@ class CollectionScrapeService(
     fun status(): ScrapeRun? = runs.latest()
 
     fun isRunning(): Boolean = running.get()
+
+    /** Vraagt de lopende run te stoppen op de eerstvolgende grens; lopende runtime-jobs worden geannuleerd. */
+    fun stop(): Boolean {
+        if (!running.get()) return false
+        stopRequested.set(true)
+        return true
+    }
+
+    private fun checkStop() {
+        if (stopRequested.get()) throw ScrapeStoppedException()
+    }
 
     private fun scrapeAll(runId: Long, mode: ScrapeMode, force: Boolean) {
         val progress = RunProgress(id = runId)
@@ -93,6 +106,10 @@ class CollectionScrapeService(
             runs.update(progress)
             runs.finish(runId, ScrapeStatus.COMPLETED, summary(mode, progress))
             logger.info("Scrape {} voltooid: {}", runId, progress)
+        } catch (ex: ScrapeStoppedException) {
+            logger.info("Scrape {} gestopt door de beheerder: {}", runId, progress)
+            runs.update(progress)
+            runs.finish(runId, ScrapeStatus.FAILED, "Gestopt door de beheerder; start de run opnieuw om verder te gaan (hij gaat verder waar hij was).")
         } catch (ex: Exception) {
             logger.error("Scrape {} mislukt", runId, ex)
             runs.update(progress)
@@ -111,6 +128,7 @@ class CollectionScrapeService(
         progress.perCollection.putIfAbsent(collection, 0)
         val existing = if (force) emptySet() else items.existingIdents(collection)
         client.listSummaries(collection) { page ->
+            checkStop()
             for (summary in page) {
                 progress.total++
                 if (!force && summary.ident in existing) {
@@ -140,6 +158,7 @@ class CollectionScrapeService(
         val complete = if (force) emptySet() else items.completeIdents(collection)
         val withText = if (force) emptySet() else items.documentTextIdents(collection)
         for (ident in idents) {
+            checkStop()
             if (!force && ident in complete) {
                 progress.skipped++
                 continue
@@ -176,6 +195,7 @@ class CollectionScrapeService(
         progress.perCollection.putIfAbsent(collection, 0)
         runs.update(progress)
         for (document in pending) {
+            checkStop()
             val outcome = documents.extract(document.collection, document.ident, document.pdfUrl, document.pdfHash)
             count(progress, outcome)
             when (outcome) {
@@ -211,6 +231,11 @@ class CollectionScrapeService(
         var pauses = 0
         while (true) {
             inFlight.removeAll { it.isDone }
+            if (stopRequested.get()) {
+                // Lopende jobs zien de stopvlag via hun annuleringshaak en eindigen snel.
+                inFlight.forEach { it.runCatching { get() } }
+                throw ScrapeStoppedException()
+            }
             if (consecutiveJobFailures.get() >= MAX_CONSECUTIVE_CARD_JOB_FAILURES) {
                 // Meestal de gebruikslimiet van het abonnement: wachten en opnieuw proberen in plaats van
                 // de hele collectie als mislukt afwerken.
@@ -237,7 +262,7 @@ class CollectionScrapeService(
             batchNumber++
             val number = batchNumber
             inFlight += cardWorkers.submit<Unit> {
-                val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$number")
+                val outcome = cards.extract(batch, "hkh-cards-$runId-$collection-$number", cancelled = { stopRequested.get() })
                 if (outcome.jobFailed) {
                     consecutiveJobFailures.incrementAndGet()
                     lastFailure = outcome.reason
@@ -296,3 +321,5 @@ class CollectionScrapeService(
 }
 
 class ScrapeAlreadyRunningException : RuntimeException("Er loopt al een scrape.")
+
+class ScrapeStoppedException : RuntimeException("Gestopt door de beheerder.")

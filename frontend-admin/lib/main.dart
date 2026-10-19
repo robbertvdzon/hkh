@@ -483,6 +483,7 @@ class _CollectionScrapeSection extends StatefulWidget {
 class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
   ScrapeStatus? _status;
   bool _loading = true;
+  bool _stopping = false;
   bool _force = false;
   String? _error;
   Timer? _poll;
@@ -551,6 +552,28 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
     }
   }
 
+  Future<void> _stop() async {
+    setState(() {
+      _stopping = true;
+      _error = null;
+    });
+    try {
+      final status = await widget.source.stop(widget.identity);
+      if (!mounted) return;
+      setState(() {
+        if (status != null) _status = status;
+        _stopping = false;
+      });
+      _schedulePolling(status);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _stopping = false;
+        _error = error is StateError ? error.message : 'Stoppen mislukt.';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = _status;
@@ -578,6 +601,25 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
             ),
             const SizedBox(height: 16),
             if (status != null) _StatusView(status: status),
+            if (running) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('scrape-stop'),
+                  onPressed: _stopping ? null : _stop,
+                  icon: _stopping
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.stop_circle_outlined),
+                  label: Text(
+                    _stopping ? 'Stoppen…' : 'Run stoppen (later te hervatten)',
+                  ),
+                ),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 8),
               Text(
