@@ -64,7 +64,7 @@ patches:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-9a60cf1-acceptance
+  newTag: sha-6619d94-acceptance
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
   newTag: sha-9a60cf1
