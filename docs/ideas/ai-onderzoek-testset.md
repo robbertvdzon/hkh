@@ -58,6 +58,22 @@ erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, r
 
 ## Uitslagen
 
+### Reeks A: agent, Opus 5.5 (20-10-2026 08:33 tot 09:00)
+
+| # | Vraag | Diepte | Duur | Bronnen | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 1:24 | 12 | 242k / 6,0k | $0,21 | ambtsperiode 1945-1977, geboren 1912 Wormerveer; twee afwijkende inwonertallen uit bronnen benoemd |
+| 2 | Kapper Bekker | snel | 1:14 | 16 | 262k / 6,7k | $0,23 | 1911 Frans Bekker, Rendorpplein, eeuwfeest 2011 |
+| 3 | zeelaan | snel | 1:21 | 29 | 339k / 7,7k | $0,27 | oude en nieuwe Zeelaan, brand 1972; losse term goed opgepakt |
+| 4 | oudste luchtfoto | snel | 1:21 | 14 | 261k / 6,0k | $0,21 | kiest Rijksstraatweg 1928 (vrijdag koos dezelfde methode Fort Veldhuis 1922): herhaalbaarheid |
+| 5 | touwslagerij Van Oosten | doorzoeken | 2:17 | 22 | 638k / 11,7k | $0,47 | verhuizing Oosterweg naar Maerten van Heemskerckstraat gevonden |
+| 6 | Bachstraat | uitgebreid | 4:23 | 79 | 1,46M / 24,2k | $1,03 | Componistenbuurt, Hoge Werfje, EGKS-flats, 13 foto's |
+| 7 | Oostrum | uitgebreid | 6:03 | 58 | 2,42M / 33,6k | $1,58 | familie, pastorie, scholen, 20 foto's, voetnoten per feit |
+| 8 | Los Tamaros | uitgebreid | 0:51 | 0 | 191k / 3,9k | $0,15 | "niets gevonden", zoekvarianten verantwoord, niets verzonnen |
+| | **totaal** | | **18:54** | | **5,8M / 100k** | **$4,15** | alles geslaagd, geen limietpauzes |
+
+### Volgende reeksen
+
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | | | | | | | | | | |
