@@ -100,6 +100,35 @@ erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, r
 | 8 | Los Tamaros | uitgebreid | 5:17 | 0 | 2,02M / 21,1k | $0,30 | "niets gevonden" na 5 minuten en 2M tokens zoeken |
 | | **totaal** | | **27:38** | | **8,0M / 95k** | **$1,26** | alles geslaagd; langzaamst van de drie, meeste tokens, minste bronnen |
 
+### Reeks D: agent, Haiku 5.5 (20-10-2026 10:03 tot 10:22)
+
+Haiku 5.5 is op 20-10-2026 aan de worker toegevoegd (`claude-haiku-5-5`); prijzen in de runtime
+op het tarief tot 100K tokens per prompt ($0,10 in, $0,50 uit, $0,01 cache-lezen, $0,125
+cache-schrijven), dus de kosten zijn een ondergrens. De nieuwe tokenizer telt ca. 30% meer tokens
+dan Haiku 4.5 voor dezelfde tekst.
+
+| # | Vraag | Diepte | Duur | Bronnen | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 1:40 | 8 | 326k / 14,3k | $0,01 | klopt met de referentie; bron Heemskring 64 (Diemont) |
+| 2 | Kapper Bekker | snel | 1:40 | 15 | 389k / 12,5k | $0,01 | benoemt OCR-fout "Zuid-voude" i.p.v. te raden; bronnen op Opus-niveau |
+| 3 | zeelaan | snel | 1:58 | 17 | 613k / 17,3k | $0,02 | brand 1972 en oude straatje; alle 170 treffers nagelopen |
+| 4 | oudste luchtfoto | snel | 1:03 | 7 | 236k / 8,8k | $0,01 | zelfde misser als Sonnet (object 1977); stelt zelf de juiste rubriek als vervolg voor |
+| 5 | touwslagerij Van Oosten | doorzoeken | 2:49 | 16 | 898k / 21,4k | $0,02 | verhuizing gevonden; meerdere rondes |
+| 6 | Bachstraat | uitgebreid | 4:29 | 34 | 1,42M / 43,2k | $0,05 | samenvatting vooraf, winkeliers en Hoge Werfje; tussen Sonnet en Opus |
+| 7 | Oostrum | uitgebreid | 4:56 | 42 | 1,76M / 38,3k | $0,05 | vier rondes, voetnoten, 11 foto's; dicht bij Opus (58) |
+| 8 | Los Tamaros | uitgebreid | 1:01 | 0 | 291k / 6,2k | $0,01 | "niets gevonden" na drie rondes, varianten verantwoord |
+| | **totaal** | | **19:36** | | **5,9M / 162k** | **$0,18** | alles geslaagd; bronnen tussen Sonnet en Opus, kosten een twintigste van Opus (ondergrens) |
+
+### Vergelijking baselines (agent)
+
+| | Opus 5.5 | Sonnet 5.5 | Haiku 4.5 | Haiku 5.5 |
+| --- | --- | --- | --- | --- |
+| Totale duur | 18:54 | 9:23 | 27:38 | 19:36 |
+| Bronnen (som) | 230 | 100 | 59 | 139 |
+| Tokens in / uit | 5,8M / 100k | 1,5M / 44k | 8,0M / 95k | 5,9M / 162k |
+| Kosten | $4,15 | $0,70 | $1,26 | $0,18 (ondergrens) |
+| Missers | luchtfoto wisselt per run | luchtfoto (1977) | Zeelaan dun, weinig bronnen | luchtfoto (1977) |
+
 ### Volgende reeksen
 
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
