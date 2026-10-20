@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
+import '../widgets/full_width_table.dart';
 
 /// Eén verzoek aan de site: een AI-vraag (of de uitwerking ervan) of een
 /// zoekopdracht in de collecties.
@@ -172,6 +173,69 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
     _ => status.toLowerCase(),
   };
 
+  Widget _table(Key key) => DataTable(
+    key: key,
+    columnSpacing: 16,
+    headingTextStyle: const TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 12,
+    ),
+    dataTextStyle: const TextStyle(fontSize: 12),
+    columns: const [
+      DataColumn(label: Text('Wanneer')),
+      DataColumn(label: Text('IP-adres')),
+      DataColumn(label: Text('Gebruiker')),
+      DataColumn(label: Text('Soort')),
+      DataColumn(label: Text('Vraag')),
+      DataColumn(label: Text('Model')),
+      DataColumn(label: Text('1e terugkoppeling')),
+      DataColumn(label: Text('Antwoord')),
+      DataColumn(label: Text('Status')),
+      DataColumn(label: Text('Kosten')),
+    ],
+    rows: [
+      for (final entry in _entries)
+        DataRow(
+          cells: [
+            DataCell(Text(_when(entry.createdAt))),
+            DataCell(Text(entry.ip ?? '')),
+            DataCell(Text(entry.userEmail ?? '')),
+            DataCell(
+              Text(
+                entry.kindLabel,
+                style: entry.expansion
+                    ? const TextStyle(fontWeight: FontWeight.w600)
+                    : null,
+              ),
+            ),
+            DataCell(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: Tooltip(
+                  message: entry.question,
+                  child: Text(
+                    entry.question,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+            DataCell(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Text(entry.model ?? '', overflow: TextOverflow.ellipsis),
+              ),
+            ),
+            DataCell(Text(_seconds(entry.firstFeedbackMs))),
+            DataCell(Text(_seconds(entry.answerMs))),
+            DataCell(Text(_status(entry.status))),
+            DataCell(Text(_cost(entry.costUsd))),
+          ],
+        ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
@@ -207,6 +271,19 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
                       },
               ),
               IconButton(
+                key: const Key('request-log-open'),
+                tooltip: 'Openen over de volle breedte',
+                onPressed: _loading || _entries.isEmpty
+                    ? null
+                    : () => showFullWidthTable(
+                        context,
+                        title: 'Logboek van verzoeken',
+                        tableBuilder: (_) =>
+                            _table(const Key('request-log-table-full')),
+                      ),
+                icon: const Icon(Icons.open_in_full),
+              ),
+              IconButton(
                 key: const Key('request-log-refresh'),
                 tooltip: 'Verversen',
                 onPressed: _loading ? null : _load,
@@ -236,71 +313,7 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: DataTable(
-                key: const Key('request-log-table'),
-                columnSpacing: 16,
-                headingTextStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                dataTextStyle: const TextStyle(fontSize: 12),
-                columns: const [
-                  DataColumn(label: Text('Wanneer')),
-                  DataColumn(label: Text('IP-adres')),
-                  DataColumn(label: Text('Gebruiker')),
-                  DataColumn(label: Text('Soort')),
-                  DataColumn(label: Text('Vraag')),
-                  DataColumn(label: Text('Model')),
-                  DataColumn(label: Text('1e terugkoppeling')),
-                  DataColumn(label: Text('Antwoord')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Kosten')),
-                ],
-                rows: [
-                  for (final entry in _entries)
-                    DataRow(
-                      cells: [
-                        DataCell(Text(_when(entry.createdAt))),
-                        DataCell(Text(entry.ip ?? '')),
-                        DataCell(Text(entry.userEmail ?? '')),
-                        DataCell(
-                          Text(
-                            entry.kindLabel,
-                            style: entry.expansion
-                                ? const TextStyle(fontWeight: FontWeight.w600)
-                                : null,
-                          ),
-                        ),
-                        DataCell(
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 360),
-                            child: Tooltip(
-                              message: entry.question,
-                              child: Text(
-                                entry.question,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 220),
-                            child: Text(
-                              entry.model ?? '',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(_seconds(entry.firstFeedbackMs))),
-                        DataCell(Text(_seconds(entry.answerMs))),
-                        DataCell(Text(_status(entry.status))),
-                        DataCell(Text(_cost(entry.costUsd))),
-                      ],
-                    ),
-                ],
-              ),
+              child: _table(const Key('request-log-table')),
             ),
         ],
       ),

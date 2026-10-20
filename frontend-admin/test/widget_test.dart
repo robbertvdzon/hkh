@@ -550,6 +550,15 @@ void main() {
     expect(find.text('42 ms'), findsNWidgets(2));
     expect(find.text('\$0.46'), findsOneWidget);
     expect(logSource.limits, [100]);
+
+    // De knop opent dezelfde tabel schermvullend over de volle breedte.
+    await tester.tap(find.byKey(const Key('request-log-open')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('request-log-table-full')), findsOneWidget);
+    expect(find.byKey(const Key('full-width-table-close')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('full-width-table-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('request-log-table-full')), findsNothing);
   });
 
   testWidgets(

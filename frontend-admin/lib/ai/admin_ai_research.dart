@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
+import '../widgets/full_width_table.dart';
 
 /// Eén beurt in het vergelijkingsoverzicht.
 class AiTurnComparison {
@@ -459,7 +460,29 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
                 Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
               ],
               const SizedBox(height: 16),
-              Text('Recente onderzoeken', style: theme.textTheme.titleSmall),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Recente onderzoeken',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                  TextButton.icon(
+                    key: const Key('ai-research-open'),
+                    onPressed: _turns.isEmpty
+                        ? null
+                        : () => showFullWidthTable(
+                            context,
+                            title: 'Recente onderzoeken',
+                            tableBuilder: (_) =>
+                                _table(const Key('ai-research-table-full')),
+                          ),
+                    icon: const Icon(Icons.open_in_full, size: 18),
+                    label: const Text('Volledige breedte'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 4),
               if (_turns.isEmpty)
                 const Text(
@@ -469,88 +492,7 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
               else
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    key: const Key('ai-research-table'),
-                    columnSpacing: 16,
-                    headingTextStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    dataTextStyle: const TextStyle(fontSize: 12),
-                    columns: const [
-                      DataColumn(label: Text('Wanneer')),
-                      DataColumn(label: Text('Vraag')),
-                      DataColumn(label: Text('Methode')),
-                      DataColumn(label: Text('Diepte')),
-                      DataColumn(label: Text('Status')),
-                      DataColumn(label: Text('Duur')),
-                      DataColumn(label: Text('Rondes')),
-                      DataColumn(label: Text('Bronnen')),
-                      DataColumn(label: Text('Modellen')),
-                      DataColumn(label: Text('Tokens in/uit')),
-                      DataColumn(label: Text('Kosten')),
-                      DataColumn(label: Text('Door')),
-                    ],
-                    rows: [
-                      for (final turn in _turns)
-                        DataRow(
-                          cells: [
-                            DataCell(Text(_when(turn.createdAt))),
-                            DataCell(
-                              Tooltip(
-                                message: turn.question,
-                                child: SizedBox(
-                                  width: 260,
-                                  child: Text(
-                                    turn.title ?? turn.question,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                '${turn.method == 'PIPELINE' ? 'pijplijn' : 'agent'}'
-                                '${turn.benchmarkQuestionId != null ? ' (testset)' : ''}',
-                              ),
-                            ),
-                            DataCell(Text(_depthLabel(turn.depth))),
-                            DataCell(
-                              Tooltip(
-                                message: turn.errorMessage ?? '',
-                                child: Text(_statusLabel(turn.status)),
-                              ),
-                            ),
-                            DataCell(Text(_duration(turn.durationSeconds))),
-                            DataCell(Text('${turn.rounds}')),
-                            DataCell(Text('${turn.sourceCount}')),
-                            DataCell(
-                              Text(
-                                turn.models
-                                    .map((m) => m.split('/').last)
-                                    .join(', '),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                turn.jobs == 0
-                                    ? '–'
-                                    : '${_thousands(turn.inputTokens)} / ${_thousands(turn.outputTokens)}',
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                turn.costUsd == null
-                                    ? '–'
-                                    : '\$${turn.costUsd!.toStringAsFixed(2)}',
-                              ),
-                            ),
-                            DataCell(Text(turn.askedBy ?? '')),
-                          ],
-                        ),
-                    ],
-                  ),
+                  child: _table(const Key('ai-research-table')),
                 ),
             ],
           ],
@@ -558,6 +500,85 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
       ),
     );
   }
+
+  Widget _table(Key key) => DataTable(
+    key: key,
+    columnSpacing: 16,
+    headingTextStyle: const TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.bold,
+    ),
+    dataTextStyle: const TextStyle(fontSize: 12),
+    columns: const [
+      DataColumn(label: Text('Wanneer')),
+      DataColumn(label: Text('Vraag')),
+      DataColumn(label: Text('Methode')),
+      DataColumn(label: Text('Diepte')),
+      DataColumn(label: Text('Status')),
+      DataColumn(label: Text('Duur')),
+      DataColumn(label: Text('Rondes')),
+      DataColumn(label: Text('Bronnen')),
+      DataColumn(label: Text('Modellen')),
+      DataColumn(label: Text('Tokens in/uit')),
+      DataColumn(label: Text('Kosten')),
+      DataColumn(label: Text('Door')),
+    ],
+    rows: [
+      for (final turn in _turns)
+        DataRow(
+          cells: [
+            DataCell(Text(_when(turn.createdAt))),
+            DataCell(
+              Tooltip(
+                message: turn.question,
+                child: SizedBox(
+                  width: 260,
+                  child: Text(
+                    turn.title ?? turn.question,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+            DataCell(
+              Text(
+                '${turn.method == 'PIPELINE' ? 'pijplijn' : 'agent'}'
+                '${turn.benchmarkQuestionId != null ? ' (testset)' : ''}',
+              ),
+            ),
+            DataCell(Text(_depthLabel(turn.depth))),
+            DataCell(
+              Tooltip(
+                message: turn.errorMessage ?? '',
+                child: Text(_statusLabel(turn.status)),
+              ),
+            ),
+            DataCell(Text(_duration(turn.durationSeconds))),
+            DataCell(Text('${turn.rounds}')),
+            DataCell(Text('${turn.sourceCount}')),
+            DataCell(
+              Text(turn.models.map((m) => m.split('/').last).join(', ')),
+            ),
+            DataCell(
+              Text(
+                turn.jobs == 0
+                    ? '–'
+                    : '${_thousands(turn.inputTokens)} / ${_thousands(turn.outputTokens)}',
+              ),
+            ),
+            DataCell(
+              Text(
+                turn.costUsd == null
+                    ? '–'
+                    : '\$${turn.costUsd!.toStringAsFixed(2)}',
+              ),
+            ),
+            DataCell(Text(turn.askedBy ?? '')),
+          ],
+        ),
+    ],
+  );
 
   static String _depthLabel(String depth) => switch (depth) {
     'EXTENDED' => 'doorzoeken',
