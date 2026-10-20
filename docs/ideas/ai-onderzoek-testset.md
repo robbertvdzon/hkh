@@ -72,6 +72,20 @@ erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, r
 | 8 | Los Tamaros | uitgebreid | 0:51 | 0 | 191k / 3,9k | $0,15 | "niets gevonden", zoekvarianten verantwoord, niets verzonnen |
 | | **totaal** | | **18:54** | | **5,8M / 100k** | **$4,15** | alles geslaagd, geen limietpauzes |
 
+### Reeks B: agent, Sonnet 5.5 (20-10-2026 09:02 tot 09:12)
+
+| # | Vraag | Diepte | Duur | Bronnen | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 0:50 | 13 | 127k / 3,8k | $0,06 | korter dan Opus, maar met het overlijden in Canada (1977) dat Opus miste |
+| 2 | Kapper Bekker | snel | 0:42 | 12 | 75k / 3,5k | $0,05 | "vanuit Zuid-Holland" i.p.v. Zuid-Scharwoude: kleine onnauwkeurigheid |
+| 3 | zeelaan | snel | 0:51 | 14 | 117k / 4,2k | $0,06 | beoordeelde 100 van 170 treffers; brand 1972 uitgebreid, bewoners oude laantje dunner |
+| 4 | oudste luchtfoto | snel | 0:55 | 5 | 111k / 2,2k | $0,04 | zwak: alleen objectencollectie (1977), beeldbankfoto's 1922/1928/1930 gemist |
+| 5 | touwslagerij Van Oosten | doorzoeken | 0:46 | 12 | 125k / 4,0k | $0,06 | verhuizing gevonden; feitelijk één ronde |
+| 6 | Bachstraat | uitgebreid | 1:36 | 21 | 230k / 7,8k | $0,12 | winkeliers en Marquettelaan; veel minder bewoners dan Opus |
+| 7 | Oostrum | uitgebreid | 2:59 | 23 | 559k / 16,5k | $0,26 | familie en Kerklaan, voetnoten; 9 foto's |
+| 8 | Los Tamaros | uitgebreid | 0:44 | 0 | 129k / 2,4k | $0,05 | "niets gevonden", varianten verantwoord |
+| | **totaal** | | **9:23** | | **1,47M / 44k** | **$0,70** | alles geslaagd; half zo snel en een zesde van de kosten van Opus, maar minder bronnen en bij vraag 4 een misser |
+
 ### Volgende reeksen
 
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
