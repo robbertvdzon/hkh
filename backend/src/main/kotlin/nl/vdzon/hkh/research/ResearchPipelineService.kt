@@ -34,11 +34,16 @@ interface ResearchListener {
     fun cancelled(): Boolean = false
 }
 
-data class ResearchJobStat(val role: AiRole, val step: String, val jobId: String?, val model: String?, val inputTokens: Long, val outputTokens: Long, val seconds: Long)
+data class ResearchJobStat(
+    val role: AiRole, val step: String, val jobId: String?, val model: String?, val inputTokens: Long, val outputTokens: Long, val seconds: Long,
+    /** API-equivalente kosten in USD (schatting van de runtime); null als onbekend. */
+    val costUsd: java.math.BigDecimal? = null,
+)
 
 data class ResearchStats(val jobs: List<ResearchJobStat>, val rounds: Int, val candidatesSeen: Int, val chosen: Int) {
     val inputTokens: Long get() = jobs.sumOf { it.inputTokens }
     val outputTokens: Long get() = jobs.sumOf { it.outputTokens }
+    val costUsd: java.math.BigDecimal? get() = jobs.mapNotNull { it.costUsd }.takeIf { it.isNotEmpty() }?.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
 }
 
 /** Resultaat in hetzelfde formaat als de agent levert (title, answerHtml, sources, suggestedFollowUps). */
@@ -138,7 +143,7 @@ class ResearchPipelineService(
         val started = System.currentTimeMillis()
         try {
             val outcome = runner.run(StructuredJobRequest(key, role, prompt, schema, timeout, cancelled = listener::cancelled, attachments = attachments))
-            stats += ResearchJobStat(role, step, outcome.jobId, outcome.model, outcome.inputTokens, outcome.outputTokens, (System.currentTimeMillis() - started) / 1000)
+            stats += ResearchJobStat(role, step, outcome.jobId, outcome.model, outcome.inputTokens, outcome.outputTokens, (System.currentTimeMillis() - started) / 1000, outcome.costUsd)
             return outcome.result
         } catch (ex: StructuredJobCancelledException) {
             throw ResearchCancelledException()

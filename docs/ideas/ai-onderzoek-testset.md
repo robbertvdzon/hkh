@@ -21,19 +21,26 @@ ingestelde methode en modellen.
 
 ## Referentie-antwoorden (agent-methode)
 
-| # | Datum | Model | Diepte | Duur | Opmerking |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 16-10-2026 08:54 | Opus 5.5 | snel | 1 min 15 s | "Henk Nielen (1912-1977), ruim dertig jaar burgemeester van Heemskerk" |
-| 2 | 16-10-2026 11:47 | Opus 5.5 | snel | 1 min 56 s | "Kapper Bekker in Heemskerk: honderd jaar familiebedrijf aan de Deutzstraat" |
-| 3 | 16-10-2026 18:45 | Opus 5.5 | snel | | "De Zeelaan in Heemskerk: van tuinderslaantje tot straat in Kerkbeek" |
-| 4 | 17-10-2026 08:13 | Opus 5.5 | snel | 1 min 37 s | "De oudste luchtfoto van Heemskerk in de HKH-collectie: Fort Veldhuis, 1922" |
-| 5 | 03-10-2026 22:35 | Opus 5 | doorzoeken | | "Touwslagerij Van Oosten: van de Oosterweg naar de Maerten van Heemskerckstraat" |
-| 6 | 03-10-2026 21:24 | Opus 5 | uitgebreid | | "De Bachstraat in Heemskerk: van het Hoge Werfje tot de Heemsuite, en de mensen die er woonden" |
-| 7 | 01-10-2026 10:34 (Opus 5, 8:01, 61 bronnen) en 17-10-2026 (Opus 5.5, 5:32, 54 bronnen) | | uitgebreid | | pijplijn op 18-10: 4:00 (26 bronnen, afgekapte invoer) en 9:35 (45 bronnen, met wachttijd) |
-| 8 | 18-10-2026 20:04 (pijplijn) | Sonnet 5.5 / Opus 5.5 | uitgebreid | | "Los Tamaros: niets gevonden in de collectie"; nog geen agent-referentie |
+| # | Datum | Model | Diepte | Duur | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 16-10-2026 08:54 | Opus 5.5 | snel | 1 min 15 s | zie beheerscherm | zie beheerscherm | "Henk Nielen (1912-1977), ruim dertig jaar burgemeester van Heemskerk" |
+| 2 | 16-10-2026 11:47 | Opus 5.5 | snel | 1 min 56 s | | | "Kapper Bekker in Heemskerk: honderd jaar familiebedrijf aan de Deutzstraat" |
+| 3 | 16-10-2026 18:45 | Opus 5.5 | snel | | | | "De Zeelaan in Heemskerk: van tuinderslaantje tot straat in Kerkbeek" |
+| 4 | 17-10-2026 08:13 | Opus 5.5 | snel | 1 min 37 s | | $0,26 | "De oudste luchtfoto van Heemskerk in de HKH-collectie: Fort Veldhuis, 1922" |
+| 5 | 03-10-2026 22:35 | Opus 5 | doorzoeken | | | | "Touwslagerij Van Oosten: van de Oosterweg naar de Maerten van Heemskerckstraat" |
+| 6 | 03-10-2026 21:24 | Opus 5 | uitgebreid | | | | "De Bachstraat in Heemskerk: van het Hoge Werfje tot de Heemsuite, en de mensen die er woonden" |
+| 7 | 17-10-2026 (Opus 5.5, agent) | Opus 5.5 | uitgebreid | 5 min 32 s | | $1,21 | 54 bronnen; eerder Opus 5 (agent): 14:44, 58 bronnen, $4,43 |
+| 7 | 18-10-2026 12:23 (pijplijn) | Sonnet 5.5 + Opus 5.5 | uitgebreid | 9 min 35 s (waarvan 3:40 wachten) | 1,1M / 35k | $0,85 | 6 rondes, 45 van 59 bronnen gebruikt |
+| 8 | 18-10-2026 20:04 (pijplijn) | Sonnet 5.5 + Opus 5.5 | uitgebreid | | | | "Los Tamaros: niets gevonden in de collectie"; nog geen agent-referentie |
 
-De duur en tokens per beurt staan in de vergelijkingstabel in het beheerscherm; die zijn
-automatisch. Kwaliteit is een leesoordeel: volledigheid (staan de kernfeiten uit de referentie
+Lege cellen vult het beheerscherm (de tabel "Recente onderzoeken") zodra het de cijfers bij de
+runtime heeft opgehaald; ze zijn hier niet overgetypt.
+
+De duur, tokens en kosten per beurt staan in de vergelijkingstabel in het beheerscherm; die zijn
+automatisch. Kosten zijn de API-equivalente schatting van de runtime in USD (per job opgeteld);
+via het abonnement is dat geen factuur, maar wel de maat om modellen tegen elkaar te zetten. Voor
+oudere beurten haalt het beheerscherm tokens en kosten alsnog op bij de runtime, zolang die de job
+nog bewaart. Kwaliteit is een leesoordeel: volledigheid (staan de kernfeiten uit de referentie
 erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, relevant), vorm
 (foto's op hun plaats, leesbaar verhaal).
 
@@ -51,6 +58,6 @@ erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, r
 
 ## Uitslagen
 
-| # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Oordeel |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | | | |
+| # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| | | | | | | | | | |

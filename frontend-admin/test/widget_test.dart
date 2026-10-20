@@ -188,6 +188,7 @@ class _AiResearchSource implements AdminAiResearchSource {
       jobs: 5,
       inputTokens: 312000,
       outputTokens: 14000,
+      costUsd: 0.85,
       askedBy: 'robbert@example.com',
       benchmarkQuestionId: null,
       errorMessage: null,
@@ -465,6 +466,7 @@ void main() {
       expect(find.text('4 min 5 s'), findsOneWidget);
       expect(find.text('claude-sonnet-5-5, claude-opus-5-5'), findsOneWidget);
       expect(find.text('312.0k / 14.0k'), findsOneWidget);
+      expect(find.text('\$0.85'), findsOneWidget);
       expect(
         tester
             .widget<FilledButton>(find.byKey(const Key('benchmark-run')))

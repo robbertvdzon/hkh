@@ -84,6 +84,8 @@ data class StructuredJobOutcome(
     val inputTokens: Long,
     val outputTokens: Long,
     val model: String,
+    /** API-equivalente kosten in USD zoals de runtime die schat; null als de runtime geen prijs kent. */
+    val costUsd: java.math.BigDecimal? = null,
 )
 
 open class StructuredJobFailedException(val jobId: String?, message: String) : RuntimeException(message)

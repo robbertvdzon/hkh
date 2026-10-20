@@ -27,6 +27,9 @@ data class RuntimeJob(
 
 data class RuntimeActivity(val nextSequence: Long, val message: String?)
 
+/** Verbruik van één runtime-job: tokens en de API-equivalente kosten (USD) die de runtime schat. */
+data class RuntimeUsage(val inputTokens: Long, val outputTokens: Long, val costUsd: java.math.BigDecimal?)
+
 @Component
 class AgentRuntimeClient(
     private val properties: AiSearchProperties,
@@ -130,8 +133,8 @@ class AgentRuntimeClient(
             when (current.status) {
                 "SUCCEEDED" -> {
                     val envelope = getResultEnvelope(job.id)
-                    val (input, output) = usage(envelope)
-                    return StructuredJobOutcome(job.id, envelope.path("result"), input, output, "${execution.vendorId}/${execution.model}")
+                    val used = usage(envelope)
+                    return StructuredJobOutcome(job.id, envelope.path("result"), used.inputTokens, used.outputTokens, "${execution.vendorId}/${execution.model}", used.costUsd)
                 }
                 "FAILED" -> throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.")
                 "CANCELLED" -> throw StructuredJobFailedException(job.id, "De opdracht is gestopt.")
@@ -148,18 +151,24 @@ class AgentRuntimeClient(
         }
     }
 
-    /** Invoer- en uitvoertokens uit het verbruiksoverzicht van een resultaat. */
-    fun usage(envelope: JsonNode): Pair<Long, Long> {
+    /** Tokens en API-equivalente kosten uit het verbruiksoverzicht van een resultaat. */
+    fun usage(envelope: JsonNode): RuntimeUsage {
         var input = 0L
         var output = 0L
-        for (metric in envelope.path("usageSummary").path("metrics")) {
+        val summary = envelope.path("usageSummary")
+        for (metric in summary.path("metrics")) {
             val quantity = metric.path("quantity").asText("0").toBigDecimalOrNull()?.toLong() ?: 0L
             when (metric.path("metric").asText()) {
                 "INPUT_TOKENS", "CACHED_INPUT_TOKENS", "CACHE_WRITE_TOKENS" -> input += quantity
                 "OUTPUT_TOKENS" -> output += quantity
             }
         }
-        return input to output
+        var cost: java.math.BigDecimal? = null
+        for (entry in summary.path("costs")) {
+            if (entry.path("currency").asText("USD") != "USD") continue
+            entry.path("amount").asText("").toBigDecimalOrNull()?.let { cost = (cost ?: java.math.BigDecimal.ZERO) + it }
+        }
+        return RuntimeUsage(input, output, cost)
     }
 
     fun cancel(jobId: String) {

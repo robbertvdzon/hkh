@@ -284,13 +284,8 @@ class AiSearchService(
                         val envelope = runtime.getResultEnvelope(jobId)
                         val rendered = renderer.render(envelope.path("result"))
                         runCatching {
-                            val (input, output) = runtime.usage(envelope)
                             val execution = modelSettings.execution(nl.vdzon.hkh.research.AiRole.AGENT)
-                            val job = mapOf(
-                                "role" to "AGENT", "step" to "agent", "jobId" to jobId, "model" to "${execution.vendorId}/${execution.model}",
-                                "inputTokens" to input, "outputTokens" to output, "seconds" to Duration.between(turn.createdAt, Instant.now()).seconds,
-                            )
-                            repository.saveStats(turnId, objectMapper.writeValueAsString(mapOf("jobs" to listOf(job), "rounds" to turn.researchLog.size, "candidatesSeen" to 0, "chosen" to rendered.sources.size)))
+                            repository.saveStats(turnId, agentStatsJson(jobId, "${execution.vendorId}/${execution.model}", runtime.usage(envelope), Duration.between(turn.createdAt, Instant.now()).seconds, turn.researchLog.size, rendered.sources.size))
                         }
                         repository.succeed(turnId, rendered)
                         repository.sessionDossierId(turn.sessionId)?.let { dossierId ->
@@ -367,6 +362,49 @@ class AiSearchService(
         } catch (ex: StructuredJobFailedException) {
             repository.fail(turn.id, ex.message ?: "De AI-dienst kon het onderzoek niet afronden.")
         }
+    }
+
+    /** Statistieken van een agent-beurt in hetzelfde formaat als die van de pijplijn. */
+    fun agentStatsJson(jobId: String, model: String, usage: RuntimeUsage, seconds: Long, rounds: Int, sources: Int): String {
+        val job = mapOf(
+            "role" to "AGENT", "step" to "agent", "jobId" to jobId, "model" to model,
+            "inputTokens" to usage.inputTokens, "outputTokens" to usage.outputTokens, "seconds" to seconds, "costUsd" to usage.costUsd,
+        )
+        return objectMapper.writeValueAsString(mapOf("jobs" to listOf(job), "rounds" to rounds, "candidatesSeen" to 0, "chosen" to sources))
+    }
+
+    /**
+     * Vult ontbrekende verbruikscijfers aan vanuit de runtime: beurten van vóór de statistieken, en
+     * jobs zonder kosten. Bewaart het resultaat, zodat de runtime maar één keer wordt bevraagd.
+     */
+    fun backfillStats(turn: AiSearchTurn): AiSearchTurn {
+        if (!runtime.isConfigured()) return turn
+        val jobId = turn.runtimeJobId
+        if (turn.researchStats == null) {
+            if (turn.status != AiTurnStatus.SUCCEEDED || jobId == null || jobId.startsWith(PIPELINE_JOB_PREFIX)) return turn
+            val stats = runCatching {
+                val usage = runtime.usage(runtime.getResultEnvelope(jobId))
+                agentStatsJson(jobId, "", usage, Duration.between(turn.createdAt, turn.completedAt ?: turn.updatedAt).seconds, turn.researchLog.size, turn.sources.size)
+            }.getOrNull() ?: return turn
+            repository.saveStats(turn.id, stats)
+            return turn.copy(researchStats = stats)
+        }
+        val tree = runCatching { objectMapper.readTree(turn.researchStats) }.getOrNull() as? tools.jackson.databind.node.ObjectNode ?: return turn
+        var changed = false
+        for (job in tree.path("jobs")) {
+            val node = job as? tools.jackson.databind.node.ObjectNode ?: continue
+            if (!node.path("costUsd").isMissingNode && !node.path("costUsd").isNull) continue
+            val id = node.path("jobId").asText("").takeIf { it.isNotBlank() } ?: continue
+            val usage = runCatching { runtime.usage(runtime.getResultEnvelope(id)) }.getOrNull() ?: continue
+            node.put("costUsd", usage.costUsd)
+            if (node.path("inputTokens").asLong(0) == 0L) node.put("inputTokens", usage.inputTokens)
+            if (node.path("outputTokens").asLong(0) == 0L) node.put("outputTokens", usage.outputTokens)
+            changed = true
+        }
+        if (!changed) return turn
+        val stats = objectMapper.writeValueAsString(tree)
+        repository.saveStats(turn.id, stats)
+        return turn.copy(researchStats = stats)
     }
 
     /** Dossiercontext en eerdere vragen/antwoorden als tekst; leeg bij een eerste vraag zonder dossier. */

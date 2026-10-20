@@ -25,6 +25,7 @@ class AiTurnComparison {
     required this.askedBy,
     required this.benchmarkQuestionId,
     required this.errorMessage,
+    this.costUsd,
   });
 
   factory AiTurnComparison.fromJson(Map<String, dynamic> json) =>
@@ -45,6 +46,7 @@ class AiTurnComparison {
         jobs: (json['jobs'] as num?)?.toInt() ?? 0,
         inputTokens: (json['inputTokens'] as num?)?.toInt() ?? 0,
         outputTokens: (json['outputTokens'] as num?)?.toInt() ?? 0,
+        costUsd: (json['costUsd'] as num?)?.toDouble(),
         askedBy: json['askedBy'] as String?,
         benchmarkQuestionId: (json['benchmarkQuestionId'] as num?)?.toInt(),
         errorMessage: json['errorMessage'] as String?,
@@ -64,6 +66,9 @@ class AiTurnComparison {
   final int jobs;
   final int inputTokens;
   final int outputTokens;
+
+  /// API-equivalente kosten in USD volgens de runtime; null als onbekend.
+  final double? costUsd;
   final String? askedBy;
   final int? benchmarkQuestionId;
   final String? errorMessage;
@@ -324,7 +329,9 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Recente onderzoeken met methode, modellen, duur, rondes, bronnen en tokens. '
+              'Recente onderzoeken met methode, modellen, duur, rondes, bronnen, tokens en '
+              'kosten (API-equivalent volgens de runtime; via het abonnement geen factuur, wel '
+              'de maat om modellen te vergelijken). '
               'De testset stelt vaste vragen opnieuw met de nu ingestelde methode en modellen, '
               'één voor één; de antwoorden verschijnen hieronder.',
             ),
@@ -481,6 +488,7 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
                       DataColumn(label: Text('Bronnen')),
                       DataColumn(label: Text('Modellen')),
                       DataColumn(label: Text('Tokens in/uit')),
+                      DataColumn(label: Text('Kosten')),
                       DataColumn(label: Text('Door')),
                     ],
                     rows: [
@@ -529,6 +537,13 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
                                 turn.jobs == 0
                                     ? '–'
                                     : '${_thousands(turn.inputTokens)} / ${_thousands(turn.outputTokens)}',
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                turn.costUsd == null
+                                    ? '–'
+                                    : '\$${turn.costUsd!.toStringAsFixed(2)}',
                               ),
                             ),
                             DataCell(Text(turn.askedBy ?? '')),

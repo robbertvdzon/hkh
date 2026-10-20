@@ -11,6 +11,7 @@ import nl.vdzon.hkh.aisearch.AiBenchmarkService
 import nl.vdzon.hkh.aisearch.AiResearchDepth
 import nl.vdzon.hkh.aisearch.AiResearchMethod
 import nl.vdzon.hkh.aisearch.AiSearchRepository
+import nl.vdzon.hkh.aisearch.AiSearchService
 import nl.vdzon.hkh.aisearch.AiSearchTurn
 import nl.vdzon.hkh.aisearch.AiTurnStatus
 import nl.vdzon.hkh.auth.AdminAuthenticator
@@ -46,6 +47,8 @@ data class AiTurnComparisonView(
     val jobs: Int,
     val inputTokens: Long,
     val outputTokens: Long,
+    /** API-equivalente kosten in USD volgens de runtime; null als onbekend. In abonnementsmodus is dit geen factuur maar een vergelijkingsmaat. */
+    val costUsd: java.math.BigDecimal?,
     val askedBy: String?,
     val benchmarkQuestionId: Long?,
     val errorMessage: String?,
@@ -66,6 +69,7 @@ class AdminAiResearchController(
     private val repository: AiSearchRepository,
     private val benchmark: AiBenchmarkRepository,
     private val runner: AiBenchmarkService,
+    private val search: AiSearchService,
     private val authenticator: AdminAuthenticator,
     private val objectMapper: ObjectMapper,
 ) {
@@ -77,7 +81,7 @@ class AdminAiResearchController(
         @RequestParam(required = false) benchmarkOnly: Boolean?,
     ): List<AiTurnComparisonView> {
         authenticator.authenticate(authorization, previewHeader)
-        return repository.recentTurns((limit ?: 50).coerceIn(1, 500), benchmarkOnly == true).map { (turn, askedBy) -> turn.toComparison(askedBy) }
+        return repository.recentTurns((limit ?: 50).coerceIn(1, 500), benchmarkOnly == true).map { (turn, askedBy) -> search.backfillStats(turn).toComparison(askedBy) }
     }
 
     @GetMapping("/benchmark")
@@ -134,19 +138,21 @@ class AdminAiResearchController(
         var input = 0L
         var output = 0L
         var jobCount = 0
+        var cost: java.math.BigDecimal? = null
         if (jobs != null) {
             for (job in jobs) {
                 jobCount++
                 job.path("model").asText("").takeIf { it.isNotBlank() }?.let { if (it !in models) models += it }
                 input += job.path("inputTokens").asLong(0)
                 output += job.path("outputTokens").asLong(0)
+                job.path("costUsd").asText("").toBigDecimalOrNull()?.let { cost = (cost ?: java.math.BigDecimal.ZERO) + it }
             }
         }
         return AiTurnComparisonView(
             id = id, sessionId = sessionId, question = question, title = title, status = status, depth = depth, method = method,
             createdAt = createdAt, durationSeconds = Duration.between(createdAt, completedAt ?: Instant.now()).seconds.coerceAtLeast(0),
             rounds = researchLog.size, sourceCount = sources.size, models = models, jobs = jobCount,
-            inputTokens = input, outputTokens = output, askedBy = askedBy, benchmarkQuestionId = benchmarkQuestionId, errorMessage = errorMessage,
+            inputTokens = input, outputTokens = output, costUsd = cost, askedBy = askedBy, benchmarkQuestionId = benchmarkQuestionId, errorMessage = errorMessage,
         )
     }
 }
