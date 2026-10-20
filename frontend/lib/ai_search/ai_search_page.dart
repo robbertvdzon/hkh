@@ -560,7 +560,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
       expansion: expansion,
       expansionElapsed: expansion == null
           ? null
-          : _turnDurationLabel(expansion),
+          : (expansion.isActive
+                ? _turnDurationLabel(expansion)
+                : _formatDuration(expansion.durationSeconds)),
       actions: _actionsFor(turn),
       expansionActions: expansionDone ? _actionsFor(expansion) : null,
       exporting: _exporting,
