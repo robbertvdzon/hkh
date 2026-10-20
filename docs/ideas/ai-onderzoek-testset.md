@@ -129,6 +129,25 @@ dan Haiku 4.5 voor dezelfde tekst.
 | Kosten | $4,15 | $0,70 | $1,26 | $0,18 (ondergrens) |
 | Missers | luchtfoto wisselt per run | luchtfoto (1977) | Zeelaan dun, weinig bronnen | luchtfoto (1977) |
 
+### Reeks E: pijplijn, Haiku 5.5 voor onderzoek en schrijven (20-10-2026 10:30 tot 11:38)
+
+| # | Vraag | Diepte | Duur | Rondes | Bronnen gebruikt | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 1:55 | 0 | 24 van 25 | 184k / 16,4k | $0,02 | zwak: biografie (Heemskring 64) niet bij de 25 kaarten; rangschikking "snel" |
+| 2 | Kapper Bekker | snel | 1:31 | 0 | 20 van 25 | 189k / 10,0k | $0,01 | zelfde: familieartikel (Heemskring 45) niet bij de kaarten |
+| 3 | zeelaan | snel | 2:35 | 0 | 25 van 25 | 135k / 27,7k | $0,02 | goed: oude en nieuwe Zeelaan, brand 1972 |
+| 4 | oudste luchtfoto | snel | 0:59 | 0 | 6 | 68k / 8,1k | $0,01 | misser: 1955; "snel" sorteert niet op jaar |
+| 5 | touwslagerij Van Oosten | doorzoeken | 4:01 | 2 | 19 | 213k / 34,1k | $0,03 | goed, dicht bij Opus-agent (22) |
+| 6 | Bachstraat | uitgebreid | 42:49 | 12 | 118 van 226 | 3,03M / 422k | $0,34 | runaway: beoordelaar keurt bijna alles goed, zegt nooit "genoeg"; 37.600 tekens |
+| 7 | Oostrum | uitgebreid | 13:58 | 4 | 59 van 78 | 761k / 134k | $0,11 | rijkste Oostrum-antwoord (59 bronnen), maar te traag: 2 min per ronde, 6,7 min schrijven |
+| 8 | Los Tamaros | uitgebreid | 0:32 | 0 | 0 | 119k / 2,2k | $0,004 | "niets gevonden"; geen kandidaten, dus direct schrijven |
+| | **totaal** | | **68:20** | | | **4,5M / 655k** | **$0,54** | goedkoop en bij rondes inhoudelijk sterk; onbruikbaar traag bij uitgebreid, zwak bij snel |
+
+Bevindingen voor de pijplijn (los van het model):
+- **Snel** stuurt de 25 best scorende kaarten zonder beoordeling naar de schrijver; foto's verdringen het ene artikel dat ertoe doet (Nielen, Bekker) en "de oudste" vraagt om sorteren op jaar (luchtfoto). Artikelen met documenttekst en titeltreffers moeten zwaarder wegen, of snel krijgt één lichte beoordelingsstap.
+- **Uitgebreid** heeft een plafond op gekozen bronnen nodig (ca. 60) en een stopregel op afnemende opbrengst (bijvoorbeeld twee rondes samen minder dan vijf nieuwe); de beoordelingsprompt moet strenger kiezen. Haiku 5.5 markeerde 226 van 480 kandidaten als relevant.
+- **Haiku 5.5** is per stap traag (ca. 2 min per beoordelingsronde van 40 kaarten, Sonnet 10 tot 47 s), maar schrijft rijk en goedkoop.
+
 ### Volgende reeksen
 
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
