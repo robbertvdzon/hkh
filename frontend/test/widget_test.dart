@@ -717,7 +717,8 @@ void main() {
         find.byKey(const Key('collections-query')),
         'Wie was Piet Diemeer?',
       );
-      await tester.tap(find.byKey(const Key('mode-ai-thorough')));
+      expect(find.byKey(const Key('mode-ai-thorough')), findsNothing);
+      await tester.tap(find.byKey(const Key('mode-ai')));
       await tester.pumpAndSettle();
       expect(find.text('Onderzoek starten'), findsOneWidget);
       await tester.tap(find.byKey(const Key('collection-search-button')));

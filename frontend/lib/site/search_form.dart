@@ -5,8 +5,9 @@ import '../ai_search/ai_search.dart';
 import '../theme/app_style.dart';
 import 'site_widgets.dart';
 
-/// Hoe er gezocht wordt: met AI (één of meer zoekrondes) of zelf in alle of
-/// één collectie.
+/// Hoe er gezocht wordt: met AI of zelf in alle of één collectie. [aiThorough]
+/// wordt niet meer aangeboden (de pijplijn kent geen diepte) maar blijft bestaan
+/// voor bestaande verwijzingen.
 enum SearchMode { ai, aiThorough, all, single }
 
 /// De zes publieke collecties, zoals op de oude site.
@@ -103,7 +104,7 @@ String searchButtonLabel(SearchMode mode) =>
     ? 'Onderzoek starten'
     : 'Zoeken';
 
-/// De vier zoekwijzen als keuzerondjes, met AI bovenaan.
+/// De drie zoekwijzen als keuzerondjes, met AI bovenaan.
 class SearchModeOptions extends StatelessWidget {
   const SearchModeOptions({
     required this.mode,
@@ -132,17 +133,7 @@ class SearchModeOptions extends StatelessWidget {
           title:
               'Met AI zoeken door alle collecties en hier een samenvatting van maken',
           subtitle:
-              'Eén zoekronde; meestal binnen 2 minuten een antwoord met bronnen.',
-          onChanged: onModeChanged,
-        ),
-        ModeOption(
-          key: const Key('mode-ai-thorough'),
-          mode: SearchMode.aiThorough,
-          groupValue: mode,
-          title:
-              'Extra uitgebreid met AI zoeken door alle collecties en hier een samenvatting van maken',
-          subtitle:
-              'Meerdere zoekrondes en vervolgvragen; dit kan een kwartier duren.',
+              'Meestal binnen 2 minuten een beknopt antwoord met bronnen; daarna kun je het volledig laten uitwerken.',
           onChanged: onModeChanged,
         ),
       ],
