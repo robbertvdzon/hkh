@@ -250,9 +250,18 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
      overslaat: dezelfde selectie (bewaard in `research_stats.selection`) wordt opnieuw uit de
      database geladen, het korte antwoord gaat als platte tekst mee als basis, en één schrijfjob
      zonder plafond (richtlengte 12.000 tot 25.000 tekens) schrijft de volledige versie. De knop
-     verdwijnt zodra een uitwerking bestaat of een onderzoek loopt; een uitwerking meldt zelf nooit
+     verdwijnt zodra een uitwerking bestaat of een onderzoek loopt (na een mislukte of gestopte
+     uitwerking komt hij terug als "Opnieuw volledig uitwerken"); een uitwerking meldt zelf nooit
      "meer beschikbaar". Voortgang, stopknop, bronnenpagina, delen, PDF en de vergelijktabel
      werken als bij elke beurt.
+     **Eén kaart per vraag**: de site toont de uitwerking niet als eigen vraag maar in de kaart van
+     de basisvraag. Tijdens het uitwerken blijft het beknopte antwoord leesbaar met daaronder een
+     voortgangsregel ("Volledige uitwerking wordt geschreven, dit duurt enkele minuten") en de
+     stopknop; daarna toont de kaart de volledige versie met het label **Volledige versie** en de
+     link **Beknopte versie bekijken** (en terug), de doorlooptijd als "3:15 + 5:11", en delen, PDF
+     en bronnen van de versie die in beeld is. Het overzicht van zoekopdrachten telt een uitwerking
+     niet als vraag en toont de titel van de volledige versie; de context van een vervolgvraag
+     gebruikt de volledige versie onder de oorspronkelijke vraag.
 
   De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%);
   het logboek krijgt één regel met de tussenconclusie en het aantal geselecteerde records.

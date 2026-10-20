@@ -546,6 +546,86 @@ void main() {
     expect(source.expanded, ['turn-1']);
   });
 
+  testWidgets(
+    'an expansion replaces the short answer in the same card and can be toggled back',
+    (tester) async {
+      AiSearchTurn turn({
+        required String id,
+        required int number,
+        required String question,
+        required String title,
+        required String html,
+        String? expandsTurnId,
+        bool more = false,
+      }) => AiSearchTurn(
+        id: id,
+        turnNumber: number,
+        question: question,
+        status: 'SUCCEEDED',
+        progressPercent: 100,
+        progressMessage: 'Onderzoek afgerond',
+        title: title,
+        answerHtml: html,
+        sources: const [],
+        suggestedFollowUps: const [],
+        errorMessage: null,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        completedAt: DateTime(2026),
+        durationSeconds: 90,
+        method: 'PIPELINE',
+        moreAvailable: more,
+        expandsTurnId: expandsTurnId,
+      );
+      final source = _AiSource();
+      source.session = AiSearchSession(
+        id: 'session-1',
+        turns: [
+          turn(
+            id: 'turn-1',
+            number: 1,
+            question: 'wie was burgemeester nielen?',
+            title: 'Kort',
+            html: '<p>Kort antwoord.</p>',
+            more: true,
+          ),
+          turn(
+            id: 'turn-2',
+            number: 2,
+            question: 'Werk het antwoord volledig uit',
+            title: 'Lang',
+            html: '<p>Lang antwoord.</p>',
+            expandsTurnId: 'turn-1',
+          ),
+        ],
+      );
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Eén vraagkaart, de volledige versie zichtbaar, geen pseudo-vraag en geen uitwerkknop.
+      expect(find.text('wie was burgemeester nielen?'), findsOneWidget);
+      expect(find.text('Werk het antwoord volledig uit'), findsNothing);
+      expect(find.text('Lang'), findsOneWidget);
+      expect(find.text('Kort'), findsNothing);
+      expect(find.text('Volledige versie'), findsOneWidget);
+      expect(find.byKey(const ValueKey('answer-expand-turn-1')), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey('answer-version-toggle-turn-1')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Kort'), findsOneWidget);
+      expect(find.text('Beknopte versie'), findsOneWidget);
+      expect(find.text('Volledige versie bekijken'), findsOneWidget);
+    },
+  );
+
   testWidgets('the chosen research depth is sent with the question', (
     tester,
   ) async {

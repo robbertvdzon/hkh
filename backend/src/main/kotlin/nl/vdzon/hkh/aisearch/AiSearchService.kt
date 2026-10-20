@@ -85,7 +85,7 @@ class AiSearchService(
         if (source.status != AiTurnStatus.SUCCEEDED || source.method != AiResearchMethod.PIPELINE || !source.moreAvailable) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit antwoord is niet verder uit te werken")
         }
-        if (turns.any { it.expandsTurnId == turnId }) throw ResponseStatusException(HttpStatus.CONFLICT, "Dit antwoord is al uitgewerkt")
+        if (turns.any { it.expandsTurnId == turnId && it.status !in setOf(AiTurnStatus.FAILED, AiTurnStatus.CANCELLED) }) throw ResponseStatusException(HttpStatus.CONFLICT, "Dit antwoord is al uitgewerkt")
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         if (turns.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
@@ -458,10 +458,14 @@ class AiSearchService(
             repository.dossierAnswers(dossierId, excludingTurnId = turn.id, limit = DOSSIER_HISTORY_ANSWERS)
                 .joinToString("\n\n") { previous -> previous.historyBlock(DOSSIER_HISTORY_CHARS) }
         } else {
-            repository.turns(turn.sessionId)
-                .filter { it.turnNumber < turn.turnNumber && it.status == AiTurnStatus.SUCCEEDED }
+            val earlier = repository.turns(turn.sessionId).filter { it.turnNumber < turn.turnNumber && it.status == AiTurnStatus.SUCCEEDED }
+            // Een uitgewerkt antwoord vervangt zijn beknopte versie in de geschiedenis, onder de oorspronkelijke vraag.
+            earlier.filter { previous -> earlier.none { it.expandsTurnId == previous.id } }
                 .takeLast(3)
-                .joinToString("\n\n") { previous -> previous.historyBlock(4_000) }
+                .joinToString("\n\n") { previous ->
+                    val base = previous.expandsTurnId?.let { id -> earlier.firstOrNull { it.id == id } }
+                    (if (base != null) previous.copy(question = base.question) else previous).historyBlock(4_000)
+                }
         }
         return buildString {
             turn.dossierContext?.let { append("Dit onderzoek hoort bij een dossier:\n").append(it.take(DOSSIER_CONTEXT_CHARS)).append("\n\n") }
@@ -684,14 +688,16 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
 private fun List<AiSearchTurn>.toSummary(sessionId: String, now: Instant = Instant.now()): AiSearchSummaryView {
     val first = first()
     val last = last()
+    // Een uitwerking is geen eigen vraag: de site toont haar in de kaart van de basisvraag.
+    val firstAnswer = firstOrNull { it.expandsTurnId == first.id && it.status == AiTurnStatus.SUCCEEDED } ?: first
     return AiSearchSummaryView(
         id = sessionId,
         question = first.question,
-        title = first.title ?: last.title,
+        title = firstAnswer.title ?: first.title ?: last.title,
         status = last.status,
         progressPercent = last.progressPercent,
         progressMessage = last.progressMessage,
-        turnCount = size,
+        turnCount = count { it.expandsTurnId == null },
         createdAt = first.createdAt,
         updatedAt = last.updatedAt,
         completedAt = last.completedAt,

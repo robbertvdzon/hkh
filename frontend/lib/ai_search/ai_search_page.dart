@@ -475,46 +475,12 @@ class _AiSearchPageState extends State<AiSearchPage> {
                       ],
                     ],
                     if (session != null)
-                      for (final turn in session.turns) ...[
+                      for (final turn in session.turns.where(
+                        (t) => !t.isExpansion,
+                      )) ...[
                         _QuestionCard(question: turn.question),
                         const SizedBox(height: 10),
-                        _TurnCard(
-                          turn: turn,
-                          elapsed: _turnDurationLabel(turn),
-                          onShare:
-                              turn.status == 'SUCCEEDED' &&
-                                  shareSourceFor(widget.source) != null
-                              ? () => showAnswerShareDialog(
-                                  context,
-                                  shareSourceFor(widget.source)!,
-                                  turn,
-                                )
-                              : null,
-                          showPdf:
-                              widget.pdfSource != null &&
-                              turn.status == 'SUCCEEDED' &&
-                              (turn.answerHtml?.isNotEmpty ?? false),
-                          onPdf: _exporting ? null : () => _exportPdf(turn.id),
-                          exporting: _exporting,
-                          onCancel: turn.isActive && widget.canAsk
-                              ? _cancel
-                              : null,
-                          onSteer: turn.steerable && widget.canAsk
-                              ? ({bool? stop, String? hint}) =>
-                                    _steer(turn.id, stop: stop, hint: hint)
-                              : null,
-                          onExpand:
-                              widget.canAsk &&
-                                  turn.status == 'SUCCEEDED' &&
-                                  turn.moreAvailable &&
-                                  !_submitting &&
-                                  !session.turns.any((t) => t.isActive) &&
-                                  !session.turns.any(
-                                    (t) => t.expandsTurnId == turn.id,
-                                  )
-                              ? () => _expand(turn.id)
-                              : null,
-                        ),
+                        _buildTurnCard(session, turn),
                         const SizedBox(height: 20),
                       ],
                     if (_error != null)
@@ -580,6 +546,59 @@ class _AiSearchPageState extends State<AiSearchPage> {
       body: body,
     );
   }
+
+  /// Eén kaart per vraag: het beknopte antwoord en zijn uitwerking (als die er is) samen.
+  Widget _buildTurnCard(AiSearchSession session, AiSearchTurn turn) {
+    final expansion = session.turns
+        .where((t) => t.expandsTurnId == turn.id)
+        .lastOrNull;
+    final expansionDone = expansion != null && expansion.status == 'SUCCEEDED';
+    final expansionBusy = expansion != null && expansion.isActive;
+    return _TurnCard(
+      turn: turn,
+      elapsed: _turnDurationLabel(turn),
+      expansion: expansion,
+      expansionElapsed: expansion == null
+          ? null
+          : _turnDurationLabel(expansion),
+      actions: _actionsFor(turn),
+      expansionActions: expansionDone ? _actionsFor(expansion) : null,
+      exporting: _exporting,
+      onCancel: (turn.isActive || expansionBusy) && widget.canAsk
+          ? _cancel
+          : null,
+      onSteer: turn.steerable && widget.canAsk
+          ? ({bool? stop, String? hint}) =>
+                _steer(turn.id, stop: stop, hint: hint)
+          : null,
+      onExpand:
+          widget.canAsk &&
+              turn.status == 'SUCCEEDED' &&
+              turn.moreAvailable &&
+              !_submitting &&
+              !session.turns.any((t) => t.isActive) &&
+              (expansion == null ||
+                  expansion.status == 'FAILED' ||
+                  expansion.status == 'CANCELLED')
+          ? () => _expand(turn.id)
+          : null,
+    );
+  }
+
+  _AnswerActions _actionsFor(AiSearchTurn turn) => _AnswerActions(
+    onShare: turn.status == 'SUCCEEDED' && shareSourceFor(widget.source) != null
+        ? () => showAnswerShareDialog(
+            context,
+            shareSourceFor(widget.source)!,
+            turn,
+          )
+        : null,
+    showPdf:
+        widget.pdfSource != null &&
+        turn.status == 'SUCCEEDED' &&
+        (turn.answerHtml?.isNotEmpty ?? false),
+    onPdf: _exporting ? null : () => _exportPdf(turn.id),
+  );
 
   String _turnDurationLabel(AiSearchTurn turn) {
     if (turn.isActive) {
@@ -771,15 +790,27 @@ class _QuestionCard extends StatelessWidget {
   );
 }
 
-class _TurnCard extends StatelessWidget {
+/// Deel-, PDF-acties voor één antwoordversie.
+class _AnswerActions {
+  const _AnswerActions({this.onShare, this.showPdf = false, this.onPdf});
+
+  final VoidCallback? onShare;
+  final bool showPdf;
+  final VoidCallback? onPdf;
+}
+
+/// Eén kaart per vraag. Een uitwerking vervangt het beknopte antwoord op dezelfde
+/// plek; de beknopte versie blijft met één klik terug te halen.
+class _TurnCard extends StatefulWidget {
   const _TurnCard({
     required this.turn,
     required this.elapsed,
     required this.onCancel,
+    required this.actions,
+    this.expansion,
+    this.expansionElapsed,
+    this.expansionActions,
     this.onSteer,
-    this.onShare,
-    this.showPdf = false,
-    this.onPdf,
     this.exporting = false,
     this.onExpand,
   });
@@ -788,107 +819,47 @@ class _TurnCard extends StatelessWidget {
   final String? elapsed;
   final VoidCallback? onCancel;
   final SteerHandler? onSteer;
-  final VoidCallback? onShare;
+  final _AnswerActions actions;
+
+  /// De uitwerkbeurt van dit antwoord, in welke status dan ook; null als die er niet is.
+  final AiSearchTurn? expansion;
+  final String? expansionElapsed;
+  final _AnswerActions? expansionActions;
 
   /// Start de volledige uitwerking van dit begrensde antwoord; null als dat nu niet kan.
   final VoidCallback? onExpand;
-  final bool showPdf;
-  final VoidCallback? onPdf;
   final bool exporting;
+
+  @override
+  State<_TurnCard> createState() => _TurnCardState();
+}
+
+class _TurnCardState extends State<_TurnCard> {
+  bool _showShort = false;
+
+  AiSearchTurn get turn => widget.turn;
+
+  AiSearchTurn? get _fullVersion {
+    final expansion = widget.expansion;
+    return expansion != null && expansion.status == 'SUCCEEDED'
+        ? expansion
+        : null;
+  }
 
   @override
   Widget build(BuildContext context) {
     if (turn.isActive) {
-      final progress = turn.progressPercent;
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      turn.progressMessage ?? 'Het archiefonderzoek is bezig',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: progress == null ? null : progress / 100,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${elapsed ?? ''}${progress == null ? '' : ' · $progress%'}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                  if (onCancel != null)
-                    TextButton.icon(
-                      onPressed: onCancel,
-                      icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('Stoppen'),
-                    ),
-                ],
-              ),
-              if (turn.researchLog.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _ResearchLog(rounds: turn.researchLog),
-              ],
-              if (onSteer != null) ...[
-                const SizedBox(height: 12),
-                _SteeringPanel(steering: turn.steering, onSteer: onSteer!),
-              ],
-              const SizedBox(height: 8),
-              const Text(
-                'Dit kan enkele minuten duren. Je kunt deze pagina sluiten; de zoekopdracht blijft doorlopen en verschijnt bij Mijn zoekopdrachten.',
-              ),
-            ],
-          ),
-        ),
-      );
+      return _progressCard(context, turn, widget.elapsed);
     }
     if (turn.status != 'SUCCEEDED') {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      turn.errorMessage ??
-                          'Het onderzoek kon niet worden afgerond.',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(elapsed ?? ''),
-            ],
-          ),
-        ),
-      );
+      return _failedCard(context, turn, widget.elapsed);
     }
+    final full = _fullVersion;
+    final shown = full != null && !_showShort ? full : turn;
+    final actions = shown == turn
+        ? widget.actions
+        : (widget.expansionActions ?? widget.actions);
+    final expansion = widget.expansion;
     return Card(
       child: SelectionArea(
         child: Padding(
@@ -896,9 +867,9 @@ class _TurnCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (turn.title != null) ...[
+              if (shown.title != null) ...[
                 Text(
-                  turn.title!,
+                  shown.title!,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 12),
@@ -907,7 +878,13 @@ class _TurnCard extends StatelessWidget {
                 children: [
                   const Icon(Icons.schedule, size: 18),
                   const SizedBox(width: 7),
-                  Text(elapsed ?? ''),
+                  Flexible(
+                    child: Text(
+                      full == null
+                          ? (widget.elapsed ?? '')
+                          : '${widget.elapsed ?? ''} + ${widget.expansionElapsed ?? ''}',
+                    ),
+                  ),
                   if (turn.showsDepth) ...[
                     const SizedBox(width: 12),
                     const Icon(Icons.manage_search, size: 18),
@@ -916,23 +893,52 @@ class _TurnCard extends StatelessWidget {
                   ],
                 ],
               ),
-              if (onShare != null || showPdf) ...[
+              if (full != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 7,
+                  children: [
+                    Icon(
+                      _showShort ? Icons.short_text : Icons.article_outlined,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      _showShort ? 'Beknopte versie' : 'Volledige versie',
+                      key: ValueKey('answer-version-${turn.id}'),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton(
+                      key: ValueKey('answer-version-toggle-${turn.id}'),
+                      onPressed: () => setState(() => _showShort = !_showShort),
+                      child: Text(
+                        _showShort
+                            ? 'Volledige versie bekijken'
+                            : 'Beknopte versie bekijken',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (actions.onShare != null || actions.showPdf) ...[
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (onShare != null)
+                    if (actions.onShare != null)
                       OutlinedButton.icon(
-                        onPressed: onShare,
+                        onPressed: actions.onShare,
                         icon: const Icon(Icons.share_outlined),
                         label: const Text('Antwoord delen'),
                       ),
-                    if (showPdf)
+                    if (actions.showPdf)
                       OutlinedButton.icon(
-                        key: ValueKey('answer-pdf-${turn.id}'),
-                        onPressed: onPdf,
-                        icon: exporting
+                        key: ValueKey('answer-pdf-${shown.id}'),
+                        onPressed: actions.onPdf,
+                        icon: widget.exporting
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
@@ -941,52 +947,25 @@ class _TurnCard extends StatelessWidget {
                                 ),
                               )
                             : const Icon(Icons.picture_as_pdf_outlined),
-                        label: Text(exporting ? 'PDF maken…' : 'Download PDF'),
+                        label: Text(
+                          widget.exporting ? 'PDF maken…' : 'Download PDF',
+                        ),
                       ),
                   ],
                 ),
               ],
               const SizedBox(height: 14),
-              AnswerHtml(turn.answerHtml ?? ''),
-              if (turn.moreAvailable && !turn.isExpansion) ...[
+              AnswerHtml(shown.answerHtml ?? ''),
+              if (full == null && turn.moreAvailable) ...[
                 const SizedBox(height: 16),
-                Container(
-                  key: ValueKey('answer-more-${turn.id}'),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dit is een beknopt antwoord. Er is meer te vertellen'
-                        '${(turn.moreSummary?.trim().isNotEmpty ?? false) ? ': ${turn.moreSummary!.trim()}' : '.'}',
-                      ),
-                      if (onExpand != null) ...[
-                        const SizedBox(height: 8),
-                        FilledButton.tonalIcon(
-                          key: ValueKey('answer-expand-${turn.id}'),
-                          onPressed: onExpand,
-                          icon: const Icon(Icons.unfold_more),
-                          label: const Text(
-                            'Volledig uitwerken (duurt enkele minuten)',
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                _moreBox(context, expansion),
               ],
-              if (turn.sourcesHtml?.trim().isNotEmpty ?? false) ...[
+              if (shown.sourcesHtml?.trim().isNotEmpty ?? false) ...[
                 const SizedBox(height: 16),
                 AnswerSourcesButton(
-                  sourcesHtml: turn.sourcesHtml,
-                  sourceCount: turn.sources.length,
-                  title: turn.title,
+                  sourcesHtml: shown.sourcesHtml,
+                  sourceCount: shown.sources.length,
+                  title: shown.title,
                 ),
               ],
             ],
@@ -995,6 +974,190 @@ class _TurnCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Onder een beknopt antwoord: wat er nog meer is, de uitwerkknop, of de voortgang
+  /// van de uitwerking die bezig is.
+  Widget _moreBox(BuildContext context, AiSearchTurn? expansion) {
+    final summary = turn.moreSummary?.trim();
+    final busy = expansion != null && expansion.isActive;
+    final failed =
+        expansion != null &&
+        (expansion.status == 'FAILED' || expansion.status == 'CANCELLED');
+    return Container(
+      key: ValueKey('answer-more-${turn.id}'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Dit is een beknopt antwoord. Er is meer te vertellen'
+            '${(summary?.isNotEmpty ?? false) ? ': $summary' : '.'}',
+          ),
+          if (busy) ...[
+            const SizedBox(height: 10),
+            Row(
+              key: ValueKey('answer-expanding-${turn.id}'),
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Volledige uitwerking wordt geschreven, dit duurt enkele '
+                    'minuten'
+                    '${expansion.progressMessage == null ? '' : ' · ${expansion.progressMessage}'}'
+                    '${widget.expansionElapsed == null ? '' : ' · ${widget.expansionElapsed}'}',
+                  ),
+                ),
+                if (widget.onCancel != null)
+                  TextButton.icon(
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Stoppen'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            LinearProgressIndicator(
+              value: expansion.progressPercent == null
+                  ? null
+                  : expansion.progressPercent! / 100,
+            ),
+          ] else ...[
+            if (failed) ...[
+              const SizedBox(height: 6),
+              Text(
+                expansion.status == 'CANCELLED'
+                    ? 'De uitwerking is gestopt.'
+                    : (expansion.errorMessage ??
+                          'De uitwerking kon niet worden afgerond.'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (widget.onExpand != null) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                key: ValueKey('answer-expand-${turn.id}'),
+                onPressed: widget.onExpand,
+                icon: const Icon(Icons.unfold_more),
+                label: Text(
+                  failed
+                      ? 'Opnieuw volledig uitwerken (duurt enkele minuten)'
+                      : 'Volledig uitwerken (duurt enkele minuten)',
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _progressCard(
+    BuildContext context,
+    AiSearchTurn turn,
+    String? elapsed,
+  ) {
+    final progress = turn.progressPercent;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    turn.progressMessage ?? 'Het archiefonderzoek is bezig',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: progress == null ? null : progress / 100,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${elapsed ?? ''}${progress == null ? '' : ' · $progress%'}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                if (widget.onCancel != null)
+                  TextButton.icon(
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Stoppen'),
+                  ),
+              ],
+            ),
+            if (turn.researchLog.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _ResearchLog(rounds: turn.researchLog),
+            ],
+            if (widget.onSteer != null) ...[
+              const SizedBox(height: 12),
+              _SteeringPanel(steering: turn.steering, onSteer: widget.onSteer!),
+            ],
+            const SizedBox(height: 8),
+            const Text(
+              'Dit kan enkele minuten duren. Je kunt deze pagina sluiten; de zoekopdracht blijft doorlopen en verschijnt bij Mijn zoekopdrachten.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _failedCard(
+    BuildContext context,
+    AiSearchTurn turn,
+    String? elapsed,
+  ) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  turn.errorMessage ??
+                      'Het onderzoek kon niet worden afgerond.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(elapsed ?? ''),
+        ],
+      ),
+    ),
+  );
 }
 
 typedef SteerHandler = Future<void> Function({bool? stop, String? hint});
