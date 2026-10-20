@@ -110,7 +110,7 @@ class ResearchPipelineServiceTest {
         assertEquals(2, outcome.stats.candidatesSeen)
         assertEquals(2, outcome.stats.chosen)
         assertTrue(listener.progress.any { it.contains("Er wordt gezocht op Toos Oostrum, Ciska Oostrum, Oostrum") }, listener.progress.toString())
-        assertTrue(listener.progress.any { it.contains("beoordeelt 2 kaarten") }, listener.progress.toString())
+        assertTrue(listener.progress.any { it.contains("beoordeelt 2 gevonden archiefstukken") }, listener.progress.toString())
     }
 
     @Test
