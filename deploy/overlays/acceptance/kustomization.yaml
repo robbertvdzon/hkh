@@ -70,4 +70,4 @@ images:
   newTag: sha-fd44e63
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-fd44e63-acceptance
+  newTag: sha-9b0caf6-acceptance
