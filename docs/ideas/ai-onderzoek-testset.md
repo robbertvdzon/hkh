@@ -86,6 +86,20 @@ erin), juistheid (niets verzonnen, bronnen kloppen), bronnen (aantal gebruikt, r
 | 8 | Los Tamaros | uitgebreid | 0:44 | 0 | 129k / 2,4k | $0,05 | "niets gevonden", varianten verantwoord |
 | | **totaal** | | **9:23** | | **1,47M / 44k** | **$0,70** | alles geslaagd; half zo snel en een zesde van de kosten van Opus, maar minder bronnen en bij vraag 4 een misser |
 
+### Reeks C: agent, Haiku 4.5 (20-10-2026 09:19 tot 09:43)
+
+| # | Vraag | Diepte | Duur | Bronnen | Tokens in/uit | Kosten | Opmerking |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 1:07 | 1 | 199k / 3,8k | $0,04 | feiten kloppen, maar alles op één bron en zonder foto; typefouten |
+| 2 | Kapper Bekker | snel | 1:41 | 4 | 531k / 5,9k | $0,08 | feitelijk rijk (1920 panden van Barend Nijman), weinig bronnen |
+| 3 | zeelaan | snel | 1:36 | 7 | 457k / 6,7k | $0,08 | alleen de straat in 1961; oude Zeelaan en brand 1972 ontbreken |
+| 4 | oudste luchtfoto | snel | 2:22 | 5 | 982k / 9,6k | $0,14 | Fort Veldhuis 1922, zoals de referentie; bijna 1M invoertokens |
+| 5 | touwslagerij Van Oosten | doorzoeken | 1:47 | 8 | 269k / 8,4k | $0,07 | verhuizing gevonden; opent met algemene zin over touw |
+| 6 | Bachstraat | uitgebreid | 4:32 | 12 | 2,03M / 13,7k | $0,27 | vlot verhaal, weinig bronnen, interpretaties niet uit bronnen |
+| 7 | Oostrum | uitgebreid | 9:16 | 22 | 1,55M / 25,7k | $0,28 | langzaamste van alle modellen; spelfouten |
+| 8 | Los Tamaros | uitgebreid | 5:17 | 0 | 2,02M / 21,1k | $0,30 | "niets gevonden" na 5 minuten en 2M tokens zoeken |
+| | **totaal** | | **27:38** | | **8,0M / 95k** | **$1,26** | alles geslaagd; langzaamst van de drie, meeste tokens, minste bronnen |
+
 ### Volgende reeksen
 
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
