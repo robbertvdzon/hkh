@@ -331,7 +331,10 @@ Collectie: <collectie>), de vraag of zoektekst, het model (of de modellen) uit d
 onderzoeksstatistieken, de tijd tot de eerste terugkoppeling (bij een AI-vraag de
 tussenconclusie, bij zoeken de duur van de zoekopdracht), de tijd tot het antwoord, de status
 (bezig, afgerond, mislukt, gestopt) en de kosten (API-equivalent). Boven de tabel staan een
-keuze voor het aantal regels (50 tot 1000) en een ververs-knop.
+keuze voor het aantal regels (50 tot 1000), een knop die de tabel schermvullend over de volle
+breedte opent (met horizontale en verticale scrollbalk; sluiten met het kruisje) en een
+ververs-knop. De vergelijktabel **Recente onderzoeken** heeft dezelfde knop **Volledige
+breedte**.
 
 Technisch: tabel `request_log` (module `requestlog`). Een AI-vraag wordt vastgelegd bij het
 aanmaken van de beurt (verwijzing = beurt-id), krijgt `first_feedback_ms` bij de eerste
