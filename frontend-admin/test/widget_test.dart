@@ -6,6 +6,7 @@ import 'package:hkh_admin/news/admin_latest_news.dart';
 import 'package:hkh_admin/ai/admin_ai_model.dart';
 import 'package:hkh_admin/ai/admin_ai_research.dart';
 import 'package:hkh_admin/collection/admin_collection_scrape.dart';
+import 'package:hkh_admin/requests/admin_request_log.dart';
 
 class _NewsSource implements AdminLatestNewsSource {
   String? title;
@@ -176,6 +177,46 @@ class _AiModelSource implements AdminAiModelSource {
   Future<AiModelState> resetWriteBudget(AdminIdentity identity) async {
     writeBudget = null;
     return _state(role: AiRole.writer);
+  }
+}
+
+class _RequestLogSource implements AdminRequestLogSource {
+  final List<int> limits = [];
+
+  @override
+  Future<List<RequestLogEntry>> recent(
+    AdminIdentity identity, {
+    int limit = 200,
+  }) async {
+    limits.add(limit);
+    return [
+      RequestLogEntry(
+        id: 2,
+        createdAt: DateTime(2026, 10, 20, 18, 5, 0),
+        kind: 'AI_QUESTION',
+        question: 'Werk het antwoord volledig uit',
+        expansion: true,
+        status: 'SUCCEEDED',
+        ip: '203.0.113.7',
+        userEmail: 'robbert@example.com',
+        model: 'anthropic/claude-sonnet-5-5',
+        firstFeedbackMs: 95000,
+        answerMs: 311000,
+        costUsd: 0.46,
+      ),
+      RequestLogEntry(
+        id: 1,
+        createdAt: DateTime(2026, 10, 20, 18, 0, 0),
+        kind: 'COLLECTION_SEARCH',
+        question: 'Oostrum',
+        collection: 'beeldbank',
+        expansion: false,
+        status: 'SUCCEEDED',
+        ip: '203.0.113.7',
+        firstFeedbackMs: 42,
+        answerMs: 42,
+      ),
+    ];
   }
 }
 
@@ -483,6 +524,32 @@ void main() {
     await tester.tap(find.byKey(const Key('ai-write-budget-reset')));
     await tester.pumpAndSettle();
     expect(aiModelSource.writeBudget, isNull);
+  });
+
+  testWidgets('the administrator reads the request log', (tester) async {
+    final logSource = _RequestLogSource();
+    await tester.binding.setSurfaceSize(const Size(1600, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        newsSource: _NewsSource(),
+        scrapeSource: _ScrapeSource(),
+        requestLogSource: logSource,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('request-log-table')));
+    expect(find.text('Logboek van verzoeken'), findsOneWidget);
+    expect(find.text('AI (uitwerking)'), findsOneWidget);
+    expect(find.text('Collectie: beeldbank'), findsOneWidget);
+    expect(find.text('203.0.113.7'), findsNWidgets(2));
+    expect(find.text('robbert@example.com'), findsOneWidget);
+    expect(find.text('1:35'), findsOneWidget);
+    expect(find.text('5:11'), findsOneWidget);
+    expect(find.text('42 ms'), findsNWidgets(2));
+    expect(find.text('\$0.46'), findsOneWidget);
+    expect(logSource.limits, [100]);
   });
 
   testWidgets(

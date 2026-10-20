@@ -8,9 +8,12 @@ import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.collection.CollectionItem
 import nl.vdzon.hkh.collection.CollectionSearchService
 import org.springframework.http.HttpStatus
+import nl.vdzon.hkh.auth.SessionService
+import nl.vdzon.hkh.requestlog.RequestLogService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -63,7 +66,11 @@ data class SearchResponse(
 
 @RestController
 @RequestMapping("/api/collections")
-class CollectionController(private val service: CollectionSearchService) {
+class CollectionController(
+    private val service: CollectionSearchService,
+    private val requestLog: RequestLogService,
+    private val sessions: SessionService,
+) {
 
     @GetMapping
     fun overview(): CollectionSummaryResponse =
@@ -73,10 +80,20 @@ class CollectionController(private val service: CollectionSearchService) {
         )
 
     @GetMapping("/search")
-    fun search(@RequestParam params: MultiValueMap<String, String>): SearchResponse {
+    fun search(
+        @RequestParam params: MultiValueMap<String, String>,
+        @RequestHeader("Authorization", required = false) authorization: String?,
+    ): SearchResponse {
         val input = SearchInput(params)
+        val started = System.currentTimeMillis()
         val result = service.search(input.query, input.collection, input.fields,
             input.integer("page") ?: 0, input.integer("size") ?: 20, input.year, input.options)
+        // Alleen een echte zoekopdracht (met zoektekst of filters) hoort in het logboek, niet het bladeren door pagina's.
+        if ((input.query != null || input.fields.isNotEmpty()) && (input.integer("page") ?: 0) == 0) {
+            val user = authorization?.let { runCatching { sessions.authenticate(it) }.getOrNull() }
+            val description = listOfNotNull(input.query, input.fields.entries.joinToString("; ") { "${it.key}: ${it.value}" }.takeIf { it.isNotBlank() }).joinToString(" | ")
+            requestLog.logSearch(description, input.collection, user?.email, System.currentTimeMillis() - started)
+        }
         return SearchResponse(result.items.map(CollectionItem::toSummary), result.total, result.page,
             result.pageSize, service.documentTextAvailable(),
             result.collectionCounts.map { CollectionCountResponse(it.collection, it.count) })

@@ -321,6 +321,26 @@ configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
 `GET`/`PUT`/`DELETE /api/admin/ai-search/model?role=…`, `PUT /api/admin/ai-search/method`,
 `PUT`/`DELETE /api/admin/ai-search/write-budget`.
 
+## Beheer: logboek van verzoeken
+
+Het beheerscherm toont onderaan het blok **Logboek van verzoeken**: alle AI-vragen (met hun
+uitwerkingen) en zoekopdrachten in de collecties, nieuwste eerst, met per regel het tijdstip,
+het IP-adres van de bezoeker (achter de route uit `X-Forwarded-For`), de ingelogde gebruiker
+(bij de testset "testset: <beheerder>"), de soort (AI, AI (uitwerking), Collectie of
+Collectie: <collectie>), de vraag of zoektekst, het model (of de modellen) uit de
+onderzoeksstatistieken, de tijd tot de eerste terugkoppeling (bij een AI-vraag de
+tussenconclusie, bij zoeken de duur van de zoekopdracht), de tijd tot het antwoord, de status
+(bezig, afgerond, mislukt, gestopt) en de kosten (API-equivalent). Boven de tabel staan een
+keuze voor het aantal regels (50 tot 1000) en een ververs-knop.
+
+Technisch: tabel `request_log` (module `requestlog`). Een AI-vraag wordt vastgelegd bij het
+aanmaken van de beurt (verwijzing = beurt-id), krijgt `first_feedback_ms` bij de eerste
+rondemelding of tussenconclusie en wordt afgesloten zodra de beurt slaagt, mislukt of stopt. Een
+zoekopdracht (`GET /api/collections/search` met zoektekst of filters, alleen de eerste pagina)
+wordt in één keer vastgelegd met de duur. Een fout in het logboek laat een verzoek nooit
+mislukken. API: `GET /api/admin/requests?limit=` (beheerder). Het logboek wordt niet
+automatisch opgeschoond.
+
 ## PDF-export van een AI-antwoord
 
 Zodra op het AI-antwoordscherm een antwoord geladen en zichtbaar is, toont de

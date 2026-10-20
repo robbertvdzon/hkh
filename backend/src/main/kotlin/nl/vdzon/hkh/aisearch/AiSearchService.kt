@@ -13,6 +13,8 @@ import nl.vdzon.hkh.research.ResearchPipelineService
 import nl.vdzon.hkh.research.ResearchRef
 import nl.vdzon.hkh.research.ResearchRoundReport
 import nl.vdzon.hkh.research.StructuredJobFailedException
+import nl.vdzon.hkh.requestlog.RequestKind
+import nl.vdzon.hkh.requestlog.RequestLogService
 import org.jsoup.Jsoup
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
@@ -29,6 +31,7 @@ class AiSearchService(
     private val pipeline: ResearchPipelineService,
     private val modelSettings: AiModelSettings,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
+    private val requestLog: RequestLogService,
     @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
     private val publicOrigin: String = "https://hkh.vdzonsoftware.nl",
 ) {
@@ -55,7 +58,7 @@ class AiSearchService(
         ensureCapacity()
         val cleaned = validateQuestion(question)
         val sessionId = repository.createSession(AiSearchOwner(visitorId = identity.visitorId, userId = identity.userId, userEmail = identity.userEmail))
-        schedule(repository.createTurn(sessionId, cleaned, depth = depth, method = modelSettings.method()))
+        schedule(logged(repository.createTurn(sessionId, cleaned, depth = depth, method = modelSettings.method()), identity.userEmail))
         return get(identity, sessionId)
     }
 
@@ -63,7 +66,7 @@ class AiSearchService(
 
     fun followUp(identity: AiSearchIdentity, sessionId: String, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
         requireSession(identity, sessionId)
-        addFollowUp(sessionId, question, null, depth)
+        addFollowUp(sessionId, question, null, depth, identity.userEmail)
         return get(identity, sessionId)
     }
 
@@ -89,7 +92,7 @@ class AiSearchService(
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         if (turns.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
-        schedule(repository.createTurn(sessionId, EXPAND_QUESTION, source.dossierContext, source.depth, AiResearchMethod.PIPELINE, expandsTurnId = turnId))
+        schedule(logged(repository.createTurn(sessionId, EXPAND_QUESTION, source.dossierContext, source.depth, AiResearchMethod.PIPELINE, expandsTurnId = turnId), identity.userEmail, question = source.question))
         return get(identity, sessionId)
     }
 
@@ -113,7 +116,7 @@ class AiSearchService(
         ensureCapacity()
         val cleaned = validateQuestion(question)
         val sessionId = repository.createSession(owner)
-        schedule(repository.createTurn(sessionId, cleaned, dossierContext, depth, modelSettings.method()))
+        schedule(logged(repository.createTurn(sessionId, cleaned, dossierContext, depth, modelSettings.method()), owner.userEmail))
         return sessionView(sessionId)
     }
 
@@ -167,7 +170,7 @@ class AiSearchService(
     fun startBenchmark(question: AiBenchmarkQuestion, startedBy: String): String {
         ensureAvailable()
         val sessionId = repository.createSession(AiSearchOwner(visitorId = BENCHMARK_VISITOR_ID, userEmail = "testset:$startedBy".take(320)))
-        val turn = repository.createTurn(sessionId, validateQuestion(question.question), depth = question.depth, method = modelSettings.method(), benchmarkQuestionId = question.id)
+        val turn = logged(repository.createTurn(sessionId, validateQuestion(question.question), depth = question.depth, method = modelSettings.method(), benchmarkQuestionId = question.id), "testset: $startedBy")
         schedule(turn)
         return turn.id
     }
@@ -195,6 +198,7 @@ class AiSearchService(
         val turn = repository.findTurnByControlToken(turnId, token) ?: return null
         if (turn.status !in ACTIVE_STATUSES) return null
         repository.recordRound(turn.id, round)
+        requestLog.firstFeedback(turn.id)
         val steering = turn.steering
         if (steering.pending) repository.markSteeringDelivered(turn.id)
         val summary = if (round.next.isEmpty()) "Ronde ${round.round} afgerond, ${round.sources} bronnen gevonden"
@@ -225,13 +229,35 @@ class AiSearchService(
 
     // ---- Intern ----
 
-    private fun addFollowUp(sessionId: String, question: String, dossierContext: String?, depth: AiResearchDepth) {
+    private fun addFollowUp(sessionId: String, question: String, dossierContext: String?, depth: AiResearchDepth, userEmail: String? = null) {
         ensureAvailable()
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         val previous = repository.turns(sessionId)
         if (previous.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
-        schedule(repository.createTurn(sessionId, validateQuestion(question), dossierContext, depth, modelSettings.method()))
+        schedule(logged(repository.createTurn(sessionId, validateQuestion(question), dossierContext, depth, modelSettings.method()), userEmail))
+    }
+
+    /** Legt de nieuwe beurt vast in het logboek van verzoeken; de beurt-id is de verwijzing voor de afronding. */
+    private fun logged(turn: AiSearchTurn, userEmail: String?, question: String = turn.question): AiSearchTurn {
+        requestLog.open(RequestKind.AI_QUESTION, question, userEmail, reference = turn.id, expansion = turn.expandsTurnId != null)
+        return turn
+    }
+
+    /** Sluit de logboekregel van een beurt af met status, modellen, kosten en de tijd tot het antwoord. */
+    private fun logFinished(turnId: String) {
+        val turn = repository.findTurn(turnId) ?: return
+        if (turn.status in ACTIVE_STATUSES) return
+        var models = listOf<String>()
+        var cost: java.math.BigDecimal? = null
+        turn.researchStats?.let { runCatching { objectMapper.readTree(it) }.getOrNull() }?.let { tree ->
+            models = buildList { for (job in tree.path("jobs")) job.path("model").asText("").takeIf { it.isNotBlank() }?.let { if (it !in this) add(it) } }
+            for (job in tree.path("jobs")) job.path("costUsd").asText("").toBigDecimalOrNull()?.let { cost = (cost ?: java.math.BigDecimal.ZERO) + it }
+        }
+        if (models.isEmpty() && turn.method == AiResearchMethod.AGENT) {
+            runCatching { modelSettings.execution(nl.vdzon.hkh.research.AiRole.AGENT) }.getOrNull()?.let { models = listOf("${it.vendorId}/${it.model}") }
+        }
+        requestLog.finish(turnId, turn.status.name, models.joinToString(", ").ifBlank { null }, cost, turn.completedAt)
     }
 
     private fun cancelActiveTurn(sessionId: String) {
@@ -239,6 +265,7 @@ class AiSearchService(
         // Een pijplijnonderzoek annuleert zijn eigen runtime-job zodra het de status ziet.
         turn.runtimeJobId?.takeUnless { it.startsWith(PIPELINE_JOB_PREFIX) }?.let { runCatching { runtime.cancel(it) } }
         repository.fail(turn.id, "Het onderzoek is op verzoek gestopt.", cancelled = true)
+        logFinished(turn.id)
     }
 
     private fun sessionView(sessionId: String) =
@@ -313,6 +340,7 @@ class AiSearchService(
                             repository.saveStats(turnId, agentStatsJson(jobId, "${execution.vendorId}/${execution.model}", runtime.usage(envelope), Duration.between(turn.createdAt, Instant.now()).seconds, turn.researchLog.size, rendered.sources.size))
                         }
                         repository.succeed(turnId, rendered)
+                        logFinished(turnId)
                         repository.sessionDossierId(turn.sessionId)?.let { dossierId ->
                             runCatching { events.publishEvent(AiDossierTurnCompleted(dossierId, turn.sessionId, turnId)) }
                         }
@@ -320,10 +348,12 @@ class AiSearchService(
                     }
                     "CANCELLED" -> {
                         repository.fail(turnId, "Het onderzoek is gestopt.", cancelled = true)
+                        logFinished(turnId)
                         return
                     }
                     "FAILED" -> {
                         repository.fail(turnId, job.errorMessage ?: "De AI-dienst kon het onderzoek niet afronden.")
+                        logFinished(turnId)
                         return
                     }
                 }
@@ -331,6 +361,7 @@ class AiSearchService(
             }
         } catch (error: Exception) {
             repository.fail(turnId, friendlyError(error))
+            logFinished(turnId)
         }
     }
 
@@ -342,6 +373,7 @@ class AiSearchService(
     private fun processPipeline(turn: AiSearchTurn) {
         if (turn.runtimeJobId != null) {
             repository.fail(turn.id, "Het onderzoek is onderbroken door een herstart van de dienst. Stel de vraag opnieuw.")
+            logFinished(turn.id)
             return
         }
         if (!repository.attachJob(turn.id, "$PIPELINE_JOB_PREFIX${turn.id}")) return
@@ -355,6 +387,7 @@ class AiSearchService(
 
             override fun round(report: ResearchRoundReport): Boolean {
                 repository.recordRound(turn.id, AiResearchRound(report.round, report.chosen, report.conclusion, report.nextLeads, report.reportedAt))
+                requestLog.firstFeedback(turn.id)
                 val current = repository.findTurn(turn.id) ?: return true
                 if (current.steering.stop && current.steering.deliveredAt == null) {
                     repository.markSteeringDelivered(turn.id)
@@ -378,6 +411,7 @@ class AiSearchService(
                 val selection = selectionOf(expands)
                 if (selection.isEmpty()) {
                     repository.fail(turn.id, "De bronnen van het eerdere antwoord zijn niet meer bekend; stel de vraag opnieuw.")
+                    logFinished(turn.id)
                     return
                 }
                 pipeline.expand(input, selection, expands.answerHtml?.let { Jsoup.parse(it).wholeText().trim() }.orEmpty(), listener)
@@ -387,13 +421,16 @@ class AiSearchService(
             repository.saveStats(turn.id, objectMapper.writeValueAsString(outcome.stats))
             val rendered = renderer.render(outcome.result)
             repository.succeed(turn.id, rendered)
+            logFinished(turn.id)
             repository.sessionDossierId(turn.sessionId)?.let { dossierId ->
                 runCatching { events.publishEvent(AiDossierTurnCompleted(dossierId, turn.sessionId, turn.id)) }
             }
         } catch (ex: ResearchCancelledException) {
             if (repository.findTurn(turn.id)?.status in ACTIVE_STATUSES) repository.fail(turn.id, "Het onderzoek is gestopt.", cancelled = true)
+            logFinished(turn.id)
         } catch (ex: StructuredJobFailedException) {
             repository.fail(turn.id, ex.message ?: "De AI-dienst kon het onderzoek niet afronden.")
+            logFinished(turn.id)
         }
     }
 
