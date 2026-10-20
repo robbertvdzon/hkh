@@ -189,6 +189,36 @@ class ResearchPipelineServiceTest {
     }
 
     @Test
+    fun `the first answer is bounded and reports whether more is available, and the expansion reuses the selection with the short answer as basis`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos.", image = true), card("2", "Pastorie", "Grard.", text = true))
+        val (runner, requests) = runner(
+            direction(""""Oostrum""""),
+            """{"title":"Kort","answerHtml":"<p>Kort antwoord <a data-hkh-source=\"1\">foto</a></p>","sources":[1],"suggestedFollowUps":[],"moreAvailable":true,"moreSummary":"Ook de pastorie en de scholen."}""",
+            """{"title":"Lang","answerHtml":"<p>Lang antwoord <a data-hkh-source=\"2\">pastorie</a></p>","sources":[2],"suggestedFollowUps":[],"moreAvailable":true,"moreSummary":"niets"}""",
+        )
+        val service = ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper)
+        val first = service.research(input("Oostrum", prefix = "b"), Listener())
+        assertTrue(requests[1].instruction.contains("HOOGSTENS TIEN ALINEA'S"), requests[1].instruction)
+        assertTrue(first.result.path("moreAvailable").asBoolean())
+        assertEquals("Ook de pastorie en de scholen.", first.result.path("moreSummary").asText())
+        assertEquals(listOf("beeldbank/1", "beeldbank/2"), first.stats.selection)
+
+        val expanded = service.expand(input("Oostrum", prefix = "b2"), listOf(ResearchRef("beeldbank", "1"), ResearchRef("beeldbank", "2")), "Kort antwoord", Listener())
+        assertEquals(listOf("b-direct", "b-write", "b2-expand"), requests.map { it.idempotencyKey })
+        val expand = requests[2].instruction
+        assertTrue(expand.contains("UITWERKING van een eerder, begrensd antwoord"), expand)
+        assertTrue(expand.contains("<previous-answer>Kort antwoord</previous-answer>"), expand)
+        assertTrue(expand.contains("Geen plafond"), expand)
+        assertTrue(expand.contains("[2] beeldbank 2 \"Pastorie\""), expand)
+        assertFalse(expand.contains("HOOGSTENS TIEN ALINEA'S"))
+        // De uitwerking is de volledige versie: nooit nog "meer beschikbaar".
+        assertFalse(expanded.result.path("moreAvailable").asBoolean())
+        assertEquals(listOf("beeldbank/2"), refs(expanded.result.path("sources")))
+        assertEquals(1, expanded.stats.jobs.size)
+        assertEquals("uitwerken", expanded.stats.jobs.single().step)
+    }
+
+    @Test
     fun `a cancelled turn stops before the next job`() {
         val (runner, _) = runner()
         val listener = object : ResearchListener {

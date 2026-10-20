@@ -72,6 +72,27 @@ class AiSearchService(
         return sessionView(sessionId)
     }
 
+    /**
+     * De volledige uitwerking van een begrensd pijplijnantwoord: een nieuwe beurt in dezelfde sessie
+     * die zoeken en richten overslaat, dezelfde bronnen opnieuw laadt en het korte antwoord als
+     * basis neemt.
+     */
+    fun expand(identity: AiSearchIdentity, sessionId: String, turnId: String): AiSearchSessionView {
+        requireSession(identity, sessionId)
+        ensureAvailable()
+        val turns = repository.turns(sessionId)
+        val source = turns.firstOrNull { it.id == turnId } ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vraag niet gevonden")
+        if (source.status != AiTurnStatus.SUCCEEDED || source.method != AiResearchMethod.PIPELINE || !source.moreAvailable) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit antwoord is niet verder uit te werken")
+        }
+        if (turns.any { it.expandsTurnId == turnId }) throw ResponseStatusException(HttpStatus.CONFLICT, "Dit antwoord is al uitgewerkt")
+        if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
+        ensureCapacity()
+        if (turns.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
+        schedule(repository.createTurn(sessionId, EXPAND_QUESTION, source.dossierContext, source.depth, AiResearchMethod.PIPELINE, expandsTurnId = turnId))
+        return get(identity, sessionId)
+    }
+
     fun cancel(identity: AiSearchIdentity, sessionId: String): AiSearchSessionView {
         requireSession(identity, sessionId)
         cancelActiveTurn(sessionId)
@@ -344,15 +365,25 @@ class AiSearchService(
 
             override fun cancelled(): Boolean = repository.findTurn(turn.id)?.status !in ACTIVE_STATUSES
         }
+        val expands = turn.expandsTurnId?.let { repository.findTurn(it) }
         val input = ResearchInput(
-            question = turn.question,
-            context = contextBlock(turn),
+            question = expands?.question ?: turn.question,
+            context = if (expands != null) "" else contextBlock(turn),
             priorSources = previousSources,
             idempotencyPrefix = "hkh-ai-${turn.id}",
             writeBudgetChars = modelSettings.writeBudget().chars,
         )
         try {
-            val outcome = pipeline.research(input, listener)
+            val outcome = if (expands != null) {
+                val selection = selectionOf(expands)
+                if (selection.isEmpty()) {
+                    repository.fail(turn.id, "De bronnen van het eerdere antwoord zijn niet meer bekend; stel de vraag opnieuw.")
+                    return
+                }
+                pipeline.expand(input, selection, expands.answerHtml?.let { Jsoup.parse(it).wholeText().trim() }.orEmpty(), listener)
+            } else {
+                pipeline.research(input, listener)
+            }
             repository.saveStats(turn.id, objectMapper.writeValueAsString(outcome.stats))
             val rendered = renderer.render(outcome.result)
             repository.succeed(turn.id, rendered)
@@ -364,6 +395,17 @@ class AiSearchService(
         } catch (ex: StructuredJobFailedException) {
             repository.fail(turn.id, ex.message ?: "De AI-dienst kon het onderzoek niet afronden.")
         }
+    }
+
+    /** De volledige selectie van een pijplijnbeurt, zoals de schrijver die kreeg (uit `research_stats`). */
+    private fun selectionOf(turn: AiSearchTurn): List<ResearchRef> {
+        val tree = turn.researchStats?.let { runCatching { objectMapper.readTree(it) }.getOrNull() } ?: return emptyList()
+        return buildList {
+            for (node in tree.path("selection")) {
+                val parts = node.asText("").split('/', limit = 2)
+                if (parts.size == 2 && parts[0].isNotBlank() && parts[1].isNotBlank()) add(ResearchRef(parts[0], parts[1]))
+            }
+        }.ifEmpty { turn.sources.map { ResearchRef(it.collection, it.ident) } }
     }
 
     /** Statistieken van een agent-beurt in hetzelfde formaat als die van de pijplijn. */
@@ -541,6 +583,8 @@ class AiSearchService(
 
     private companion object {
         const val MAX_TURNS = 10
+        const val EXPAND_QUESTION = "Werk het antwoord volledig uit"
+
         const val DOSSIER_HISTORY_ANSWERS = 2
         const val DOSSIER_HISTORY_CHARS = 6_000
         const val DOSSIER_CONTEXT_CHARS = 20_000
@@ -609,6 +653,11 @@ data class AiSearchTurnView(
     val steering: AiSteeringView,
     /** Of bijsturen nu kan: het onderzoek loopt met de agent en heeft meer dan één ronde (de pijplijn kent geen rondegrens). */
     val steerable: Boolean,
+    /** Pijplijn: de schrijver meldde dat er meer te vertellen is dan dit begrensde antwoord, met één zin wat. */
+    val moreAvailable: Boolean,
+    val moreSummary: String?,
+    /** Als deze beurt een uitwerking is: de beurt waarvan het antwoord en de bronnen de basis zijn. */
+    val expandsTurnId: String?,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
@@ -628,6 +677,7 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
     researchLog.map { AiResearchRoundView(it.round, it.sources, it.found, it.next, it.reportedAt) },
     AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
     status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1 && method == AiResearchMethod.AGENT,
+    moreAvailable, moreSummary, expandsTurnId,
     createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 

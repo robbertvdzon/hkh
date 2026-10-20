@@ -50,6 +50,11 @@ data class AiSearchTurn(
     val researchStats: String? = null,
     /** De testsetvraag waaruit deze beurt komt; null bij gewone vragen. */
     val benchmarkQuestionId: Long? = null,
+    /** De schrijver meldde dat er meer te vertellen is dan het begrensde antwoord bevat, met één zin wat. */
+    val moreAvailable: Boolean = false,
+    val moreSummary: String? = null,
+    /** Als deze beurt een uitwerking is: de beurt waarvan het antwoord en de bronnen de basis zijn. */
+    val expandsTurnId: String? = null,
 )
 
 /** Verslag van één zoekronde, door de agent gemeld na afloop van die ronde. */

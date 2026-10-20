@@ -17,6 +17,9 @@ data class RenderedAiAnswer(
     val sourcesHtml: String?,
     val sources: List<AiSourceRef>,
     val suggestedFollowUps: List<String>,
+    /** Pijplijn: of er meer te vertellen is dan dit begrensde antwoord, en in één zin wat. */
+    val moreAvailable: Boolean = false,
+    val moreSummary: String? = null,
 )
 
 @Component
@@ -91,6 +94,8 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
         return RenderedAiAnswer(
             CollectionLinks.rewrite(title), CollectionLinks.rewrite(narrative), sourcesHtml?.let(CollectionLinks::rewrite),
             records.map { it.first }, followUps.map(CollectionLinks::rewrite),
+            moreAvailable = result.path("moreAvailable").asBoolean(false),
+            moreSummary = result.path("moreSummary").asText("").trim().take(400).takeIf { it.isNotBlank() },
         )
     }
 

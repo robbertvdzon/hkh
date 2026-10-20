@@ -13,6 +13,17 @@ class _AiSource implements AiSearchSource {
   @override
   Future<AiSearchOptions> loadAiSearchOptions() async => options;
 
+  final List<String> expanded = [];
+
+  @override
+  Future<AiSearchSession> expandAiSearch(
+    String sessionId,
+    String turnId,
+  ) async {
+    expanded.add(turnId);
+    return session!;
+  }
+
   AiSearchSession? session;
   final List<AiSearchSummary> searches = [];
   final List<String> startedQuestions = [];
@@ -487,6 +498,52 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     // De pijplijn kent geen diepte: de vraag gaat als "snel" en het antwoord toont geen diepte.
     expect(source.startedDepths, [AiResearchDepth.fast]);
+  });
+
+  testWidgets('a bounded answer offers the full expansion', (tester) async {
+    final source = _AiSource();
+    source.session = AiSearchSession(
+      id: 'session-1',
+      turns: [
+        AiSearchTurn(
+          id: 'turn-1',
+          turnNumber: 1,
+          question: 'wie was burgemeester nielen?',
+          status: 'SUCCEEDED',
+          progressPercent: 100,
+          progressMessage: 'Onderzoek afgerond',
+          title: 'Burgemeester Nielen',
+          answerHtml: '<p>Kort antwoord.</p>',
+          sources: const [],
+          suggestedFollowUps: const [],
+          errorMessage: null,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+          completedAt: DateTime(2026),
+          durationSeconds: 90,
+          method: 'PIPELINE',
+          moreAvailable: true,
+          moreSummary: 'Ook de samenvoeging van 1972 en de wijk De Maer.',
+        ),
+      ],
+    );
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Er is meer te vertellen: Ook de samenvoeging'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('answer-expand-turn-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(source.expanded, ['turn-1']);
   });
 
   testWidgets('the chosen research depth is sent with the question', (

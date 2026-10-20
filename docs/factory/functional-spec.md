@@ -239,6 +239,20 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
      (treffers van SQL 1 buiten de selectie, hoogstens 60 titels; alleen te noemen, niet te
      citeren) en 3 tot 5 concrete vervolgvragen over namen, adressen en gebeurtenissen uit de
      bronnen die niet zijn uitgewerkt. Doorvragen vervangt de verdiepingsrondes.
+     Het eerste antwoord is **altijd begrensd**: hoogstens tien alinea's (ongeveer 4.000 tot
+     7.000 tekens) en zes foto's. De schrijver meldt `moreAvailable` met in `moreSummary` één
+     zin wat er nog meer te vertellen is (`ai_search_turn.more_available`, `more_summary`).
+  6. **Volledig uitwerken**: onder een begrensd antwoord met meer toont de site "Dit is een
+     beknopt antwoord. Er is meer te vertellen: …" met de knop **Volledig uitwerken (duurt
+     enkele minuten)**. Die start een nieuwe beurt in dezelfde sessie (vraag "Werk het antwoord
+     volledig uit", `expands_turn_id` wijst naar de basisbeurt; API
+     `POST /api/ai-search/sessions/{sessionId}/turns/{turnId}/expand`) die zoeken en richten
+     overslaat: dezelfde selectie (bewaard in `research_stats.selection`) wordt opnieuw uit de
+     database geladen, het korte antwoord gaat als platte tekst mee als basis, en één schrijfjob
+     zonder plafond (richtlengte 12.000 tot 25.000 tekens) schrijft de volledige versie. De knop
+     verdwijnt zodra een uitwerking bestaat of een onderzoek loopt; een uitwerking meldt zelf nooit
+     "meer beschikbaar". Voortgang, stopknop, bronnenpagina, delen, PDF en de vergelijktabel
+     werken als bij elke beurt.
 
   De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%);
   het logboek krijgt één regel met de tussenconclusie en het aantal geselecteerde records.

@@ -107,6 +107,17 @@ class _AiSource implements AiSearchSource {
   @override
   Future<AiSearchOptions> loadAiSearchOptions() async => options;
 
+  final List<String> expanded = [];
+
+  @override
+  Future<AiSearchSession> expandAiSearch(
+    String sessionId,
+    String turnId,
+  ) async {
+    expanded.add(turnId);
+    return current!;
+  }
+
   final List<String> startedQuestions = [];
   final List<AiResearchDepth> startedDepths = [];
   final List<(String, bool?, String?)> steerings = [];

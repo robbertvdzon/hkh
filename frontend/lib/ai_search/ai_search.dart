@@ -141,6 +141,9 @@ class AiSearchTurn {
     this.steering = const AiSteering(),
     this.steerable = false,
     this.method = 'AGENT',
+    this.moreAvailable = false,
+    this.moreSummary,
+    this.expandsTurnId,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -174,6 +177,9 @@ class AiSearchTurn {
     steering: AiSteering.fromJson(json['steering'] as Map<String, dynamic>?),
     steerable: json['steerable'] as bool? ?? false,
     method: json['method'] as String? ?? 'AGENT',
+    moreAvailable: json['moreAvailable'] as bool? ?? false,
+    moreSummary: json['moreSummary'] as String?,
+    expandsTurnId: json['expandsTurnId'] as String?,
   );
 
   final String id;
@@ -208,6 +214,15 @@ class AiSearchTurn {
   final String method;
 
   bool get showsDepth => method != 'PIPELINE';
+
+  /// De schrijver meldde dat er meer te vertellen is dan dit begrensde antwoord.
+  final bool moreAvailable;
+  final String? moreSummary;
+
+  /// Als deze beurt een uitwerking is: de beurt waarvan het antwoord de basis was.
+  final String? expandsTurnId;
+
+  bool get isExpansion => expandsTurnId != null;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -308,6 +323,9 @@ abstract interface class AiSearchSource {
   });
   Future<AiSearchSession> cancelAiSearch(String sessionId);
   Future<void> deleteAiSearch(String sessionId);
+
+  /// Laat een begrensd antwoord volledig uitwerken met dezelfde bronnen.
+  Future<AiSearchSession> expandAiSearch(String sessionId, String turnId);
 
   /// Stuurt een lopend onderzoek bij: stoppen en schrijven, en/of een aanwijzing.
   Future<AiSearchSession> steerAiSearch(

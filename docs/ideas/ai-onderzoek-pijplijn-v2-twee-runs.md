@@ -1,6 +1,8 @@
 # Voorstel: pijplijn v2 in twee AI-runs
 
 Status: gebouwd op 20-10-2026 (zie functional-spec, "AI-onderzoek: methode agent of pijplijn").
+Aanvulling later die dag: het eerste antwoord is altijd begrensd (tien alinea's) en de gebruiker
+kan het via **Volledig uitwerken** met dezelfde bronnen laten uitbreiden (eigen beurt).
 Afwijkingen van het voorstel: de planjob bestaat nog als terugval bij nul termen of nul
 treffers; "Ook gevonden" telt hoogstens 60 regels. Bouwt voort op
 [ai-onderzoek-pijplijn-trefwoorden.md](ai-onderzoek-pijplijn-trefwoorden.md) en de uitslagen in

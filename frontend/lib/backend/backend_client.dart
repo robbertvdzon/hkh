@@ -217,6 +217,24 @@ class BackendClient
   }
 
   @override
+  Future<AiSearchSession> expandAiSearch(
+    String sessionId,
+    String turnId,
+  ) async {
+    final response = await _client
+        .post(
+          Uri.parse(
+            '$apiBaseUrl/api/ai-search/sessions/$sessionId/turns/$turnId/expand',
+          ),
+          headers: _headers(),
+        )
+        .timeout(const Duration(seconds: 20));
+    return AiSearchSession.fromJson(
+      _decodeAiResponse(response) as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<AiSearchSession> cancelAiSearch(String sessionId) async {
     final response = await _client
         .post(

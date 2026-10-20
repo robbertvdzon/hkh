@@ -136,7 +136,7 @@ class AiSearchRepository(
         dossierId,
     ) > 0
 
-    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT, method: AiResearchMethod = AiResearchMethod.AGENT, benchmarkQuestionId: Long? = null): AiSearchTurn {
+    fun createTurn(sessionId: String, question: String, dossierContext: String? = null, depth: AiResearchDepth = AiResearchDepth.DEFAULT, method: AiResearchMethod = AiResearchMethod.AGENT, benchmarkQuestionId: Long? = null, expandsTurnId: String? = null): AiSearchTurn {
         val id = UUID.randomUUID().toString()
         val number = jdbc.queryForObject(
             "SELECT COALESCE(MAX(turn_number), 0) + 1 FROM ai_search_turn WHERE session_id = ?::uuid",
@@ -145,10 +145,10 @@ class AiSearchRepository(
         ) ?: 1
         jdbc.update(
             """
-            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token, research_method, benchmark_question_id)
-            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?, ?, ?)
+            INSERT INTO ai_search_turn (id, session_id, turn_number, question, status, progress_percent, progress_message, dossier_context, research_depth, control_token, research_method, benchmark_question_id, expands_turn_id)
+            VALUES (?::uuid, ?::uuid, ?, ?, 'SUBMITTING', 2, 'De vraag wordt voorbereid', ?, ?, ?, ?, ?, ?::uuid)
             """.trimIndent(),
-            id, sessionId, number, question, dossierContext, depth.name, newControlToken(), method.name, benchmarkQuestionId,
+            id, sessionId, number, question, dossierContext, depth.name, newControlToken(), method.name, benchmarkQuestionId, expandsTurnId,
         )
         return requireNotNull(findTurn(id))
     }
@@ -290,6 +290,7 @@ class AiSearchRepository(
             UPDATE ai_search_turn SET status = 'SUCCEEDED', progress_percent = 100,
                 progress_message = 'Onderzoek afgerond', title = ?, answer_html = ?, sources_html = ?,
                 sources = ?::jsonb, suggested_follow_ups = ?::jsonb, error_message = NULL,
+                more_available = ?, more_summary = ?,
                 updated_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP
             WHERE id = ?::uuid
             """.trimIndent(),
@@ -298,6 +299,8 @@ class AiSearchRepository(
             rendered.sourcesHtml,
             objectMapper.writeValueAsString(rendered.sources),
             objectMapper.writeValueAsString(rendered.suggestedFollowUps),
+            rendered.moreAvailable,
+            rendered.moreSummary?.take(400),
             id,
         )
     }
@@ -347,6 +350,9 @@ class AiSearchRepository(
             method = AiResearchMethod.parse(rs.getString("research_method")),
             researchStats = rs.getString("research_stats"),
             benchmarkQuestionId = (rs.getObject("benchmark_question_id") as Number?)?.toLong(),
+            moreAvailable = rs.getBoolean("more_available"),
+            moreSummary = rs.getString("more_summary"),
+            expandsTurnId = rs.getString("expands_turn_id"),
         )
     }
 

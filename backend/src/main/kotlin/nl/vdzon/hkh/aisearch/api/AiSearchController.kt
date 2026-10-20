@@ -96,6 +96,17 @@ class AiSearchController(private val service: AiSearchService, private val ident
         identities.resolve(visitorCookie, servletRequest, response), sessionId, turnId, request.stop, request.hint,
     )
 
+    /** Volledige uitwerking van een begrensd antwoord: een nieuwe beurt met dezelfde bronnen. */
+    @PostMapping("/{sessionId}/turns/{turnId}/expand")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    fun expand(
+        @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,
+        servletRequest: HttpServletRequest,
+        response: HttpServletResponse,
+        @PathVariable sessionId: String,
+        @PathVariable turnId: String,
+    ): AiSearchSessionView = service.expand(identities.resolve(visitorCookie, servletRequest, response), sessionId, turnId)
+
     @PostMapping("/{sessionId}/cancel")
     fun cancel(
         @CookieValue(name = VISITOR_COOKIE, required = false) visitorCookie: String?,

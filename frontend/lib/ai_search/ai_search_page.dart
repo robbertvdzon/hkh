@@ -222,6 +222,26 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  Future<void> _expand(String turnId) async {
+    final sessionId = _session?.id;
+    if (sessionId == null) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final session = await widget.source.expandAiSearch(sessionId, turnId);
+      if (!mounted) return;
+      setState(() => _session = session);
+      _startPolling();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Future<void> _cancel() async {
     final sessionId = _session?.id;
     if (sessionId == null) return;
@@ -482,6 +502,17 @@ class _AiSearchPageState extends State<AiSearchPage> {
                           onSteer: turn.steerable && widget.canAsk
                               ? ({bool? stop, String? hint}) =>
                                     _steer(turn.id, stop: stop, hint: hint)
+                              : null,
+                          onExpand:
+                              widget.canAsk &&
+                                  turn.status == 'SUCCEEDED' &&
+                                  turn.moreAvailable &&
+                                  !_submitting &&
+                                  !session.turns.any((t) => t.isActive) &&
+                                  !session.turns.any(
+                                    (t) => t.expandsTurnId == turn.id,
+                                  )
+                              ? () => _expand(turn.id)
                               : null,
                         ),
                         const SizedBox(height: 20),
@@ -750,6 +781,7 @@ class _TurnCard extends StatelessWidget {
     this.showPdf = false,
     this.onPdf,
     this.exporting = false,
+    this.onExpand,
   });
 
   final AiSearchTurn turn;
@@ -757,6 +789,9 @@ class _TurnCard extends StatelessWidget {
   final VoidCallback? onCancel;
   final SteerHandler? onSteer;
   final VoidCallback? onShare;
+
+  /// Start de volledige uitwerking van dit begrensde antwoord; null als dat nu niet kan.
+  final VoidCallback? onExpand;
   final bool showPdf;
   final VoidCallback? onPdf;
   final bool exporting;
@@ -913,6 +948,39 @@ class _TurnCard extends StatelessWidget {
               ],
               const SizedBox(height: 14),
               AnswerHtml(turn.answerHtml ?? ''),
+              if (turn.moreAvailable && !turn.isExpansion) ...[
+                const SizedBox(height: 16),
+                Container(
+                  key: ValueKey('answer-more-${turn.id}'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dit is een beknopt antwoord. Er is meer te vertellen'
+                        '${(turn.moreSummary?.trim().isNotEmpty ?? false) ? ': ${turn.moreSummary!.trim()}' : '.'}',
+                      ),
+                      if (onExpand != null) ...[
+                        const SizedBox(height: 8),
+                        FilledButton.tonalIcon(
+                          key: ValueKey('answer-expand-${turn.id}'),
+                          onPressed: onExpand,
+                          icon: const Icon(Icons.unfold_more),
+                          label: const Text(
+                            'Volledig uitwerken (duurt enkele minuten)',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
               if (turn.sourcesHtml?.trim().isNotEmpty ?? false) ...[
                 const SizedBox(height: 16),
                 AnswerSourcesButton(
