@@ -76,7 +76,50 @@ class AdminAiModelApiIntegrationTest(
                 jsonPath("$.fromSetting") { value(false) }
                 jsonPath("$.method") { value("AGENT") }
                 jsonPath("$.roles.length()") { value(4) }
+                jsonPath("$.writeBudgetChars") { value(450000) }
+                jsonPath("$.writeBudgetFromSetting") { value(false) }
             }
+    }
+
+    @Test
+    fun `the write budget follows the writer model unless an administrator sets it, and the site learns whether depth is selectable`() {
+        settings.resetWriteBudget()
+        settings.updateMethod(AiResearchMethod.AGENT, "test")
+        mockMvc.get("/api/ai-search/options").andExpect {
+            status { isOk() }
+            jsonPath("$.method") { value("AGENT") }
+            jsonPath("$.depthSelectable") { value(true) }
+        }
+        assertEquals(450_000, settings.writeBudget().chars)
+        assertEquals(250_000, AiModelSettings.defaultWriteBudget("claude-haiku-5-5"))
+
+        mockMvc.put("/api/admin/ai-search/write-budget") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"chars":1000}"""
+        }.andExpect { status { isBadRequest() } }
+        mockMvc.put("/api/admin/ai-search/write-budget") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"chars":300000}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.role") { value("WRITER") }
+            jsonPath("$.writeBudgetChars") { value(300000) }
+            jsonPath("$.writeBudgetFromSetting") { value(true) }
+            jsonPath("$.writeBudgetDefault") { value(450000) }
+        }
+        assertEquals(300_000, settings.writeBudget().chars)
+        mockMvc.delete("/api/admin/ai-search/write-budget") { header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE) }
+            .andExpect { jsonPath("$.writeBudgetFromSetting") { value(false) } }
+
+        mockMvc.put("/api/admin/ai-search/method") {
+            header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"method":"PIPELINE"}"""
+        }.andExpect { jsonPath("$.method") { value("PIPELINE") } }
+        mockMvc.get("/api/ai-search/options").andExpect { jsonPath("$.depthSelectable") { value(false) } }
+        settings.updateMethod(AiResearchMethod.AGENT, "test")
     }
 
     @Test

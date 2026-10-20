@@ -177,6 +177,21 @@ class BackendClient
   }
 
   @override
+  Future<AiSearchOptions> loadAiSearchOptions() async {
+    try {
+      final response = await _client
+          .get(Uri.parse('$apiBaseUrl/api/ai-search/options'))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return const AiSearchOptions();
+      return AiSearchOptions.fromJson(
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return const AiSearchOptions();
+    }
+  }
+
+  @override
   Future<AiSearchSession> startAiSearch(
     String question, {
     AiResearchDepth depth = AiResearchDepth.fast,

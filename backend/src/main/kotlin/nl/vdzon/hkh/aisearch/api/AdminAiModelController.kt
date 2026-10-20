@@ -44,6 +44,10 @@ data class AiModelView(
     val method: AiResearchMethod,
     /** Alle rollen met hun huidige model. */
     val roles: List<AiRoleModelView>,
+    /** Tekstbudget van de schrijver in tekens, of een beheerder het koos, en de standaard voor het huidige schrijfmodel. */
+    val writeBudgetChars: Int,
+    val writeBudgetFromSetting: Boolean,
+    val writeBudgetDefault: Int,
 )
 
 data class SelectAiModelRequest(
@@ -54,9 +58,11 @@ data class SelectAiModelRequest(
 
 data class SelectAiMethodRequest(@field:NotBlank @field:Size(max = 20) val method: String)
 
+data class SelectWriteBudgetRequest(val chars: Int)
+
 /**
  * Beheer van de AI-modellen: catalogus van de runtime, de keuze per rol (agent, extractie,
- * onderzoek, schrijven) en de onderzoeksmethode.
+ * richten, schrijven), de onderzoeksmethode en het tekstbudget van de schrijver.
  */
 @RestController
 @RequestMapping("/api/admin/ai-search")
@@ -120,6 +126,30 @@ class AdminAiModelController(
         return view(AiRole.AGENT)
     }
 
+    @PutMapping("/write-budget")
+    fun selectWriteBudget(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @Valid @RequestBody request: SelectWriteBudgetRequest,
+    ): AiModelView {
+        val admin = authenticator.authenticate(authorization, previewHeader)
+        if (request.chars !in AiModelSettings.WRITE_BUDGET_RANGE) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Het tekstbudget moet tussen ${AiModelSettings.WRITE_BUDGET_RANGE.first} en ${AiModelSettings.WRITE_BUDGET_RANGE.last} tekens liggen.")
+        }
+        settings.updateWriteBudget(request.chars, admin.email)
+        return view(AiRole.WRITER)
+    }
+
+    @DeleteMapping("/write-budget")
+    fun resetWriteBudget(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+    ): AiModelView {
+        authenticator.authenticate(authorization, previewHeader)
+        settings.resetWriteBudget()
+        return view(AiRole.WRITER)
+    }
+
     private fun parseRole(value: String?): AiRole {
         if (value.isNullOrBlank()) return AiRole.AGENT
         return AiRole.entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
@@ -132,6 +162,7 @@ class AdminAiModelController(
         val options = catalog.getOrDefault(emptyList()).map { option ->
             AiModelOptionView(option.execution.toView(), option.available, option.onlineWorkers)
         }
+        val budget = settings.writeBudget()
         return AiModelView(
             role = role,
             current = choice.execution.toView(),
@@ -145,14 +176,17 @@ class AdminAiModelController(
                 val current = settings.current(each)
                 AiRoleModelView(each, roleLabel(each), current.execution.toView(), current.fromSetting)
             },
+            writeBudgetChars = budget.chars,
+            writeBudgetFromSetting = budget.fromSetting,
+            writeBudgetDefault = budget.default,
         )
     }
 
     private fun roleLabel(role: AiRole) = when (role) {
         AiRole.AGENT -> "Agent (zoekt zelf via de API)"
         AiRole.EXTRACTION -> "Extractie (AI-kaarten)"
-        AiRole.RESEARCH -> "Onderzoek (zoektermen en beoordelen)"
-        AiRole.WRITER -> "Schrijven (het antwoord)"
+        AiRole.RESEARCH -> "Richten (kaarten beoordelen en de zoekopdracht bepalen)"
+        AiRole.WRITER -> "Schrijven (het antwoord uit de volledige teksten)"
     }
 
     private fun AiExecution.toView() = AiExecutionView(vendorId, model, mode, label)

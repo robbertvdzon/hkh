@@ -102,6 +102,11 @@ class _SearchSource implements CollectionSearchSource {
 }
 
 class _AiSource implements AiSearchSource {
+  AiSearchOptions options = const AiSearchOptions();
+
+  @override
+  Future<AiSearchOptions> loadAiSearchOptions() async => options;
+
   final List<String> startedQuestions = [];
   final List<AiResearchDepth> startedDepths = [];
   final List<(String, bool?, String?)> steerings = [];

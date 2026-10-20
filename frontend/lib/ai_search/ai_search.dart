@@ -140,6 +140,7 @@ class AiSearchTurn {
     this.researchLog = const [],
     this.steering = const AiSteering(),
     this.steerable = false,
+    this.method = 'AGENT',
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -172,6 +173,7 @@ class AiSearchTurn {
         .toList(growable: false),
     steering: AiSteering.fromJson(json['steering'] as Map<String, dynamic>?),
     steerable: json['steerable'] as bool? ?? false,
+    method: json['method'] as String? ?? 'AGENT',
   );
 
   final String id;
@@ -201,6 +203,11 @@ class AiSearchTurn {
 
   /// Of bijsturen nu kan: het onderzoek loopt en heeft meer dan één ronde.
   final bool steerable;
+
+  /// AGENT of PIPELINE; alleen bij de agent zegt de diepte iets over het onderzoek.
+  final String method;
+
+  bool get showsDepth => method != 'PIPELINE';
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -269,8 +276,26 @@ class AiSearchSession {
   final List<AiSearchTurn> turns;
 }
 
+/// Wat de site vooraf moet weten om een vraag te stellen. Alleen de agent-methode
+/// kent een onderzoeksdiepte; de pijplijn werkt altijd in twee AI-runs.
+class AiSearchOptions {
+  const AiSearchOptions({this.depthSelectable = true, this.method = 'AGENT'});
+
+  factory AiSearchOptions.fromJson(Map<String, dynamic> json) =>
+      AiSearchOptions(
+        depthSelectable: json['depthSelectable'] as bool? ?? true,
+        method: json['method'] as String? ?? 'AGENT',
+      );
+
+  final bool depthSelectable;
+  final String method;
+}
+
 abstract interface class AiSearchSource {
   Future<List<AiSearchSummary>> listAiSearches();
+
+  /// Instellingen voor het vraagformulier; bij een storing gelden de standaarden.
+  Future<AiSearchOptions> loadAiSearchOptions();
   Future<AiSearchSession> startAiSearch(
     String question, {
     AiResearchDepth depth = AiResearchDepth.fast,

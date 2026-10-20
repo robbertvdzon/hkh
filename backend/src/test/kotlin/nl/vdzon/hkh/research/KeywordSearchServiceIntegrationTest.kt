@@ -80,6 +80,42 @@ class KeywordSearchServiceIntegrationTest(
         assertEquals(listOf("ks-3", "ks-1"), search.cards(listOf(ResearchRef("artikelen", "ks-3"), ResearchRef("beeldbank", "ks-1"))).map { it.ref.ident })
     }
 
+    @Test
+    fun `text hits carry the fragment, articles and title hits rank higher, and the final selection sorts by year with fixed records first`() {
+        items.upsert(record("beeldbank", "fr-1", "Zeelaan", "Straatbeeld.", 1961, image = true))
+        items.upsert(record("beeldbank", "fr-2", "Winkel aan de Zeelaan", "Kruidenier.", 1935, image = true))
+        items.upsert(record("artikelen", "fr-3", "Brand in Kerkbeek", "Over de grote brand.", 1972, image = false))
+        items.saveDocumentText("artikelen", "fr-3", "Inleiding over de buurt. " + "Tekst. ".repeat(40) + "In de nacht van 3 april 1972 brandde de boerderij aan de Zeelaan volledig af. " + "Slot. ".repeat(40), "hash-fr-3")
+        items.upsert(record("beeldbank", "fr-4", "Luchtfoto Fort Veldhuis", "Luchtfoto uit 1922.", 1922, image = true))
+        card("beeldbank", "fr-1", "De Zeelaan in 1961.", CardKeyword(KeywordType.STREET, "Zeelaan", "Zeelaan"))
+        card("beeldbank", "fr-2", "Kruidenierswinkel aan de Zeelaan, 1935.", CardKeyword(KeywordType.STREET, "Zeelaan", "Zeelaan"))
+        card("artikelen", "fr-3", "Artikel over de brand van 1972 in Kerkbeek.", CardKeyword(KeywordType.EVENT, "brand", "Brand 1972"))
+        // fr-4 heeft geen kaart en geen trefwoord Zeelaan.
+
+        val result = search.search(listOf(ResearchQuery(terms = listOf("Zeelaan"))), exclude = emptySet())
+        val byIdent = result.candidates.associateBy { it.ref.ident }
+        val article = byIdent.getValue("fr-3")
+        assertTrue(article.hasText)
+        assertTrue(article.fragments.single().contains("«Zeelaan»"), article.fragments.toString())
+        assertTrue(byIdent.getValue("fr-1").fragments.isEmpty())
+        // Titeltreffer en documenttekst wegen mee: het artikel (alleen via tekst) staat niet onder de foto zonder titeltreffer.
+        val idents = result.candidates.map { it.ref.ident }
+        assertTrue(idents.indexOf("fr-1") < idents.indexOf("fr-3"), "titeltreffer eerst: $idents")
+        assertTrue(result.totalFound >= 3)
+
+        // Sorteren op jaar: oudste eerst, records zonder jaar achteraan.
+        val oldest = search.search(listOf(ResearchQuery(terms = listOf("Zeelaan"), sortByYear = YearSort.ASC)), exclude = emptySet()).candidates.map { it.ref.ident }
+        assertEquals(listOf("fr-2", "fr-1", "fr-3"), oldest.filter { it.startsWith("fr-") })
+
+        // De definitieve selectie: vaste records vooraan, daarna de treffers; zonder termen alleen de vaste records.
+        val selected = search.select(ResearchQuery(terms = listOf("Zeelaan"), includeRecords = listOf(ResearchRef("beeldbank", "fr-4"))))
+        assertEquals("fr-4", selected.candidates.first().ref.ident)
+        assertTrue(selected.candidates.count { it.ref.ident == "fr-4" } == 1)
+        assertTrue(selected.candidates.any { it.ref.ident == "fr-3" })
+        val onlyIncluded = search.select(ResearchQuery(terms = emptyList(), includeRecords = listOf(ResearchRef("beeldbank", "fr-4"), ResearchRef("beeldbank", "fr-1"))))
+        assertEquals(listOf("fr-4", "fr-1"), onlyIncluded.candidates.map { it.ref.ident })
+    }
+
     companion object {
         @Container
         @ServiceConnection

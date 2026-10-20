@@ -137,7 +137,8 @@ blijven ongewijzigd.
 
 ## AI-onderzoek: diepte en bronnen
 
-Bij elke nieuwe vraag kiest de gebruiker de onderzoeksdiepte. Een zoekronde is:
+Bij elke nieuwe vraag met de agent-methode kiest de gebruiker de onderzoeksdiepte (bij de
+pijplijn verbergt de site de keuze, zie verderop). Een zoekronde is:
 zoektermen bepalen, alle resultaatpagina's ophalen, samenvattingen beoordelen en de details
 van relevante treffers lezen; ronde 1 komt uit de vraag, elke volgende ronde uit
 aanknopingspunten (personen, adressen, gebouwen, bedrijven) van de vorige ronde.
@@ -200,24 +201,50 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
 (`ai_search_turn.research_method`).
 
 - **Agent**: de agent in de agent-runtime zoekt zelf via de REST-API en meldt rondes via de
-  meld-URL (zie hierboven).
-- **Pijplijn**: de code bestuurt de rondes; het model levert per stap één gestructureerd antwoord
-  via de runtime (abonnementsmodus, `STRUCTURED_GENERATION`). Stap A bepaalt zoektermen; stap B
-  zoekt in code: trigram-tolerant op de trefwoorden van de AI-kaarten (Oostrum vindt ook Oostrom
-  en Van Oostrum), losse jaartallen als periode van ±2 jaar, de volledige tekst als vangnet,
-  gerangschikt op aantal gematchte termen en score met een plafond van 40 kaarten per ronde; stap C
-  (één job per ronde) kiest relevante records, geeft een tussenconclusie, volgende sporen en de
-  zoekopdrachten voor de volgende ronde en zegt of er genoeg is; stap D schrijft het antwoord uit de
-  volledige documenten met genummerde bronnen, die de code terugvertaalt naar collection/ident
-  zodat renderer, bronnenpagina en PDF ongewijzigd blijven. **Snel** is plan + schrijven (de best
-  gerangschikte 25 kaarten gaan direct naar de schrijver); **Doorzoeken** en **Uitgebreid** doen
-  maximaal 5 of 15 beoordelingsrondes. De lus stopt als het model genoeg heeft, een ronde niets
-  nieuws oplevert, er geen volgende zoekopdrachten zijn, het maximum is bereikt of de gebruiker op
-  **Genoeg gevonden, schrijf het antwoord** drukt (werkt op de rondegrens). Het logboek en de
-  voortgang (ronde / maxRounds tot ~70%, schrijven daarna) vult de code. Niet-gevolgde sporen
-  worden vervolgvragen. Een vervolgvraag start met de bronnen van het vorige antwoord als bekende
-  kaarten. Per vraag worden jobs, modellen en tokens bewaard in `research_stats` voor
-  vergelijking. Een pijplijnonderzoek dat bij een herstart liep, wordt als mislukt gemeld.
+  meld-URL (zie hierboven). Alleen bij de agent kiest de gebruiker een onderzoeksdiepte.
+- **Pijplijn**: altijd twee modelaanroepen via de runtime (abonnementsmodus,
+  `STRUCTURED_GENERATION`); de diepte speelt geen rol en de site verbergt de keuze
+  (`GET /api/ai-search/options` geeft `depthSelectable`). De stappen:
+  1. **Zoektermen uit de vraag, zonder model** (`QuestionTerms`): aangehaalde tekst, namen en
+     straten (hoofdletterreeksen met tussenvoegsels, plus de achternaam apart), jaartallen,
+     perioden ("1950-1960", "jaren vijftig") en de overige betekenisvolle woorden zonder
+     stopwoorden; hoogstens acht termen. "Oudste/eerste" en "nieuwste/laatste" zetten de
+     sortering op jaar. Alleen zonder termen of zonder treffers (bijvoorbeeld een vervolgvraag
+     als "en hij?") bepaalt het model de termen in een planjob.
+  2. **SQL 1, breed**: trigram-tolerant op de trefwoorden van de AI-kaarten (Oostrum vindt ook
+     Oostrom en Van Oostrum), losse jaartallen als periode van ±2 jaar, de volledige tekst als
+     vangnet. Rangschikking op aantal gematchte termen en score, met een bonus voor een
+     titeltreffer en voor records met documenttekst, zodat artikelen niet onder foto's zakken;
+     bij een jaarsignaal gesorteerd op jaar. Plafond 300 kaarten. Bij een treffer in de
+     documenttekst gaat het fragment rond de treffer mee (`ts_headline`, twee fragmenten van
+     hoogstens 30 woorden, treffer tussen « en »). De bronnen van het vorige antwoord in het
+     gesprek doen als kaart mee.
+  3. **Richten** (rol RESEARCH, één job): het model ziet de vraag, de context, per term de
+     treffertelling en alle kaarten (samenvatting, trefwoorden, jaar, foto, documenttekst
+     ja/nee, fragmenten) en geeft terug: een tussenconclusie (twee zinnen, zichtbaar als
+     voortgang) en de definitieve zoekopdracht: termen, periode, collecties, beeldfilter,
+     `sortByYear` en `includeRecords` (records die hoe dan ook mee moeten, hoogstens 60, alleen
+     uit de getoonde kaarten). Geen keuzelijst per record en geen volgende ronde.
+  4. **SQL 2 en het tekstbudget**: de code voert de zoekopdracht uit (vaste records vooraan, dan
+     de treffers in rangorde of op jaar; zonder bruikbare zoekopdracht de kaarten van SQL 1 in
+     rangorde) en haalt de volledige records op. Korte records (hoogstens 1.500 tekens
+     documenttekst: foto's, bidprentjes, objecten, korte stukken) gaan altijd volledig mee. Lange
+     documenten gaan in rangorde volledig mee (hoogstens 60.000 tekens per document) zolang het
+     tekstbudget dat toelaat; de rest gaat als kaart met fragment mee onder "Alleen de kaart
+     gelezen". Het budget is per schrijfmodel instelbaar in beheer (`ai-search.write-budget`;
+     standaard 450.000 tekens, 250.000 voor kleine modellen zoals Haiku).
+  5. **Schrijven** (rol WRITER, één job): het antwoord uitsluitend uit de genummerde bronnen,
+     met foto's tussen de tekst, bronnummers die de code terugvertaalt naar collection/ident
+     (renderer, bronnenpagina en PDF ongewijzigd), een lijst "Ook gevonden, niet gebruikt"
+     (treffers van SQL 1 buiten de selectie, hoogstens 60 titels; alleen te noemen, niet te
+     citeren) en 3 tot 5 concrete vervolgvragen over namen, adressen en gebeurtenissen uit de
+     bronnen die niet zijn uitgewerkt. Doorvragen vervangt de verdiepingsrondes.
+
+  De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%);
+  het logboek krijgt één regel met de tussenconclusie en het aantal geselecteerde records.
+  **Stoppen** breekt het onderzoek af; **Genoeg gevonden** bestaat alleen voor de agent. Per
+  vraag worden jobs, modellen, tokens en kosten bewaard in `research_stats` voor vergelijking.
+  Een pijplijnonderzoek dat bij een herstart liep, wordt als mislukt gemeld.
 
 ## AI-kaarten en trefwoorden
 
@@ -234,7 +261,7 @@ verandert. Het beheerscherm heeft de knop **AI-kaarten maken (ontbrekende)** (sc
 `CARDS`; met "alles opnieuw" ook eerder mislukte); een volledige collectie-import sluit af met
 kaarten voor nieuwe records. De status toont het aantal gemaakte en mislukte kaarten.
 
-Grote invoer (records voor kaarten, kandidaten voor een ronde, documenten voor de schrijver)
+Grote invoer (records voor kaarten, kaarten voor het richten, documenten voor de schrijver)
 gaat niet in de instructie van de runtime-job (maximaal 65.536 tekens) maar als genummerde
 tekstbestanden (`/job/input/objects/<naam>-<n>/content`, elk hoogstens 45.000 tekens, regels
 afgebroken op 400 tekens); de instructie verwijst ernaar en vraagt ze volledig te lezen.
@@ -255,17 +282,21 @@ runtime-job, model, tokens, seconden), dat ook voor de agent-methode wordt gevul
 
 Het beheerscherm toont onder de collectie-import het blok **AI-onderzoeker: methode en
 modellen**: een keuze **Agent / Pijplijn** voor de onderzoeksmethode, een overzicht van het
-huidige model per rol (agent, extractie, onderzoek, schrijven; "(standaard)" zolang geen
+huidige model per rol (agent, extractie, richten, schrijven; "(standaard)" zolang geen
 beheerder voor die rol koos), een keuzelijst **Rol om in te stellen**, het nu actieve model van
 die rol (met wie het koos), een keuzelijst met alle modellen uit de catalogus van de
 agent-runtime voor dit project (leverancier · model · uitvoeringswijze, met "geen worker
 online" waar dat zo is), de knop **Dit model gebruiken**, **Terug naar standaard** en
-**Catalogus verversen**. Keuzes staan in `app_setting` (`ai-search.execution` voor de agent,
-`ai-search.execution.<rol>` voor de andere rollen, `ai-search.method`) en gelden direct voor
-nieuwe vragen; lopende onderzoeken maken hun huidige methode en model af. Zonder eigen keuze
-erven onderzoek en schrijven het model van de agent; extractie krijgt het kleine
-extractiemodel uit de configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
-`GET`/`PUT`/`DELETE /api/admin/ai-search/model?role=…`, `PUT /api/admin/ai-search/method`.
+**Catalogus verversen**. Bij de rol **Schrijven** staat daaronder het **Tekstbudget van de
+schrijver** (tekens; 50.000 tot 2.000.000) met **Budget opslaan** en **Standaard (…)**, dat
+zonder eigen keuze het schrijfmodel volgt (450.000, kleine modellen 250.000). Keuzes staan in
+`app_setting` (`ai-search.execution` voor de agent, `ai-search.execution.<rol>` voor de andere
+rollen, `ai-search.method`, `ai-search.write-budget`) en gelden direct voor nieuwe vragen;
+lopende onderzoeken maken hun huidige methode en model af. Zonder eigen keuze erven richten en
+schrijven het model van de agent; extractie krijgt het kleine extractiemodel uit de
+configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
+`GET`/`PUT`/`DELETE /api/admin/ai-search/model?role=…`, `PUT /api/admin/ai-search/method`,
+`PUT`/`DELETE /api/admin/ai-search/write-budget`.
 
 ## PDF-export van een AI-antwoord
 

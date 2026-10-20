@@ -76,10 +76,14 @@ class _AiModelSource implements AdminAiModelSource {
   final List<AiRole> selectedRoles = [];
   final List<AiRole> loadedRoles = [];
   AiResearchMethod method = AiResearchMethod.agent;
+  int? writeBudget;
 
   AiModelState _state({AiRole role = AiRole.agent}) => AiModelState(
     role: role,
     method: method,
+    writeBudgetChars: writeBudget ?? 450000,
+    writeBudgetFromSetting: writeBudget != null,
+    writeBudgetDefault: 450000,
     roles: [
       for (final each in AiRole.values)
         AiRoleModel(role: each, current: current, fromSetting: fromSetting),
@@ -157,6 +161,21 @@ class _AiModelSource implements AdminAiModelSource {
   ) async {
     this.method = method;
     return _state();
+  }
+
+  @override
+  Future<AiModelState> selectWriteBudget(
+    AdminIdentity identity,
+    int chars,
+  ) async {
+    writeBudget = chars;
+    return _state(role: AiRole.writer);
+  }
+
+  @override
+  Future<AiModelState> resetWriteBudget(AdminIdentity identity) async {
+    writeBudget = null;
+    return _state(role: AiRole.writer);
   }
 }
 
@@ -444,6 +463,26 @@ void main() {
     await tester.tap(find.byKey(const Key('ai-model-save')));
     await tester.pumpAndSettle();
     expect(aiModelSource.selectedRoles, [AiRole.writer]);
+
+    // Bij de rol Schrijven is het tekstbudget in te stellen en terug te zetten.
+    await tester.ensureVisible(find.byKey(const Key('ai-write-budget')));
+    expect(
+      find.textContaining('Nu: 450.000 tekens (standaard voor dit model)'),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byKey(const Key('ai-write-budget')), '250000');
+    await tester.ensureVisible(find.byKey(const Key('ai-write-budget-save')));
+    await tester.tap(find.byKey(const Key('ai-write-budget-save')));
+    await tester.pumpAndSettle();
+    expect(aiModelSource.writeBudget, 250000);
+    expect(
+      find.textContaining('Nu: 250.000 tekens (door een beheerder gekozen)'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.byKey(const Key('ai-write-budget-reset')));
+    await tester.tap(find.byKey(const Key('ai-write-budget-reset')));
+    await tester.pumpAndSettle();
+    expect(aiModelSource.writeBudget, isNull);
   });
 
   testWidgets(

@@ -18,6 +18,12 @@ data class AiExecutionOption(val execution: AiExecution, val available: Boolean,
 data class AiModelChoice(val execution: AiExecution, val fromSetting: Boolean, val updatedAt: Instant?, val updatedBy: String?)
 
 /**
+ * Het tekstbudget van de schrijver: hoeveel tekens aan bronnen hij hoogstens krijgt. Zonder eigen
+ * keuze hangt de standaard af van het schrijfmodel (een klein model schrijft traag bij veel invoer).
+ */
+data class AiWriteBudget(val chars: Int, val fromSetting: Boolean, val default: Int)
+
+/**
  * Het model van de digitale onderzoeker is in het beheerscherm te wisselen zonder uitrol. De
  * keuze staat in `app_setting`; zonder keuze geldt de configuratie (`hkh.ai-search.*`).
  */
@@ -82,6 +88,31 @@ class AiModelSettings(
         return current(role)
     }
 
+    /** Het tekstbudget voor de schrijver (rol WRITER); zonder eigen keuze de standaard voor het schrijfmodel. */
+    fun writeBudget(): AiWriteBudget {
+        val default = defaultWriteBudget(execution(AiRole.WRITER).model)
+        val stored = jdbc.queryForList("SELECT value FROM app_setting WHERE key = ?", String::class.java, WRITE_BUDGET_KEY)
+            .singleOrNull()?.trim()?.toIntOrNull()?.takeIf { it in WRITE_BUDGET_RANGE }
+        return AiWriteBudget(stored ?: default, fromSetting = stored != null, default = default)
+    }
+
+    fun updateWriteBudget(chars: Int, updatedBy: String): AiWriteBudget {
+        require(chars in WRITE_BUDGET_RANGE) { "Het tekstbudget moet tussen ${WRITE_BUDGET_RANGE.first} en ${WRITE_BUDGET_RANGE.last} tekens liggen." }
+        jdbc.update(
+            """
+            INSERT INTO app_setting (key, value, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
+            """.trimIndent(),
+            WRITE_BUDGET_KEY, chars.toString(), updatedBy.take(320),
+        )
+        return writeBudget()
+    }
+
+    fun resetWriteBudget(): AiWriteBudget {
+        jdbc.update("DELETE FROM app_setting WHERE key = ?", WRITE_BUDGET_KEY)
+        return writeBudget()
+    }
+
     /** De onderzoeksmethode voor nieuwe vragen; zonder keuze de agent. */
     fun method(): AiResearchMethod = jdbc.queryForList("SELECT value FROM app_setting WHERE key = ?", String::class.java, METHOD_KEY)
         .singleOrNull()?.let(AiResearchMethod::parse) ?: AiResearchMethod.AGENT
@@ -98,8 +129,16 @@ class AiModelSettings(
 
     private fun key(role: AiRole) = if (role == AiRole.AGENT) KEY else "$KEY.${role.name.lowercase()}"
 
-    private companion object {
+    companion object {
         const val KEY = "ai-search.execution"
         const val METHOD_KEY = "ai-search.method"
+        const val WRITE_BUDGET_KEY = "ai-search.write-budget"
+        val WRITE_BUDGET_RANGE = 50_000..2_000_000
+        const val WRITE_BUDGET_LARGE = 450_000
+        const val WRITE_BUDGET_SMALL = 250_000
+
+        /** Kleine modellen (haiku, mini, nano, flash) schrijven traag bij veel invoer en krijgen een kleiner budget. */
+        fun defaultWriteBudget(model: String): Int =
+            if (Regex("haiku|mini|nano|flash|lite", RegexOption.IGNORE_CASE).containsMatchIn(model)) WRITE_BUDGET_SMALL else WRITE_BUDGET_LARGE
     }
 }

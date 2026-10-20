@@ -751,6 +751,7 @@ class _AiModelSectionState extends State<_AiModelSection> {
   AiModelState? _state;
   AiRole _role = AiRole.agent;
   String? _selectedKey;
+  final TextEditingController _budgetController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -762,6 +763,12 @@ class _AiModelSectionState extends State<_AiModelSection> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _budgetController.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     try {
       final state = await widget.source.load(widget.identity, role: _role);
@@ -769,6 +776,7 @@ class _AiModelSectionState extends State<_AiModelSection> {
       setState(() {
         _state = state;
         _selectedKey = state.current.key;
+        _budgetController.text = '${state.writeBudgetChars}';
         _loading = false;
         _error = null;
       });
@@ -808,6 +816,7 @@ class _AiModelSectionState extends State<_AiModelSection> {
       setState(() {
         _state = state;
         _selectedKey = state.current.key;
+        _budgetController.text = '${state.writeBudgetChars}';
         _success = success;
       });
     } catch (error) {
@@ -818,6 +827,33 @@ class _AiModelSectionState extends State<_AiModelSection> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _saveBudget() async {
+    final chars = int.tryParse(
+      _budgetController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
+    if (chars == null || chars < 50000 || chars > 2000000) {
+      setState(
+        () =>
+            _error = 'Geef een tekstbudget tussen 50.000 en 2.000.000 tekens.',
+      );
+      return;
+    }
+    await _apply(
+      () => widget.source.selectWriteBudget(widget.identity, chars),
+      'Het tekstbudget is gewijzigd.',
+    );
+  }
+
+  static String _formatChars(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
   }
 
   @override
@@ -1015,6 +1051,61 @@ class _AiModelSectionState extends State<_AiModelSection> {
                   ),
                 ],
               ),
+              if (state != null && _role == AiRole.writer) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Tekstbudget van de schrijver',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Hoeveel tekens aan bronnen de schrijver hoogstens krijgt. Korte '
+                  'records (foto\'s, bidprentjes, objecten) gaan altijd volledig mee; '
+                  'lange artikelen vullen het budget in rangorde, de rest gaat als '
+                  'kaart mee. Nu: ${_formatChars(state.writeBudgetChars)} tekens'
+                  '${state.writeBudgetFromSetting ? ' (door een beheerder gekozen)' : ' (standaard voor dit model)'}.',
+                  key: const Key('ai-write-budget-current'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('ai-write-budget'),
+                  controller: _budgetController,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Tekstbudget (tekens, 50.000 tot 2.000.000)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonalIcon(
+                      key: const Key('ai-write-budget-save'),
+                      onPressed: _saving ? null : _saveBudget,
+                      icon: const Icon(Icons.check),
+                      label: const Text('Budget opslaan'),
+                    ),
+                    OutlinedButton(
+                      key: const Key('ai-write-budget-reset'),
+                      onPressed: _saving || !state.writeBudgetFromSetting
+                          ? null
+                          : () => _apply(
+                              () => widget.source.resetWriteBudget(
+                                widget.identity,
+                              ),
+                              'Het tekstbudget volgt weer het schrijfmodel.',
+                            ),
+                      child: Text(
+                        'Standaard (${_formatChars(state.writeBudgetDefault)})',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (_success != null) ...[
                 const SizedBox(height: 8),
                 Text(_success!, key: const Key('ai-model-success')),

@@ -150,6 +150,11 @@ Bevindingen voor de pijplijn (los van het model):
 
 ### Volgende reeksen
 
+Sinds 20-10-2026 (middag) is de pijplijn omgebouwd naar twee AI-runs (richten en schrijven, zie
+[ai-onderzoek-pijplijn-v2-twee-runs.md](ai-onderzoek-pijplijn-v2-twee-runs.md)); de diepte
+speelt in de pijplijn geen rol meer. Reeksen vanaf F gebruiken die versie. Voorgenomen: reeks F
+= richten Sonnet 5.5, schrijven Haiku 5.5; reeks G = Sonnet 5.5 op beide rollen.
+
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | | | | | | | | | | |

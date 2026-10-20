@@ -45,6 +45,9 @@ class AiSearchService(
 
     fun isAvailable(): Boolean = runtime.isConfigured()
 
+    /** Wat de site moet weten voordat een vraag gesteld wordt: alleen de agent kent een onderzoeksdiepte. */
+    fun options(): AiSearchOptionsView = AiSearchOptionsView(method = modelSettings.method(), depthSelectable = modelSettings.method() == AiResearchMethod.AGENT)
+
     // ---- Persoonlijke zoekopdrachten (account of bezoekerscookie) ----
 
     fun start(identity: AiSearchIdentity, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
@@ -183,6 +186,7 @@ class AiSearchService(
         val turn = repository.findTurn(turnId)?.takeIf { it.sessionId == sessionId }
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vraag niet gevonden")
         if (turn.status !in ACTIVE_STATUSES) throw ResponseStatusException(HttpStatus.CONFLICT, "Dit onderzoek is al afgerond")
+        if (turn.method == AiResearchMethod.PIPELINE) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "De pijplijn kent geen rondegrens en is niet bij te sturen; gebruik Stoppen")
         if (turn.depth.maxRounds <= 1) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Een snel onderzoek heeft maar één ronde en is niet bij te sturen")
         val cleanedHint = hint?.trim()?.takeIf(String::isNotEmpty)
         if (stop != true && cleanedHint == null) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Geef een aanwijzing of kies stoppen")
@@ -343,11 +347,9 @@ class AiSearchService(
         val input = ResearchInput(
             question = turn.question,
             context = contextBlock(turn),
-            maxRounds = turn.depth.maxRounds,
-            answerLength = turn.depth.answerLength,
-            guidance = turn.depth.guidance,
             priorSources = previousSources,
             idempotencyPrefix = "hkh-ai-${turn.id}",
+            writeBudgetChars = modelSettings.writeBudget().chars,
         )
         try {
             val outcome = pipeline.research(input, listener)
@@ -605,7 +607,7 @@ data class AiSearchTurnView(
     val researchLog: List<AiResearchRoundView>,
     /** Bijsturing van de gebruiker en of de agent die al heeft opgepakt. */
     val steering: AiSteeringView,
-    /** Of bijsturen nu kan: het onderzoek loopt en heeft meer dan één ronde. */
+    /** Of bijsturen nu kan: het onderzoek loopt met de agent en heeft meer dan één ronde (de pijplijn kent geen rondegrens). */
     val steerable: Boolean,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
@@ -615,6 +617,9 @@ data class AiSearchTurnView(
 
 data class AiResearchRoundView(val round: Int, val sources: Int, val found: String, val next: List<String>, val reportedAt: Instant)
 
+/** Instellingen die de site vooraf nodig heeft: de methode voor nieuwe vragen en of de diepte te kiezen is. */
+data class AiSearchOptionsView(val method: AiResearchMethod, val depthSelectable: Boolean)
+
 data class AiSteeringView(val stop: Boolean, val hint: String?, val delivered: Boolean)
 
 private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView(
@@ -622,7 +627,7 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
     sources, suggestedFollowUps, errorMessage, depth, method,
     researchLog.map { AiResearchRoundView(it.round, it.sources, it.found, it.next, it.reportedAt) },
     AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
-    status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1,
+    status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1 && method == AiResearchMethod.AGENT,
     createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 

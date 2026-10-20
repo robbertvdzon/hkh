@@ -85,10 +85,12 @@ class _AiSearchPageState extends State<AiSearchPage> {
   bool _exporting = false;
   String? _error;
   late AiResearchDepth _depth = widget.initialDepth;
+  bool _depthSelectable = true;
 
   @override
   void initState() {
     super.initState();
+    _loadOptions();
     final question = widget.initialQuestion?.trim() ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -100,6 +102,15 @@ class _AiSearchPageState extends State<AiSearchPage> {
         _loadSearches(showLoading: true);
         _startOverviewPolling();
       }
+    });
+  }
+
+  Future<void> _loadOptions() async {
+    final options = await widget.source.loadAiSearchOptions();
+    if (!mounted) return;
+    setState(() {
+      _depthSelectable = options.depthSelectable;
+      if (!options.depthSelectable) _depth = AiResearchDepth.fast;
     });
   }
 
@@ -388,8 +399,9 @@ class _AiSearchPageState extends State<AiSearchPage> {
                           enabled: !_submitting,
                           onSubmit: _submit,
                           depth: _depth,
-                          onDepthChanged: (depth) =>
-                              setState(() => _depth = depth),
+                          onDepthChanged: _depthSelectable
+                              ? (depth) => setState(() => _depth = depth)
+                              : null,
                         ),
                       const SizedBox(height: 24),
                       Row(
@@ -495,6 +507,7 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   onSubmit: _submit,
                   depth: _depth,
                   onDepthChanged: (depth) => setState(() => _depth = depth),
+                  showDepth: _depthSelectable,
                 )
               else if (!widget.canAsk)
                 Padding(
@@ -860,10 +873,12 @@ class _TurnCard extends StatelessWidget {
                   const Icon(Icons.schedule, size: 18),
                   const SizedBox(width: 7),
                   Text(elapsed ?? ''),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.manage_search, size: 18),
-                  const SizedBox(width: 7),
-                  Text(turn.depth.label),
+                  if (turn.showsDepth) ...[
+                    const SizedBox(width: 12),
+                    const Icon(Icons.manage_search, size: 18),
+                    const SizedBox(width: 7),
+                    Text(turn.depth.label),
+                  ],
                 ],
               ),
               if (onShare != null || showPdf) ...[
@@ -1022,6 +1037,7 @@ class _QuestionComposer extends StatelessWidget {
     required this.onSubmit,
     required this.depth,
     required this.onDepthChanged,
+    this.showDepth = true,
   });
 
   final TextEditingController controller;
@@ -1030,6 +1046,9 @@ class _QuestionComposer extends StatelessWidget {
   final VoidCallback onSubmit;
   final AiResearchDepth depth;
   final ValueChanged<AiResearchDepth> onDepthChanged;
+
+  /// De pijplijn kent geen diepte; dan blijft het keuzemenu weg.
+  final bool showDepth;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -1057,13 +1076,15 @@ class _QuestionComposer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            ResearchDepthMenuButton(
-              value: depth,
-              enabled: enabled,
-              compact: constraints.maxWidth < 520,
-              onChanged: onDepthChanged,
-            ),
-            const SizedBox(width: 4),
+            if (showDepth) ...[
+              ResearchDepthMenuButton(
+                value: depth,
+                enabled: enabled,
+                compact: constraints.maxWidth < 520,
+                onChanged: onDepthChanged,
+              ),
+              const SizedBox(width: 4),
+            ],
             IconButton.filled(
               onPressed: enabled ? onSubmit : null,
               icon: const Icon(Icons.arrow_upward),

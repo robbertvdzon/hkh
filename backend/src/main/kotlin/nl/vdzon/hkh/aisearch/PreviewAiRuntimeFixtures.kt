@@ -21,23 +21,32 @@ class PreviewAiRuntimeFixtures(
             properties.has("answerHtml") -> job("fixture-search:$idempotencyKey")
             // Kaartenextractie levert in de afgeschermde omgeving geen kaarten op; de records tellen als mislukt.
             properties.has("cards") -> job("fixture-cards:$idempotencyKey")
-            else -> throw IllegalArgumentException("The isolated AI fixture only supports archive search answers and card extraction")
+            // De richtstap van de pijplijn: geen zoekopdracht, dus de gevonden kaarten gaan in rangorde door.
+            properties.has("query") -> job("fixture-direct:$idempotencyKey")
+            properties.has("queries") -> job("fixture-plan:$idempotencyKey")
+            else -> throw IllegalArgumentException("The isolated AI fixture only supports archive search answers, pipeline steps and card extraction")
         }
     }
 
     fun job(id: String): RuntimeJob {
-        require(id.startsWith("fixture-search:") || id.startsWith("fixture-cards:")) { "A real runtime job cannot be read as a fixture" }
+        require(FIXTURE_PREFIXES.any(id::startsWith)) { "A real runtime job cannot be read as a fixture" }
         return RuntimeJob(id, "SUCCEEDED", "COMPLETED", 100, "Synthetisch testantwoord voor PDF- en schermcontrole", null)
     }
 
     fun result(id: String): JsonNode {
         job(id)
         if (id.startsWith("fixture-cards:")) return mapper.readTree("""{"cards":[]}""")
+        if (id.startsWith("fixture-direct:")) return mapper.readTree("""{"conclusionSoFar":"Synthetische richtstap.","query":{"terms":[],"yearFrom":0,"yearTo":0,"collections":[],"withImage":false,"sortByYear":"none","includeRecords":[],"reason":""}}""")
+        if (id.startsWith("fixture-plan:")) return mapper.readTree("""{"queries":[],"conclusionSoFar":""}""")
         return mapper.readTree("""{
           "title":"Testantwoord (synthetisch)",
           "answerHtml":"<h2>Synthetische collectie voor exporttests</h2><p>Dit is herkenbare <strong>testinhoud</strong>, geen historisch of door AI onderzocht antwoord.</p><ul><li>Eerste testpunt</li><li>Tweede testpunt met accenten: café en België.</li></ul><table><tr><th>Onderdeel</th><th>Waarde</th></tr><tr><td>Bron</td><td>Testcollectie</td></tr></table><p><a data-hkh-source='beeldbank/test-pdf-001'>Bekijk de synthetische bron</a></p>",
           "sources":[{"collection":"beeldbank","ident":"test-pdf-001"}],
           "suggestedFollowUps":["Toon nog een testantwoord"]
         }""")
+    }
+
+    private companion object {
+        val FIXTURE_PREFIXES = listOf("fixture-search:", "fixture-cards:", "fixture-direct:", "fixture-plan:")
     }
 }

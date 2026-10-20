@@ -56,13 +56,15 @@ enum AiRole {
   ),
   research(
     'RESEARCH',
-    'Onderzoek',
-    'Bepaalt zoektermen en beoordeelt kaarten per ronde (methode pijplijn).',
+    'Richten',
+    'Beoordeelt alle gevonden kaarten en bepaalt de definitieve zoekopdracht '
+        '(methode pijplijn).',
   ),
   writer(
     'WRITER',
     'Schrijven',
-    'Schrijft het antwoord uit de gekozen documenten (methode pijplijn).',
+    'Schrijft het antwoord uit de volledige teksten van de geselecteerde '
+        'records (methode pijplijn).',
   );
 
   const AiRole(this.apiValue, this.label, this.description);
@@ -87,8 +89,8 @@ enum AiResearchMethod {
   pipeline(
     'PIPELINE',
     'Pijplijn',
-    'De code bestuurt de rondes: tolerant zoeken in AI-kaarten, het model '
-        'beoordeelt en schrijft.',
+    'Twee AI-runs: de code zoekt tolerant in de AI-kaarten, het model richt '
+        'de zoekopdracht en schrijft uit de volledige teksten.',
   );
 
   const AiResearchMethod(this.apiValue, this.label, this.description);
@@ -135,6 +137,9 @@ class AiModelState {
     this.role = AiRole.agent,
     this.method = AiResearchMethod.agent,
     this.roles = const [],
+    this.writeBudgetChars = 450000,
+    this.writeBudgetFromSetting = false,
+    this.writeBudgetDefault = 450000,
   });
 
   factory AiModelState.fromJson(Map<String, dynamic> json) => AiModelState(
@@ -153,6 +158,9 @@ class AiModelState {
     roles: (json['roles'] as List<dynamic>? ?? const [])
         .map((item) => AiRoleModel.fromJson(item as Map<String, dynamic>))
         .toList(growable: false),
+    writeBudgetChars: (json['writeBudgetChars'] as num?)?.toInt() ?? 450000,
+    writeBudgetFromSetting: json['writeBudgetFromSetting'] as bool? ?? false,
+    writeBudgetDefault: (json['writeBudgetDefault'] as num?)?.toInt() ?? 450000,
   );
 
   final AiRole role;
@@ -164,6 +172,12 @@ class AiModelState {
   final String? catalogError;
   final AiResearchMethod method;
   final List<AiRoleModel> roles;
+
+  /// Tekstbudget van de schrijver in tekens, of een beheerder het koos, en de
+  /// standaard voor het huidige schrijfmodel.
+  final int writeBudgetChars;
+  final bool writeBudgetFromSetting;
+  final int writeBudgetDefault;
 }
 
 abstract interface class AdminAiModelSource {
@@ -178,6 +192,8 @@ abstract interface class AdminAiModelSource {
     AdminIdentity identity,
     AiResearchMethod method,
   );
+  Future<AiModelState> selectWriteBudget(AdminIdentity identity, int chars);
+  Future<AiModelState> resetWriteBudget(AdminIdentity identity);
 }
 
 class AdminAiModelClient implements AdminAiModelSource {
@@ -192,6 +208,9 @@ class AdminAiModelClient implements AdminAiModelSource {
   ).replace(queryParameters: {'role': role.apiValue});
 
   Uri get _methodUri => Uri.parse('$apiBaseUrl/api/admin/ai-search/method');
+
+  Uri get _writeBudgetUri =>
+      Uri.parse('$apiBaseUrl/api/admin/ai-search/write-budget');
 
   @override
   Future<AiModelState> load(
@@ -254,6 +273,32 @@ class AdminAiModelClient implements AdminAiModelSource {
         )
         .timeout(const Duration(seconds: 20)),
     'Methode kiezen mislukt',
+  );
+
+  @override
+  Future<AiModelState> selectWriteBudget(
+    AdminIdentity identity,
+    int chars,
+  ) async => _parse(
+    await _client
+        .put(
+          _writeBudgetUri,
+          headers: {
+            ...identity.requestHeaders,
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'chars': chars}),
+        )
+        .timeout(const Duration(seconds: 20)),
+    'Tekstbudget opslaan mislukt',
+  );
+
+  @override
+  Future<AiModelState> resetWriteBudget(AdminIdentity identity) async => _parse(
+    await _client
+        .delete(_writeBudgetUri, headers: identity.requestHeaders)
+        .timeout(const Duration(seconds: 20)),
+    'Tekstbudget terugzetten mislukt',
   );
 
   AiModelState _parse(http.Response response, String failure) {

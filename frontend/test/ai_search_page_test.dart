@@ -8,6 +8,11 @@ import 'package:hkh_app/ai_search/ai_search_page.dart';
 import 'package:hkh_app/ai_search/answer_html.dart';
 
 class _AiSource implements AiSearchSource {
+  AiSearchOptions options = const AiSearchOptions();
+
+  @override
+  Future<AiSearchOptions> loadAiSearchOptions() async => options;
+
   AiSearchSession? session;
   final List<AiSearchSummary> searches = [];
   final List<String> startedQuestions = [];
@@ -452,6 +457,36 @@ void main() {
     expect(pdfSource.calls, 1);
     expect(saver.savedNames, ['antwoord-turn-1.pdf']);
     expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+  });
+
+  testWidgets('without a selectable depth the question card hides the choice', (
+    tester,
+  ) async {
+    final source = _AiSource()
+      ..options = const AiSearchOptions(
+        depthSelectable: false,
+        method: 'PIPELINE',
+      );
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(
+          source: source,
+          initialDepth: AiResearchDepth.thorough,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('research-depth')), findsNothing);
+    expect(find.text('Vraag stellen'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Alles over Slot Assumburg');
+    await tester.tap(find.byKey(const Key('ai-question-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // De pijplijn kent geen diepte: de vraag gaat als "snel" en het antwoord toont geen diepte.
+    expect(source.startedDepths, [AiResearchDepth.fast]);
   });
 
   testWidgets('the chosen research depth is sent with the question', (
