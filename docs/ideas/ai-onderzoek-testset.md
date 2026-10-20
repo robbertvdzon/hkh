@@ -155,6 +155,43 @@ Sinds 20-10-2026 (middag) is de pijplijn omgebouwd naar twee AI-runs (richten en
 speelt in de pijplijn geen rol meer. Reeksen vanaf F gebruiken die versie. Voorgenomen: reeks F
 = richten Sonnet 5.5, schrijven Haiku 5.5; reeks G = Sonnet 5.5 op beide rollen.
 
+### Reeks G: pijplijn v2, Sonnet 5.5 voor richten en schrijven (20-10-2026 13:42 tot 14:13)
+
+Eerste reeks met de ombouw naar twee AI-runs. Testsetvolgorde: 7, 1, 2, 3, 4, 5, 6, 8. Tekstbudget
+450.000 (standaard voor Sonnet). "Bronnen" is het aantal gebruikte bronnen in het antwoord;
+tussen haakjes de doorlooptijd van richten / schrijven in seconden.
+
+| # | Vraag | Diepte (label) | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | burgemeester Nielen | snel | 5:26 (22 / 295) | 0 | 132 | 906k / 24,8k | $0,36 | goed en volledig (Heemskring 64 als hoofdbron, Wormerveer, Canada), maar 132 records en 25.000 tekens is te veel voor de vraag |
+| 2 | Kapper Bekker | snel | 4:41 (23 / 245) | 0 | 83 | 802k / 26,1k | $0,37 | Heemskring 45 en het jubileumfotoboek gevonden; zelfde overmaat |
+| 3 | zeelaan | snel | 4:58 (27 / 258) | 0 | 80 | 855k / 25,4k | $0,36 | oude en nieuwe Zeelaan, brand 1972, bewoners bij name |
+| 4 | oudste luchtfoto | snel | 1:43 (26 / 68) | 0 | 18 | 580k / 7,1k | $0,14 | Fort Veldhuis 1922 (beeldbank 10971), "oudste gedateerde"; jaarsortering werkt |
+| 5 | touwslagerij Van Oosten | doorzoeken | 1:50 (17 / 81) | 0 | 22 | 675k / 8,5k | $0,16 | verhuizing gevonden, eerlijk over ontbrekend jaartal; 17 foto's |
+| 6 | Bachstraat | uitgebreid | 5:36 (45 / 281) | 0 | 91 | 1,69M / 29,0k | $0,57 | Opus-niveau (Heemskring 36, bouwweg 1956, Hoge Werfje, EGKS-flats, scholen); 15 foto's |
+| 7 | Oostrum | uitgebreid | 5:49 (42 / 296) | 0 | 66 | 1,07M / 32,1k | $0,46 | rijkste Oostrum-antwoord tot nu toe (schippersgezin, Zuidermeer, beide scholen, de flat); 16 foto's; slot met tegenstrijdigheden |
+| 8 | Los Tamaros | uitgebreid | 0:28 (plan 6 / 15) | 0 | 0 | 36k / 0,9k | $0,01 | "niets gevonden" met spellingsuggesties; geen richtstap nodig |
+| | **totaal** | | **30:31** | | | **6,6M / 154k** | **$2,43** | alle acht geslaagd; geen missers meer (Nielen, Bekker, luchtfoto opgelost); Bachstraat van 42:49 naar 5:36 |
+
+Vergelijking met de agent-baselines (totaal over 8 vragen): agent Sonnet 9:23 / $0,70, agent
+Opus 18:54 / $4,15, agent Haiku 5.5 19:36 / $0,18, pijplijn v1 Haiku 5.5 (reeks E) 68:20 / $0,54.
+
+Bevindingen:
+- **Richten met Sonnet is snel**: 17 tot 45 s, ongeacht het aantal kaarten (tot 300). Dat was met
+  Haiku 68 s en in de oude rondelus 90 tot 430 s per ronde.
+- **De tijd zit in het schrijven**: 4 tot 5 minuten zodra de selectie boven de 60 records komt,
+  omdat de schrijver dan 18.000 tot 25.000 tekens schrijft. Bij 18 tot 22 records (luchtfoto,
+  touwslagerij) is de hele vraag in minder dan twee minuten klaar.
+- **De selectie is te ruim voor korte vragen**: Nielen 132, Bekker 83, Zeelaan 80 records. De
+  richtstap neemt bij "wees ruim met artikelen" ook alle foto's mee. Voorgestelde ingreep: een
+  plafond op de selectie dat bij de vraag past (ongeveer 40, tenzij de vraag om "alles" of
+  "de mensen die er woonden" vraagt) plus een strakkere lengte-instructie bij een korte vraag.
+  Dan zou "snel" rond 2 minuten uitkomen met dezelfde hoofdbronnen.
+- **Kosten**: $0,14 tot $0,57 per vraag, tussen agent-Sonnet en agent-Opus in, door de grote
+  invoer (600k tot 1,7M tokens per vraag, grotendeels gecachet).
+
+### Vervolg
+
 | # | Datum | Methode | Modellen | Duur | Rondes | Bronnen | Tokens in/uit | Kosten | Oordeel |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | | | | | | | | | | |
