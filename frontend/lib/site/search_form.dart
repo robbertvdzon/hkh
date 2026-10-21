@@ -5,12 +5,12 @@ import '../ai_search/ai_search.dart';
 import '../theme/app_style.dart';
 import 'site_widgets.dart';
 
-/// Hoe er gezocht wordt: met AI of zelf in alle of één collectie. [aiThorough]
+/// Hoe er gezocht wordt: met AI of zelf in het hele archief of één onderdeel. [aiThorough]
 /// wordt niet meer aangeboden (de pijplijn kent geen diepte) maar blijft bestaan
 /// voor bestaande verwijzingen.
 enum SearchMode { ai, aiThorough, all, single }
 
-/// De zes publieke collecties, zoals op de oude site.
+/// De zes onderdelen van het archief, zoals op de oude site.
 const publicCollections = [
   (
     id: 'beeldbank',
@@ -20,9 +20,9 @@ const publicCollections = [
   ),
   (
     id: 'archief',
-    label: 'Archief',
+    label: 'Krantenknipsels en documenten',
     description:
-        'Ruim 1.800 krantenknipsels en documenten over Heemskerk, doorzoekbaar op tekst.',
+        'Ruim 1.700 krantenknipsels, kaarten en akten over Heemskerk, doorzoekbaar op tekst.',
   ),
   (
     id: 'bibliotheek',
@@ -131,7 +131,7 @@ class SearchModeOptions extends StatelessWidget {
           mode: SearchMode.ai,
           groupValue: mode,
           title:
-              'Met AI zoeken door alle collecties en hier een samenvatting van maken',
+              'Met AI zoeken door het hele archief en hier een samenvatting van maken',
           subtitle:
               'Meestal binnen 2 minuten een beknopt antwoord met bronnen; daarna kun je het volledig laten uitwerken.',
           onChanged: onModeChanged,
@@ -141,14 +141,14 @@ class SearchModeOptions extends StatelessWidget {
         key: const Key('mode-all'),
         mode: SearchMode.all,
         groupValue: mode,
-        title: 'Zelf zoeken in alle collecties',
+        title: 'Zelf zoeken in het hele archief',
         onChanged: onModeChanged,
       ),
       ModeOption(
         key: const Key('mode-single'),
         mode: SearchMode.single,
         groupValue: mode,
-        title: 'Zelf zoeken in één collectie',
+        title: 'Zelf zoeken in één onderdeel van het archief',
         trailing: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 220),
           child: DropdownButtonFormField<String>(

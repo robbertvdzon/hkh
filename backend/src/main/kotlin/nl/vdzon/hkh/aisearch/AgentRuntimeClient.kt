@@ -270,7 +270,7 @@ internal object RuntimeActivityClassifier {
             .map(String::trim).lastOrNull { it.trimStart('*', '_', '#', ' ').startsWith("Spoor:") }
             ?.substringAfter("Spoor:")?.trim()?.trim('"', '*', '_')?.takeIf(String::isNotBlank)
             ?.let { "Spoor wordt gevolgd: ${it.take(120)}" }
-        text.contains("/api/collections/search") -> "Een nieuwe zoekpagina uit de collectie wordt opgehaald"
+        text.contains("/api/collections/search") -> "Een nieuwe zoekpagina uit het archief wordt opgehaald"
         text.contains("/api/collections/") -> "Details van relevante bronnen worden gecontroleerd"
         text.contains("jq ") || text.contains("python") -> "De gevonden gegevens worden geordend en vergeleken"
         else -> null

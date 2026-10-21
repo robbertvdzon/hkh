@@ -54,10 +54,10 @@ class AiAnswerRendererTest {
         assertContains(rendered.html, CollectionLinks.detail(item.collection, item.ident))
         assertFalse(rendered.html.contains("historischekringheemskerk", ignoreCase = true))
         // De bronnenlijst staat los van de tekst, voor een aparte pagina.
-        assertFalse(rendered.html.contains("Bekijk dit object in de collectie"))
+        assertFalse(rendered.html.contains("Bekijk dit object in het archief"))
         val sourcesHtml = rendered.sourcesHtml!!
         assertContains(sourcesHtml, CollectionLinks.media(item.imageUrl)!!)
-        assertContains(sourcesHtml, "Bekijk dit object in de collectie")
+        assertContains(sourcesHtml, "Bekijk dit object in het archief")
         assertContains(sourcesHtml, CollectionLinks.detail(item.collection, item.ident))
         assertFalse(sourcesHtml.contains("historischekringheemskerk", ignoreCase = true))
     }
@@ -83,7 +83,7 @@ class AiAnswerRendererTest {
         // Een foto die al tussen de tekst staat, komt in de losse bronnenlijst niet nog eens voor.
         val sources = Jsoup.parseBodyFragment(renderSourcesHtml(item, html = "<figure data-hkh-source=\"beeldbank/42\"></figure>")!!)
         assertTrue(sources.select("img").isEmpty())
-        assertContains(sources.text(), "Bekijk dit object in de collectie")
+        assertContains(sources.text(), "Bekijk dit object in het archief")
         assertFalse(html.contains("evil"))
         assertFalse(html.contains("data-hkh-source"))
     }

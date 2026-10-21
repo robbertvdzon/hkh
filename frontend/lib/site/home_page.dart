@@ -243,10 +243,10 @@ class _Hero extends StatelessWidget {
                         ),
                         _HeroButton(
                           key: const Key('home-search-button'),
-                          label: 'Zoek in de collecties',
+                          label: 'Zoek in het archief',
                           background: appAccentBackground,
                           foreground: appGreen,
-                          onPressed: () => navigateTo(context, '/collecties'),
+                          onPressed: () => navigateTo(context, '/archief'),
                         ),
                         _HeroButton(
                           key: const Key('home-membership-button'),
@@ -302,7 +302,7 @@ class _HeroButton extends StatelessWidget {
   );
 }
 
-/// De twee blokken 'Zoek in de collecties' en 'Onderzoek'.
+/// De twee blokken 'Zoek in het archief' en 'Onderzoek'.
 class _SearchAndAsk extends StatefulWidget {
   const _SearchAndAsk({required this.questionsEnabled});
   final bool questionsEnabled;
@@ -349,7 +349,7 @@ class _SearchAndAskState extends State<_SearchAndAsk> {
   @override
   Widget build(BuildContext context) {
     final search = _Box(
-      title: 'Zoek in de collecties',
+      title: 'Zoek in het archief',
       text:
           '12.000 foto’s, 1.800 archiefstukken, 1.600 boeken, 1.300 bidprentjes, 520 Heemskring-artikelen en 760 objecten.',
       field: TextField(
@@ -369,7 +369,7 @@ class _SearchAndAskState extends State<_SearchAndAsk> {
     final ask = _Box(
       title: 'Onderzoek',
       text:
-          'Stel een onderzoeksvraag in gewone taal. Een digitale onderzoeker zoekt de bronnen in de collecties erbij en schrijft een antwoord met bronvermelding.',
+          'Stel een onderzoeksvraag in gewone taal. Een digitale onderzoeker zoekt de bronnen in het archief erbij en schrijft een antwoord met bronvermelding.',
       field: TextField(
         key: const Key('home-question-field'),
         controller: _question,

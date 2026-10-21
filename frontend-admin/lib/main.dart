@@ -129,7 +129,7 @@ class AdminGate extends StatefulWidget {
   final AdminDashboardSource? dashboardSource;
   final Widget Function() googleButtonBuilder;
 
-  /// Het huidige adres (`/`, `/collectie`, ...) en hoe de app naar een ander adres gaat.
+  /// Het huidige adres (`/`, `/archief`, ...) en hoe de app naar een ander adres gaat.
   final String path;
   final void Function(String path) onNavigate;
 
@@ -535,15 +535,17 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
               children: [
                 const Icon(Icons.cloud_download_outlined),
                 const SizedBox(width: 8),
-                Text(
-                  'Collectie ophalen (ZCBS)',
-                  style: Theme.of(context).textTheme.titleLarge,
+                Expanded(
+                  child: Text(
+                    'Archief ophalen (oude HKH-site)',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             const Text(
-              'Haalt alle metadata uit de ZCBS-beeldbanken op en zet die in de '
+              'Haalt alle metadata uit het archief van de oude HKH-site op en zet die in de '
               'zoekdatabase. Beelden blijven op de HKH-webserver staan.',
             ),
             const SizedBox(height: 16),
@@ -624,7 +626,7 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Volledig haalt elk record apart op (± 2 uur voor de hele collectie), '
+              'Volledig haalt elk record apart op (± 2 uur voor het hele archief), '
               'vult zo ook het beeld/PDF en de overige velden aan en haalt direct de '
               'tekst uit de PDF van nieuwe records.',
               style: TextStyle(fontSize: 12),
@@ -649,7 +651,7 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
             const Text(
               'Haalt voor records met een PDF (archief, artikelen) de tekstlaag uit die '
               'PDF en zet die in de zoekdatabase. Eenmalig nodig voor de bestaande '
-              'collectie; eerder mislukte records worden opnieuw geprobeerd. Met "alles '
+              'archief; eerder mislukte records worden opnieuw geprobeerd. Met "alles '
               'opnieuw" worden ook al opgehaalde PDF\'s op wijzigingen gecontroleerd.',
               style: TextStyle(fontSize: 12),
             ),
@@ -672,7 +674,7 @@ class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
               'Laat het AI-model per record een korte feitensamenvatting en trefwoorden '
               '(personen, adressen, jaren, instellingen) maken, in batches via de '
               'agent-runtime. Het AI-onderzoek zoekt hierin. Eenmalig voor de bestaande '
-              'collectie (uren); daarna alleen nieuwe records. Met "alles opnieuw" ook '
+              'archief (uren); daarna alleen nieuwe records. Met "alles opnieuw" ook '
               'eerder mislukte.',
               style: TextStyle(fontSize: 12),
             ),

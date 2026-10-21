@@ -165,7 +165,7 @@ class HeemskringPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Leden ontvangen elk nummer thuis. Losse nummers zijn te koop in het Historisch Huis op maandagmiddag. Oudere artikelen zijn volledig doorzoekbaar in de collectie Artikelen; van nummers jonger dan vijf jaar is een samenvatting opgenomen.',
+                'Leden ontvangen elk nummer thuis. Losse nummers zijn te koop in het Historisch Huis op maandagmiddag. Oudere artikelen zijn volledig doorzoekbaar in het archief, bij Artikelen; van nummers jonger dan vijf jaar is een samenvatting opgenomen.',
                 style: TextStyle(height: 1.5),
               ),
               const SizedBox(height: 16),

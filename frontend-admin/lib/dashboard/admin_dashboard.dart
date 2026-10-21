@@ -316,7 +316,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     if (data.today.failed > 0)
       '${data.today.failed} AI-vraag${data.today.failed == 1 ? '' : 'en'} mislukt vandaag.',
     if (data.collection.lastRun?.status == 'FAILED')
-      'De laatste collectie-run is mislukt.',
+      'De laatste inleesrun van het archief is mislukt.',
     if (data.collection.cardsPending > 0 && !data.collection.running)
       '${_thousands(data.collection.cardsPending)} records hebben nog geen AI-kaart.',
   ];
@@ -410,10 +410,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           children: [
             if (widget.showCollection)
               _tile(
-                key: const Key('admin-tile-collectie'),
+                key: const Key('admin-tile-archief'),
                 icon: Icons.cloud_download_outlined,
-                title: 'Collectie',
-                path: '/collectie',
+                title: 'Archief',
+                path: '/archief',
                 lines: data == null ? const [] : _collectionLines(data),
                 fallback: 'Records ophalen, documentteksten en AI-kaarten.',
               ),

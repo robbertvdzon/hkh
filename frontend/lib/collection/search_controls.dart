@@ -192,7 +192,7 @@ class CollectionAdvancedControls extends StatelessWidget {
             if (collection == null) ...[
               const SizedBox(height: 8),
               const Text(
-                'Kies een collectie voor extra zoekvelden, zoals Straatnaam bij Beeldbank.',
+                'Kies een onderdeel van het archief voor extra zoekvelden, zoals Straatnaam bij Beeldbank.',
                 style: TextStyle(color: appMutedText),
               ),
             ],

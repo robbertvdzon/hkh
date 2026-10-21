@@ -47,7 +47,7 @@ class BackendClient
         .get(Uri.parse('$apiBaseUrl/api/collections'), headers: _headers())
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
-      throw StateError('De collectie kon niet worden geladen.');
+      throw StateError('Het archief kon niet worden geladen.');
     }
     return CollectionOverview.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

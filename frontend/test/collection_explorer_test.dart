@@ -130,7 +130,7 @@ void main() {
       expect(source.searches, 0);
       expect(source.lastQuery, isNull);
       for (final label in [
-        'Archief',
+        'Krantenknipsels en documenten',
         'Beeldbank',
         'Bibliotheek',
         'Bidprentjes',
@@ -162,7 +162,7 @@ void main() {
         'Kaart',
         'Krantenartikel',
       ]);
-      await tester.tap(find.text('Archief (1)'));
+      await tester.tap(find.text('Krantenknipsels en documenten (1)'));
       await tester.pumpAndSettle();
       expect(source.lastOptions!.filters['Type publicatie'], [
         'Kaart',
@@ -201,13 +201,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(source.lastCollection, isNull);
       expect(find.text('Alles (2)'), findsOneWidget);
-      expect(find.text('Archief (1)'), findsOneWidget);
+      expect(find.text('Krantenknipsels en documenten (1)'), findsOneWidget);
       expect(find.text('Beeldbank (0)'), findsOneWidget);
       await tester.tap(find.text('Bidprentjes (1)'));
       await tester.pumpAndSettle();
       expect(source.lastCollection, 'bidprent');
       expect(find.text('1 resultaat'), findsOneWidget);
-      expect(find.text('Archief (1)'), findsOneWidget);
+      expect(find.text('Krantenknipsels en documenten (1)'), findsOneWidget);
       await tester.enterText(
         find.byKey(const Key('collection-query')),
         'plein',
@@ -222,7 +222,7 @@ void main() {
       expect(find.text('Een kasteel'), findsNothing);
       expect(find.text('Alles (2)'), findsNothing);
       expect(
-        find.text('Voer een zoekterm in om de collectie te doorzoeken.'),
+        find.text('Voer een zoekterm in om het archief te doorzoeken.'),
         findsOneWidget,
       );
     },

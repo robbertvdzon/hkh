@@ -28,7 +28,7 @@ class AiResearchDepthTest {
             "Spoor wordt gevolgd: Piet Duin, Kerkweg",
             RuntimeActivityClassifier.classify("Ronde 2 begint.\n**Spoor: Piet Duin, Kerkweg**\ncurl https://hkh.vdzonsoftware.nl/api/collections/search?q=Duin"),
         )
-        assertEquals("Een nieuwe zoekpagina uit de collectie wordt opgehaald", RuntimeActivityClassifier.classify("curl .../api/collections/search?q=x"))
+        assertEquals("Een nieuwe zoekpagina uit het archief wordt opgehaald", RuntimeActivityClassifier.classify("curl .../api/collections/search?q=x"))
         assertNull(RuntimeActivityClassifier.classify("Spoor:   "))
     }
 }

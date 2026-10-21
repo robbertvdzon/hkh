@@ -121,7 +121,7 @@ void main() {
       final source = RecordingSource();
       final router = createAppRouter(
         searchSource: source,
-        initialLocation: '/collecties',
+        initialLocation: '/archief',
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -258,7 +258,7 @@ void main() {
       final source = RecordingSource();
       final router = createAppRouter(
         searchSource: source,
-        initialLocation: '/collecties',
+        initialLocation: '/archief',
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));

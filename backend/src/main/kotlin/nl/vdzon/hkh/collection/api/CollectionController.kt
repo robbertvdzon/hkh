@@ -102,7 +102,7 @@ class CollectionController(
     @GetMapping("/facets")
     fun facet(@RequestParam params: MultiValueMap<String, String>): CollectionFacet {
         val input = SearchInput(params)
-        val collection = input.collection ?: badRequest("Kies een collectie voor dit filter.")
+        val collection = input.collection ?: badRequest("Kies een onderdeel van het archief voor dit filter.")
         val field = params.getFirst("facet") ?: badRequest("Filter ontbreekt.")
         if (field !in CollectionCatalog.facets[collection].orEmpty()) badRequest("Onbekend filter.")
         val valueQuery = params.getFirst("facetQuery").orEmpty().take(200)
@@ -166,7 +166,7 @@ private class SearchInput(private val params: MultiValueMap<String, String>) {
         if (recent != null && recent !in 1..3650) badRequest("Ongeldige toevoegperiode.")
         val filters = pairs("filter").groupBy({ it.first }, { it.second }).mapValues { it.value.distinct() }
         if (filters.size > 10 || filters.values.sumOf { it.size } > 50) badRequest("Te veel filters.")
-        if (filters.keys.any { it !in CollectionCatalog.facets.values.flatten() }) badRequest("Dit filter hoort niet bij de gekozen collectie.")
+        if (filters.keys.any { it !in CollectionCatalog.facets.values.flatten() }) badRequest("Dit filter hoort niet bij het gekozen onderdeel.")
         options = CollectionSearchOptions(mode, boolean("partial", false), params.getFirst("field") ?: "all",
             from, to, filters, sort, recent, boolean("documentText", true))
     }

@@ -110,7 +110,7 @@ class PrivacyCookiePage extends StatelessWidget {
               ),
               heading('Wat we bijhouden bij de zoekfuncties'),
               paragraph(
-                'Bij elke AI-vraag en elke zoekopdracht in de collecties houden we een logboek bij met het tijdstip, uw IP-adres, het browsertype, de tekst van uw vraag of zoekopdracht, hoe lang het antwoord duurde, het gebruikte AI-model en de kosten. Bent u ingelogd, dan staat ook uw e-mailadres erbij. Daarnaast bewaren we een willekeurige sleutel, afgeleid van het bezoekerscookie of van uw IP-adres en browser, zodat we kunnen tellen hoeveel verschillende bezoekers de zoekfuncties gebruiken. Bezoeken van zoekmachines en scripts herkennen we en tellen we niet mee.',
+                'Bij elke AI-vraag en elke zoekopdracht in het archief houden we een logboek bij met het tijdstip, uw IP-adres, het browsertype, de tekst van uw vraag of zoekopdracht, hoe lang het antwoord duurde, het gebruikte AI-model en de kosten. Bent u ingelogd, dan staat ook uw e-mailadres erbij. Daarnaast bewaren we een willekeurige sleutel, afgeleid van het bezoekerscookie of van uw IP-adres en browser, zodat we kunnen tellen hoeveel verschillende bezoekers de zoekfuncties gebruiken. Bezoeken van zoekmachines en scripts herkennen we en tellen we niet mee.',
               ),
               paragraph(
                 'We doen dit om de zoekfuncties te beheren, de kwaliteit en de kosten te volgen, het gebruik te tellen en misbruik of storingen op te sporen. De grondslag is ons gerechtvaardigd belang om de website te beheren en te beveiligen.',

@@ -246,6 +246,14 @@ class AiSearchService(
         return turn
     }
 
+    /** Korte omschrijving bij een eerste treffer: het fragment rond de treffer, anders het begin van de samenvatting. */
+    private fun previewSnippet(card: nl.vdzon.hkh.research.CandidateCard): String? {
+        val raw = card.fragments.firstOrNull()?.replace("«", "")?.replace("»", "") ?: card.summary
+        val clean = raw.replace(Regex("\\s+"), " ").trim().trim('…', ' ')
+        if (clean.isBlank()) return null
+        return if (clean.length > 120) clean.take(117).trimEnd() + "…" else clean
+    }
+
     /** De sleutel waarmee het logboek unieke bezoekers telt: ingelogde gebruiker of het bezoekerscookie. */
     private fun visitorKey(visitorId: String?, userId: String?): String? = userId?.let { "u:$it" } ?: visitorId?.let { "v:$it" }
 
@@ -402,6 +410,7 @@ class AiSearchService(
                                 collection = card.ref.collection, ident = card.ref.ident, title = card.title, year = card.year, hasImage = card.hasImage,
                                 imageUrl = if (card.hasImage) CollectionLinks.safeMedia(card.imageUrl) else null,
                                 url = CollectionLinks.detail(card.ref.collection, card.ref.ident, publicOrigin),
+                                snippet = previewSnippet(card),
                             )
                         },
                     ),
@@ -584,7 +593,7 @@ class AiSearchService(
             6. Maak een prettig leesbaar antwoord met verhalen, gebeurtenissen, straatbeelden, gebouwen en bewoners die relevant zijn. Scheid echte gebeurtenissen/veranderingen duidelijk van gewone straatbeelden, gebouwen en bewoners wanneer dat bij de vraag past. Richtlengte van het antwoord: ${depth.answerLength}.
             7. Neem jaar/datum, adres/huisnummer, gebeurtenis of beeldbeschrijving, personen/bedrijven/instellingen en collection + ident op wanneer de bron dat vermeldt.
             8. Voeg bij iedere feitelijke passage een bronlink toe in exact deze vorm: <a data-hkh-source="collection/ident">bronnaam</a>. Gebruik geen href en geen externe links; HKH vult gecontroleerde links server-side in.
-            8a. Plaats relevante collectiefoto's TUSSEN de tekst, direct bij de passage die ze illustreren. Controleer dat de zelf opgehaalde detailbron een imageUrl heeft en dat het beeld inhoudelijk past. Gebruik exact: <figure data-hkh-source="collection/ident"><figcaption>Een kort, feitelijk bijschrift op basis van de bron</figcaption></figure>. Neem de bron ook op in sources. Gebruik geen img, src of zelfbedachte afbeeldings-URL: HKH voegt het echte collectiebeeld in. Gebruik iedere foto hoogstens één keer. Zonder passende beschikbare foto laat je het beeld weg; schrijf geen beeldsuggesties of melding dat afbeeldingen niet mogen.
+            8a. Plaats relevante foto's uit het archief TUSSEN de tekst, direct bij de passage die ze illustreren. Controleer dat de zelf opgehaalde detailbron een imageUrl heeft en dat het beeld inhoudelijk past. Gebruik exact: <figure data-hkh-source="collection/ident"><figcaption>Een kort, feitelijk bijschrift op basis van de bron</figcaption></figure>. Neem de bron ook op in sources. Gebruik geen img, src of zelfbedachte afbeeldings-URL: HKH voegt het echte collectiebeeld in. Gebruik iedere foto hoogstens één keer. Zonder passende beschikbare foto laat je het beeld weg; schrijf geen beeldsuggesties of melding dat afbeeldingen niet mogen.
             9. Zet iedere gebruikte bron precies één keer in sources. Alleen bestaande, zelf opgehaalde collection/ident-combinaties zijn toegestaan. Schrijf zelf geen bronnenlijst in answerHtml; HKH toont de bronnen apart.
             10. answerHtml is een HTML-fragment zonder html/body, scripts, styles, formulieren of Markdown. Gebruik semantische HTML zoals h2, h3, p, ul, ol, table en blockquote.
             11. Schrijf het antwoord één keer: rechtstreeks als het definitieve JSON-object conform het aangeleverde schema; de Runtime legt dit resultaat vast. Schrijf het antwoord niet eerst naar een bestand om het daarna over te nemen, dat verdubbelt de doorlooptijd.

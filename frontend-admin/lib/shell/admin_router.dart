@@ -6,7 +6,7 @@ class AdminPaths {
   const AdminPaths._();
 
   static const start = '/';
-  static const collection = '/collectie';
+  static const collection = '/archief';
   static const aiSettings = '/ai-instellingen';
   static const aiCompare = '/ai-vergelijken';
   static const requestLog = '/logboek';
@@ -18,11 +18,13 @@ class AdminPaths {
     final clean = path.length > 1 && path.endsWith('/')
         ? path.substring(0, path.length - 1)
         : path;
+    // Het oude adres van dit onderdeel blijft werken voor bladwijzers.
+    if (clean == '/collectie') return collection;
     return all.contains(clean) ? clean : start;
   }
 
   static String title(String path) => switch (path) {
-    collection => 'Collectie',
+    collection => 'Archief',
     aiSettings => 'AI-instellingen',
     aiCompare => 'AI vergelijken',
     requestLog => 'Logboek van verzoeken',

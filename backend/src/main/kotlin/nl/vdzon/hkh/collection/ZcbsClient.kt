@@ -132,8 +132,8 @@ class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: Res
                 val trimmed = segment.trim()
                 val colon = trimmed.indexOf(':')
                 if (colon in 1..40) {
-                    val label = trimmed.substring(0, colon).trim()
-                    val value = trimmed.substring(colon + 1).trim()
+                    val label = TextRepair.fixMojibake(trimmed.substring(0, colon).trim())
+                    val value = TextRepair.fixMojibake(trimmed.substring(colon + 1).trim())
                     if (label.length in 1..40 && label.any { it.isLetter() } && value.isNotBlank() && !fields.containsKey(label)) {
                         fields[label] = value
                         matchedAny = true
@@ -255,8 +255,8 @@ class ZcbsClient(private val properties: ZcbsProperties, restClientOverride: Res
             val cells = row.select("td, th").map { it.text().replace(' ', ' ').trim() }
             val colon = cells.indexOf(":")
             if (colon <= 0 || colon + 1 >= cells.size) continue
-            val label = cells[colon - 1]
-            val value = cells.subList(colon + 1, cells.size).joinToString(" ").trim()
+            val label = TextRepair.fixMojibake(cells[colon - 1])
+            val value = TextRepair.fixMojibake(cells.subList(colon + 1, cells.size).joinToString(" ").trim())
             if (label.length in 1..40 && label.any { it.isLetter() } && !fields.containsKey(label)) {
                 fields[label] = value
             }

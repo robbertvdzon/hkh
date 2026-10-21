@@ -183,7 +183,7 @@ class StoryPage extends StatelessWidget {
   }
 }
 
-/// Voorgevulde zoekopdracht in de collecties over het onderwerp van de pagina.
+/// Voorgevulde zoekopdracht in het archief over het onderwerp van de pagina.
 class _MoreInCollections extends StatelessWidget {
   const _MoreInCollections({required this.page});
   final ContentPage page;
@@ -208,7 +208,7 @@ class _MoreInCollections extends StatelessWidget {
       runSpacing: 10,
       children: [
         const Text(
-          'Meer in de collecties over dit onderwerp',
+          'Meer in het archief over dit onderwerp',
           style: TextStyle(
             fontFamily: appSerifFont,
             fontSize: 20,

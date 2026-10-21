@@ -25,7 +25,7 @@ primaire inhoud in deze toetsenbord- en visuele volgorde:
 2. De lichtgroene (`#DCE9DA`) AI-vraagkaart met de titel **Wat wilt u weten?**
    en de toelichting **Bijv. wat is er bekend over de Kerklaan? De digitale
    onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.**
-3. De neutrale, omrande sectie **Zelf zoeken in de collectie**.
+3. De neutrale, omrande sectie **Zelf zoeken in het archief**.
 
 De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, het blok
 **Onderzoek** met een afgeronde stappenbalk **Snel** (standaard), **Doorzoeken** en
@@ -37,24 +37,31 @@ vraag opent de bestaande AI-zoekpagina en start die vraag met de gekozen diepte;
 lege start en de link Eerdere vragen openen het bestaande overzicht. De AI-knop is de
 enige gevulde primaire actie in de homepage-inhoud.
 
-De collectiekaart toont direct de collectie-ingangen Archief, Beeldbank, Bibliotheek,
+**Naamgeving.** Voor bezoekers heet het geheel **Archief** (menu, zoekvelden, kruimels, adres
+`/archief`; het oude adres `/collecties` verwijst door). Het archief heeft zes onderdelen:
+**Krantenknipsels en documenten** (intern collectie `archief`), **Beeldbank**, **Bibliotheek**,
+**Bidprentjes**, **Artikelen** en **Objecten**. De woorden "collectie" en "ZCBS" komen in teksten
+voor bezoekers niet meer voor; intern blijven `collection`, `/api/collections` en de tabellen
+ongewijzigd. In beheer heet de inleesbron "de oude HKH-site".
+
+De archiefkaart toont direct de ingangen Krantenknipsels en documenten, Beeldbank, Bibliotheek,
 Bidprentjes, Artikelen en Objecten, het gelabelde veld **Zoekterm**, de omrande actie
 **Zoeken** en de onafhankelijke uitklappers **Zoektips** en **Uitgebreid zoeken**.
 De uitklappers beginnen gesloten. De algemene zoekterm kan woorden of een frase tussen
 aanhalingstekens bevatten. De homepage biedt bovendien de veldfilters Titel, Beschrijving
 en Jaar met zichtbare, programmatisch gekoppelde labels.
 
-Een zoekopdracht opent direct de volledige zoekpagina. Een leeg zoekveld toont de collectie.
+Een zoekopdracht opent direct de volledige zoekpagina. Een leeg zoekveld toont het archief.
 De zoekpagina biedt:
 
 - Eén veld **Zoek overal** doorzoekt alle gegevens en beschikbare documenttekst binnen de
-  gekozen collectie. **Alles** doorzoekt alle collecties. Een nieuwe zoekopdracht behoudt
-  de gekozen collectie; de collectieknoppen tonen de aantallen per collectie.
-- Doorzoekbare filters per collectie. Keuzelijsten komen uit de database en houden rekening
+  gekozen onderdeel. **Alles** doorzoekt het hele archief. Een nieuwe zoekopdracht behoudt
+  het gekozen onderdeel; de knoppen per onderdeel tonen de aantallen.
+- Doorzoekbare filters per onderdeel. Keuzelijsten komen uit de database en houden rekening
   met de overige filters; meerdere waarden binnen één filter gelden als OF.
 - Inklapbaar **Gericht zoeken** met optionele, blijvend gelabelde velden Titel, Beschrijving
   en Jaar. Alle ingevulde velden gelden samen met de algemene zoekterm. **Zoekveld toevoegen**
-  voegt een verwijderbaar invoerveld toe uit de gekozen collectie, zoals Straatnaam bij Beeldbank.
+  voegt een verwijderbaar invoerveld toe uit het gekozen onderdeel, zoals Straatnaam bij Beeldbank.
 - Jaar en periode delen één plek: **Periode invullen** vervangt het exacte jaar door een bereik;
   **Eén jaar invullen** verwijdert de periode. Er is geen losse periodeknop naast het formulier.
 - Geen keuzelijsten voor zoekwoordcombinaties of zoeken in een veld, en geen OCR-checkbox.
@@ -76,14 +83,14 @@ De zoekpagina biedt:
 - Lijst- en galerijweergave met de eigen metadata van iedere collectie.
 - Verwijderbare filterchips, lege resultaten met herstelactie en een herhaalactie bij fouten.
 - URL-behoud van alle zoekinstellingen en paginanummer, ook via details en na verversen.
-- Collectie-eigen detailvelden, alle bronvelden, beschikbaar beeld/PDF en vorige/volgende resultaten.
+- Per onderdeel eigen detailvelden, alle bronvelden, beschikbaar beeld/PDF en vorige/volgende resultaten.
 - PDF's op de volledige objectpagina tonen de eerste pagina als afbeelding. Klikken op
   het voorbeeld of **PDF openen** opent de volledige PDF in een nieuw tabblad. Ook bij
   een ontbrekend of mislukt voorbeeld blijft de PDF te openen.
 
 De laatste zoekactie wint bij overlappende netwerkverzoeken; een oudere respons mag de nieuwe
 resultaten niet overschrijven. Op kleine schermen zijn minder gebruikte filters bereikbaar
-via **Alle filters**. Filterkeuzes worden tijdens het wisselen per collectie onthouden.
+via **Alle filters**. Filterkeuzes worden tijdens het wisselen per onderdeel onthouden.
 
 ## Responsief gedrag en toegankelijkheid
 
@@ -269,8 +276,9 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
   toont de voortgangskaart een blok **Eerste treffers op uw zoekwoorden, nog niet beoordeeld**:
   de zoektermen ("Gezocht op …"), een regel met het aantal gevonden archiefstukken en hun verdeling
   per collectie (grootste eerst, "waaronder" als het totaal groter is dan het aantal beoordeelde
-  kandidaten) en zeven treffers in rangorde met een klein plaatje bij foto's, de titel en
-  "soort · jaar"; een tik opent de bron zoals een bronlink in een antwoord. De zeven zijn
+  kandidaten) en zeven treffers in rangorde met een klein plaatje bij foto's, de titel en één
+  regel "soort · jaar · korte omschrijving" (het fragment rond de treffer, anders het begin van de
+  samenvatting; foto's hebben vaak alleen een algemene titel zoals "Straten Kerkweg"); een tik opent de bron zoals een bronlink in een antwoord. De zeven zijn
   gekozen met sterke treffers eerst (de term staat in de titel of komt overeen met een
   trefwoord, in plaats van alleen ergens in een lange tekst) en met variatie: minstens twee en
   hoogstens vier foto's, de rest artikelen en documenten. Zijn er minder dan drie treffers, of
@@ -314,20 +322,20 @@ afgebroken op 400 tekens); de instructie verwijst ernaar en vraagt ze volledig t
 ## Beheer: startpagina en onderdelen
 
 Het beheerscherm (hkh-admin) opent met een **startpagina** en heeft per onderdeel een eigen
-pagina met een eigen adres (`#/collectie`, `#/ai-instellingen`, `#/ai-vergelijken`,
+pagina met een eigen adres (`#/archief`, `#/ai-instellingen`, `#/ai-vergelijken`,
 `#/logboek`), zodat terug, vooruit en bladwijzers in de browser werken; onbekende adressen vallen
 terug op de startpagina. Op elke onderpagina staat links in de balk een terugknop naar het
 overzicht en rechts het uitloggen.
 
 De startpagina toont bovenaan "Beheerder geverifieerd · <e-mailadres>" en een ververs-knop, een
 rood blok **Aandacht** als er iets mis is (AI-runtime niet bereikbaar of zonder worker, AI-vragen
-mislukt vandaag, laatste collectie-run mislukt, records zonder AI-kaart), de kaart **Gebruik** en
+mislukt vandaag, laatste inleesrun van het archief mislukt, records zonder AI-kaart), de kaart **Gebruik** en
 een tegel per onderdeel met statusregels:
 
 - **Gebruik**: per vandaag, 7 en 30 dagen de unieke bezoekers (met "waarvan N test"), AI-vragen,
   uitwerkingen, zoekopdrachten, gemiddelde antwoordtijd van AI, kosten (API-equivalent), mislukte
   AI-vragen, testverkeer en bots (niet meegeteld), plus de bewaartermijn van IP-adressen.
-- **Collectie**: aantal records, laatste run (status, soort en tijdstip) en de stand van de
+- **Archief**: aantal records, laatste run (status, soort en tijdstip) en de stand van de
   AI-kaarten (klaar, mislukt, te doen).
 - **AI-instellingen**: methode, modellen van richten en schrijven (of agent), en of de runtime
   bereikbaar is met hoeveel workers online.
@@ -350,6 +358,16 @@ in/uit en wie vroeg. De tokens en modellen komen uit `research_stats` (per job: 
 runtime-job, model, tokens, seconden), dat ook voor de agent-methode wordt gevuld. API:
 `GET /api/admin/ai-search/turns?limit=&benchmarkOnly=`, `GET/POST /api/admin/ai-search/benchmark`,
 `DELETE /api/admin/ai-search/benchmark/{id}`, `POST /api/admin/ai-search/benchmark/run`.
+
+## Kapotte tekens bij het inlezen
+
+De oude HKH-server levert pagina's met een mix van UTF-8 en ISO-8859-1; de client leest ze als
+ISO-8859-1, waardoor sommige waarden met accenten kapot binnenkwamen ("NotariÃ«le akte",
+"cafÃ©"). `TextRepair.fixMojibake` herstelt zulke waarden bij het inlezen van veldlabels en
+veldwaarden, alleen als de hele waarde zich volledig als UTF-8 laat terugzetten. Migratie V28 heeft
+de bestaande gegevens eenmalig hersteld (81 records in het archief: de velden Thema en Type
+publicatie, de bijbehorende zoektekst en één trefwoord); AI-kaarten die actueel waren blijven
+actueel.
 
 ## Beheer: methode en modellen van de AI-onderzoeker
 
@@ -376,12 +394,11 @@ configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
 De pagina **Logboek van verzoeken** toont over de volle breedte van het scherm, met horizontale
 scrollbalk, alle AI-vragen (met hun uitwerkingen) en zoekopdrachten in de collecties, nieuwste
 eerst, met per regel het tijdstip, het IP-adres van de bezoeker, de ingelogde gebruiker (bij de
-testset "testset: <beheerder>"), de soort (AI, AI (uitwerking), Collectie of Collectie:
-<collectie>), de vraag of zoektekst, het model (of de modellen) uit de onderzoeksstatistieken, de
+testset "testset: <beheerder>"), de soort (AI, AI (uitwerking), Archief of Archief: <onderdeel>), de vraag of zoektekst, het model (of de modellen) uit de onderzoeksstatistieken, de
 tijd tot de eerste terugkoppeling (bij een AI-vraag de tussenconclusie, bij zoeken de duur van de
 zoekopdracht), de tijd tot het antwoord, de status (bezig, afgerond, mislukt, gestopt), de kosten
 (API-equivalent), het browsertype en een markering **bot** en/of **test**. Boven de tabel staan een
-keuze voor de soort (Alles, AI, Collectie), de schakelaars **Bots tonen** (standaard uit) en
+keuze voor de soort (Alles, AI, Archief), de schakelaars **Bots tonen** (standaard uit) en
 **Testverkeer tonen** (standaard aan), het aantal regels (50 tot 1000), een ververs-knop en
 "N van M regels". De vergelijktabel **Recente onderzoeken** staat op de pagina **AI vergelijken**
 over de volle breedte.

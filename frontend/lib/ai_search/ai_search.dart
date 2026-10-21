@@ -307,6 +307,7 @@ class AiPreviewHit {
     required this.url,
     this.year,
     this.imageUrl,
+    this.snippet,
   });
 
   factory AiPreviewHit.fromJson(Map<String, dynamic> json) => AiPreviewHit(
@@ -316,6 +317,7 @@ class AiPreviewHit {
     url: json['url'] as String? ?? '',
     year: (json['year'] as num?)?.toInt(),
     imageUrl: json['imageUrl'] as String?,
+    snippet: json['snippet'] as String?,
   );
 
   final String collection;
@@ -324,6 +326,9 @@ class AiPreviewHit {
   final String url;
   final int? year;
   final String? imageUrl;
+
+  /// Korte omschrijving; foto's hebben vaak alleen een algemene titel.
+  final String? snippet;
 }
 
 /// De eerste treffers en de aantallen per collectie, direct na de snelle zoekstap

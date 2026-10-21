@@ -158,7 +158,7 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                             key: const Key('simple-collections'),
                             onPressed: () => navigateTo(context, '/zoeken'),
                             child: const Text(
-                              'Zoeken in de collecties',
+                              'Zoeken in het archief',
                               style: TextStyle(
                                 decoration: TextDecoration.underline,
                               ),

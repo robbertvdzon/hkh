@@ -276,7 +276,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       builder: (context) => Scaffold(
         appBar: HkhAppBar(
           context: context,
-          title: const Text('Collecties'),
+          title: const Text('Archief'),
           actions: [
             IconButton(
               tooltip: 'Hulp bij zoeken',
@@ -286,7 +286,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                 builder: (context) => AppDialog(
                   title: 'Hulp bij zoeken',
                   content: const Text(
-                    'Zoek overal doorzoekt de gegevens en beschikbare documenttekst binnen de gekozen collectie. Kies Alles om alle collecties te doorzoeken. Met Gericht zoeken kunt u zoeken op titel, beschrijving en jaar of periode. Via Zoekveld toevoegen kiest u extra velden die bij de collectie horen. Elk veld is optioneel; alle ingevulde velden gelden samen. Zet een woordgroep tussen aanhalingstekens om de woorden bij elkaar te zoeken. Actieve filters blijven zichtbaar bij het wisselen van collectie.',
+                    'Zoek overal doorzoekt de gegevens en beschikbare documenttekst binnen het gekozen onderdeel. Kies Alles om het hele archief te doorzoeken. Met Gericht zoeken kunt u zoeken op titel, beschrijving en jaar of periode. Via Zoekveld toevoegen kiest u extra velden die bij het onderdeel horen. Elk veld is optioneel; alle ingevulde velden gelden samen. Zet een woordgroep tussen aanhalingstekens om de woorden bij elkaar te zoeken. Actieve filters blijven zichtbaar bij het wisselen van onderdeel.',
                   ),
                   actions: [
                     TextButton(
@@ -309,7 +309,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                   padding: EdgeInsets.all(isNarrowLayout(context) ? 16 : 28),
                   children: [
                     Text(
-                      'COLLECTIES VAN DE HKH',
+                      'ARCHIEF VAN DE HKH',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: appMutedText,
                         letterSpacing: 1.4,
@@ -323,7 +323,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Zoek een naam, straat, onderwerp of collectienummer.',
+                      'Zoek een naam, straat, onderwerp of archiefnummer.',
                       style: TextStyle(color: appMutedText),
                     ),
                     const SizedBox(height: 20),
@@ -385,7 +385,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
                       children: [
                         Text(
                           _collection == null
-                              ? 'Zoek in alle collecties, of kies hierboven een collectie.'
+                              ? 'Zoek in het hele archief, of kies hierboven een onderdeel.'
                               : 'Zoek in alle gegevens van ${collectionConfig(_collection).label}.',
                           style: Theme.of(
                             context,
@@ -618,7 +618,7 @@ class _CollectionSearchPageState extends State<CollectionSearchPage> {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Text(
-          'Voer een zoekterm in om de collectie te doorzoeken.',
+          'Voer een zoekterm in om het archief te doorzoeken.',
           textAlign: TextAlign.center,
         ),
       );
@@ -880,7 +880,7 @@ class CollectionChips extends StatelessWidget {
         for (final key in keys)
           Tooltip(
             message: overview != null
-                ? '${counts[key] ?? 0} resultaten in deze collectie'
+                ? '${counts[key] ?? 0} resultaten in dit onderdeel'
                 : 'Zoeken in ${collectionConfig(key).label}',
             child: ChoiceChip(
               label: Text(

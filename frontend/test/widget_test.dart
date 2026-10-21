@@ -314,7 +314,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('home-search-button')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/collecties');
+      expect(_path(router), '/archief');
       await tester.tap(find.byKey(const Key('hkh-home')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('membership-action')));
@@ -421,7 +421,7 @@ void main() {
       expect(find.byKey(const Key('menu-agenda')), findsNothing);
       await tester.tap(find.byKey(const Key('menu-toggle')));
       await tester.pumpAndSettle();
-      expect(find.text('Zoeken in de collecties'), findsOneWidget);
+      expect(find.text('Zoeken in het archief'), findsOneWidget);
       await tester.tap(find.byKey(const Key('menu-educatie')));
       await tester.pumpAndSettle();
       expect(_path(router), '/educatie');
@@ -437,7 +437,7 @@ void main() {
       final router = await _pumpApp(tester, size: const Size(1200, 1100));
       await tester.tap(find.byKey(const Key('header-search-field')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/collecties');
+      expect(_path(router), '/archief');
       expect(find.byKey(const Key('collections-query')), findsOneWidget);
     });
   });
@@ -719,9 +719,9 @@ void main() {
         tester,
         size: const Size(1200, 1300),
         aiSource: aiSource,
-        route: '/collecties',
+        route: '/archief',
       );
-      // Eén collectie kiezen en zoeken.
+      // Eén onderdeel kiezen en zoeken.
       await tester.enterText(
         find.byKey(const Key('collections-query')),
         'Adrichem',
@@ -739,7 +739,7 @@ void main() {
       expect(params['collection'], 'bidprentjes');
       expect(params['q'], 'Adrichem');
       // Met AI zoeken start een onderzoek.
-      router.go('/collecties');
+      router.go('/archief');
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('collections-query')),
@@ -778,7 +778,7 @@ void main() {
         '/nieuws',
         '/ontdek',
         '/ontdek/maerten-van-heemskerck',
-        '/collecties',
+        '/archief',
         '/educatie',
         '/geheugen',
         '/geheugen/themas',
@@ -885,16 +885,16 @@ void main() {
       final router = await _pumpApp(
         tester,
         size: const Size(1200, 1100),
-        route: '/collecties',
+        route: '/archief',
       );
       await tester.tap(find.byKey(const Key('submenu-zoeken')));
       await tester.pumpAndSettle();
       expect(_path(router), '/zoeken');
       expect(find.byKey(const Key('submenu-bar')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('submenu-collecties')));
+      await tester.tap(find.byKey(const Key('submenu-archief')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/collecties');
-      expect(activeSubMenuPath('/vragen'), '/collecties');
+      expect(_path(router), '/archief');
+      expect(activeSubMenuPath('/vragen'), '/archief');
     });
 
     test('active submenu item is the longest matching path', () {

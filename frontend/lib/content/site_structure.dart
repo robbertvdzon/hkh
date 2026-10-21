@@ -43,7 +43,7 @@ const mainMenu = [
   (label: 'Nieuws', path: '/nieuws'),
   (label: 'Ontdek Heemskerk', path: '/ontdek'),
   (label: 'Geheugen van Heemskerk', path: '/geheugen'),
-  (label: 'Collecties', path: '/collecties'),
+  (label: 'Archief', path: '/archief'),
   (label: 'Educatie', path: '/educatie'),
   (label: 'Vereniging', path: '/vereniging'),
 ];
@@ -69,9 +69,9 @@ const subMenus = <String, List<({String label, String path})>>{
     (label: 'Buurten', path: '/geheugen/buurten'),
     (label: 'Over het project', path: '/geheugen/over'),
   ],
-  '/collecties': [
-    (label: 'Zoeken', path: '/collecties'),
-    (label: 'Uitgebreid zoeken in de collectie', path: '/zoeken'),
+  '/archief': [
+    (label: 'Zoeken', path: '/archief'),
+    (label: 'Uitgebreid zoeken in het archief', path: '/zoeken'),
   ],
   '/vereniging': [
     (label: 'Over de HKH', path: '/vereniging/over-de-hkh'),
@@ -100,8 +100,8 @@ String? mainMenuPathFor(String location) {
 
 /// Of een hoofdingang als actief telt voor de huidige route.
 bool isMainMenuPathActive(String menuPath, String currentPath) {
-  if (menuPath == '/collecties') {
-    return currentPath.startsWith('/collecties') ||
+  if (menuPath == '/archief') {
+    return currentPath.startsWith('/archief') ||
         currentPath.startsWith('/zoeken') ||
         currentPath.startsWith('/objecten') ||
         currentPath.startsWith('/vragen') ||
@@ -128,7 +128,7 @@ String? activeSubMenuPath(String location) {
       location.startsWith('/objecten') || location.startsWith('/gedeeld')
       ? '/zoeken'
       : location.startsWith('/vragen')
-      ? '/collecties'
+      ? '/archief'
       : location;
   String? best;
   for (final item in subMenuFor(location)) {
@@ -401,7 +401,7 @@ const newsletters = [
 ];
 
 const heemskringIntro =
-    'De Heemskring is het lijfblad van de HKH: twee keer per jaar verhalen uit de geschiedenis van ons ‘dorp’. Leden krijgen het magazine thuisbezorgd; losse nummers zijn te koop in het Historisch Huis. Artikelen uit de Heemskring van meer dan vijf jaar geleden zijn volledig te lezen in de collectie Artikelen.';
+    'De Heemskring is het lijfblad van de HKH: twee keer per jaar verhalen uit de geschiedenis van ons ‘dorp’. Leden krijgen het magazine thuisbezorgd; losse nummers zijn te koop in het Historisch Huis. Artikelen uit de Heemskring van meer dan vijf jaar geleden zijn volledig te lezen in het archief, bij Artikelen.';
 
 const heemskringImage =
     'https://www.historischekringheemskerk.nl/wp-content/uploads/2024/08/Heemskringen.webp';

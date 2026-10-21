@@ -637,7 +637,7 @@ class _Introduction extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          'Iedere vraag wordt een aparte zoekopdracht. De archiefonderzoeker doorzoekt de collecties, opent relevante bronnen en maakt een antwoord met controleerbare links en beschikbare afbeeldingen.',
+          'Iedere vraag wordt een aparte zoekopdracht. De archiefonderzoeker doorzoekt het archief, opent relevante bronnen en maakt een antwoord met controleerbare links en beschikbare afbeeldingen.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 14),
@@ -1363,7 +1363,13 @@ class _HitRow extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   Text(
-                    hit.year == null ? kind : '$kind · ${hit.year}',
+                    [
+                      hit.year == null ? kind : '$kind · ${hit.year}',
+                      if (hit.snippet != null && hit.snippet!.isNotEmpty)
+                        hit.snippet!,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: appMutedText, fontSize: 12),
                   ),
                 ],

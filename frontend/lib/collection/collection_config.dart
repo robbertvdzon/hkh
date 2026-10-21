@@ -31,7 +31,7 @@ class CollectionConfig {
 const collectionConfigs = [
   CollectionConfig(
     'archief',
-    'Archief',
+    'Krantenknipsels en documenten',
     Icons.inventory_2_outlined,
     'Documentnummer',
     ['Type publicatie', 'Thema', 'Auteur(s)', 'Uitgever'],
@@ -182,14 +182,14 @@ CollectionConfig collectionConfig(String? key) =>
     CollectionConfig(
       key ?? '',
       key == null
-          ? 'Alle collecties'
+          ? 'Het hele archief'
           : key == 'transcripties'
           ? 'Transcripties'
           : key,
       Icons.collections_bookmark_outlined,
-      'Collectienummer',
+      'Archiefnummer',
       const [],
-      const {'ident': 'Collectienummer'},
+      const {'ident': 'Archiefnummer'},
       const [],
     );
 

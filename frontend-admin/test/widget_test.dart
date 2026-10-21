@@ -437,14 +437,14 @@ void main() {
     expect(find.byKey(const Key('admin-tile-logboek')), findsOneWidget);
 
     // Een tegel opent het onderdeel; de terugknop brengt je terug.
-    await _open(tester, 'collectie');
-    expect(find.text('HKH Beheer · Collectie'), findsOneWidget);
+    await _open(tester, 'archief');
+    expect(find.text('HKH Beheer · Archief'), findsOneWidget);
     expect(find.byKey(const ValueKey('scrape-cards')), findsOneWidget);
     expect(find.byKey(const Key('admin-usage-table')), findsNothing);
     await tester.tap(find.byKey(const Key('admin-back')));
     await tester.pumpAndSettle();
     expect(find.text('HKH Beheer'), findsOneWidget);
-    expect(find.byKey(const Key('admin-tile-collectie')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-archief')), findsOneWidget);
   });
 
   testWidgets('the start page keeps its buttons when the status fails', (
@@ -462,7 +462,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Overzicht laden mislukt (503)'), findsOneWidget);
-    expect(find.byKey(const Key('admin-tile-collectie')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-archief')), findsOneWidget);
     expect(find.byKey(const Key('admin-tile-logboek')), findsOneWidget);
     // Zonder modelbron ontbreken de AI-tegels.
     expect(find.byKey(const Key('admin-tile-ai-instellingen')), findsNothing);
@@ -502,6 +502,7 @@ void main() {
     expect(find.text('HKH Beheer'), findsOneWidget);
     expect(find.byKey(const Key('admin-usage-table')), findsOneWidget);
     expect(AdminPaths.normalise('/collectie/'), AdminPaths.collection);
+    expect(AdminPaths.normalise('/archief'), AdminPaths.collection);
     expect(AdminPaths.normalise('/x'), AdminPaths.start);
   });
 
@@ -532,7 +533,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await _open(tester, 'collectie');
+    await _open(tester, 'archief');
 
     final button = find.byKey(const ValueKey('scrape-text'));
     await tester.ensureVisible(button);
@@ -556,7 +557,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await _open(tester, 'collectie');
+    await _open(tester, 'archief');
 
     final button = find.byKey(const ValueKey('scrape-cards'));
     await tester.ensureVisible(button);
@@ -711,7 +712,7 @@ void main() {
     expect(find.text('HKH Beheer · Logboek van verzoeken'), findsOneWidget);
     expect(find.byKey(const Key('request-log-table')), findsOneWidget);
     expect(find.text('AI (uitwerking)'), findsOneWidget);
-    expect(find.text('Collectie: beeldbank'), findsOneWidget);
+    expect(find.text('Archief: beeldbank'), findsOneWidget);
     expect(find.text('203.0.113.7'), findsNWidgets(2));
     expect(find.text('robbert@example.com'), findsOneWidget);
     expect(find.text('1:35'), findsOneWidget);
@@ -741,7 +742,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('request-log-kind')),
-        matching: find.text('Collectie'),
+        matching: find.text('Archief'),
       ),
     );
     await tester.pumpAndSettle();

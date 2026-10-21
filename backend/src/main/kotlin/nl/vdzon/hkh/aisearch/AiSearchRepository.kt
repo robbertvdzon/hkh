@@ -379,6 +379,7 @@ class AiSearchRepository(
                             collection = item.path("collection").asText(), ident = item.path("ident").asText(), title = item.path("title").asText(""),
                             year = item.path("year").takeIf { it.isNumber }?.asInt(), hasImage = item.path("hasImage").asBoolean(false),
                             imageUrl = item.path("imageUrl").takeIf { it.isTextual }?.asText(), url = item.path("url").asText(""),
+                            snippet = item.path("snippet").takeIf { it.isTextual }?.asText(),
                         ),
                     )
                 }

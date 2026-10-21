@@ -454,10 +454,10 @@ class _MenuButton extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.search),
-              title: const Text('Zoeken in de collecties'),
+              title: const Text('Zoeken in het archief'),
               onTap: () {
                 Navigator.of(sheet).pop();
-                navigate('/collecties');
+                navigate('/archief');
               },
             ),
             ListTile(
@@ -517,10 +517,10 @@ class _HeaderSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Zoek in de collecties',
+    label: 'Zoek in het archief',
     child: InkWell(
       key: const Key('header-search-field'),
-      onTap: () => onSearch('/collecties'),
+      onTap: () => onSearch('/archief'),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         width: 300,
@@ -537,7 +537,7 @@ class _HeaderSearchField extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Zoek in de collecties…',
+                'Zoek in het archief…',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: appHeaderForeground.withValues(alpha: 0.85),

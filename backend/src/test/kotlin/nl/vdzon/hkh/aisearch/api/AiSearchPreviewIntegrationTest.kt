@@ -43,7 +43,7 @@ class AiSearchPreviewIntegrationTest(
                 terms = listOf("Henk Nielen", "burgemeester"),
                 hits = listOf(
                     AiPreviewHit("artikelen", "64", "Henk Nielen (1912-1977)", 2020, false, null, "https://hkh.vdzonsoftware.nl/#/objecten/artikelen/64"),
-                    AiPreviewHit("beeldbank", "10587", "Portret burgemeester Nielen", 1977, true, "https://hkh.vdzonsoftware.nl/api/collection-media/abc", "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10587"),
+                    AiPreviewHit("beeldbank", "10587", "Straten Kerkweg", 1977, true, "https://hkh.vdzonsoftware.nl/api/collection-media/abc", "https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10587", "Burgemeester Nielen bij zijn afscheid op de Kerkweg"),
                 ),
             ),
         )
@@ -53,6 +53,8 @@ class AiSearchPreviewIntegrationTest(
         assertEquals(2, stored.hits.size)
         assertNull(stored.hits[0].imageUrl)
         assertEquals(1977, stored.hits[1].year)
+        assertNull(stored.hits[0].snippet)
+        assertEquals("Burgemeester Nielen bij zijn afscheid op de Kerkweg", stored.hits[1].snippet)
 
         mockMvc.get("/api/ai-search/sessions/$sessionId") { cookie(Cookie("hkh_ai_visitor", visitor.toString())) }.andExpect {
             status { isOk() }
@@ -61,6 +63,7 @@ class AiSearchPreviewIntegrationTest(
             jsonPath("$.turns[0].preview.perCollection.beeldbank") { value(140) }
             jsonPath("$.turns[0].preview.hits[0].title") { value("Henk Nielen (1912-1977)") }
             jsonPath("$.turns[0].preview.hits[1].url") { value("https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10587") }
+            jsonPath("$.turns[0].preview.hits[1].snippet") { value("Burgemeester Nielen bij zijn afscheid op de Kerkweg") }
         }
     }
 

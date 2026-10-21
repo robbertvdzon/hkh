@@ -127,7 +127,7 @@ class AiAnswerRenderer(private val collectionSearch: CollectionSearchService,
                 .attr("href", CollectionLinks.detail(item.collection, item.ident, publicOrigin))
                 .attr("target", "_blank")
                 .attr("rel", "noopener")
-                .text("Bekijk dit object in de collectie")
+                .text("Bekijk dit object in het archief")
         }
         return section.outerHtml()
     }

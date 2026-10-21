@@ -286,12 +286,14 @@ GoRouter createAppRouter({
               ),
             ],
           ),
-          // ---- Collecties ----
+          // ---- Archief ----
           instantRoute(
-            path: 'collecties',
+            path: 'archief',
             builder: (_, __) =>
                 CollectionsPage(questionsEnabled: aiSearchSource != null),
           ),
+          // Oude adres van het archief: bladwijzers en verwijzingen blijven werken.
+          GoRoute(path: 'collecties', redirect: (_, __) => '/archief'),
           instantRoute(
             path: 'zoeken',
             builder: (_, state) {

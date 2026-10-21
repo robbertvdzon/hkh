@@ -971,9 +971,10 @@ void main() {
             AiPreviewHit(
               collection: 'beeldbank',
               ident: '10587',
-              title: 'Portret van burgemeester H. Nielen',
+              title: 'Straten Kerkweg',
               year: 1977,
               url: 'https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10587',
+              snippet: 'Burgemeester Nielen bij zijn afscheid op de Kerkweg',
             ),
           ],
         ),
@@ -1019,7 +1020,12 @@ void main() {
       );
       expect(find.text('Henk Nielen (1912-1977)'), findsOneWidget);
       expect(find.text('artikel · 2020'), findsOneWidget);
-      expect(find.text('foto · 1977'), findsOneWidget);
+      expect(
+        find.text(
+          'foto · 1977 · Burgemeester Nielen bij zijn afscheid op de Kerkweg',
+        ),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('preliminary-result')), findsNothing);
 
       // Daarna komt de samenvatting eronder.

@@ -29,6 +29,8 @@ data class AiPreviewHit(
     val imageUrl: String?,
     /** Publieke link naar het record, zoals de bronnen in een antwoord. */
     val url: String,
+    /** Korte omschrijving: het fragment rond de treffer, anders het begin van de samenvatting. Foto's hebben vaak alleen een algemene titel. */
+    val snippet: String? = null,
 )
 
 /** De eerste treffers en aantallen na de snelle zoekstap. */

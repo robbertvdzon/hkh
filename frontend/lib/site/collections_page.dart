@@ -4,7 +4,7 @@ import '../theme/app_style.dart';
 import 'search_form.dart';
 import 'site_widgets.dart';
 
-/// Collecties › Zoeken: één zoekveld met daaronder de keuze hoe te zoeken.
+/// Archief › Zoeken: één zoekveld met daaronder de keuze hoe te zoeken.
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({this.questionsEnabled = true, super.key});
   final bool questionsEnabled;
@@ -36,11 +36,11 @@ class _CollectionsPageState extends State<CollectionsPage> {
   @override
   Widget build(BuildContext context) {
     return SitePage(
-      title: 'Zoeken in de collecties',
+      title: 'Zoeken in het archief',
       children: [
         const PageHeading(
-          title: 'Zoeken in de collecties',
-          crumbs: [('Collecties', '/collecties')],
+          title: 'Zoeken in het archief',
+          crumbs: [('Archief', '/archief')],
           intro:
               'Ruim 18.000 foto’s, archiefstukken, boeken, bidprentjes, Heemskring-artikelen en voorwerpen. Typ een naam, straat, onderwerp of jaartal en kies hoe u wilt zoeken.',
         ),
@@ -122,7 +122,7 @@ class _AboutCollections extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const SectionHeader('Over de collecties'),
+      const SectionHeader('Over het archief'),
       CardGrid(
         children: [
           for (final collection in publicCollections)

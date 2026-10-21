@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import '../auth/admin_session.dart';
 
 /// Eén verzoek aan de site: een AI-vraag (of de uitwerking ervan) of een
-/// zoekopdracht in de collecties.
+/// zoekopdracht in het archief.
 class RequestLogEntry {
   const RequestLogEntry({
     required this.id,
@@ -76,7 +76,7 @@ class RequestLogEntry {
   String get kindLabel => switch (kind) {
     'AI_QUESTION' => expansion ? 'AI (uitwerking)' : 'AI',
     'COLLECTION_SEARCH' =>
-      collection == null ? 'Collectie' : 'Collectie: $collection',
+      collection == null ? 'Archief' : 'Archief: $collection',
     _ => kind,
   };
 }
@@ -315,7 +315,7 @@ class _AdminRequestLogPageState extends State<AdminRequestLogPage> {
       children: [
         Text(
           'Alle AI-vragen (met hun uitwerkingen) en zoekopdrachten in de '
-          'collecties, nieuwste eerst: wie vroeg wat, hoe snel kwam de eerste '
+          'archief, nieuwste eerst: wie vroeg wat, hoe snel kwam de eerste '
           'terugkoppeling en het antwoord, welk model en wat het kostte '
           '(API-equivalent). IP-adressen worden na 30 dagen afgekapt (met een '
           '* gemarkeerd).',
@@ -335,7 +335,7 @@ class _AdminRequestLogPageState extends State<AdminRequestLogPage> {
                 ButtonSegment(value: _KindFilter.ai, label: Text('AI')),
                 ButtonSegment(
                   value: _KindFilter.collection,
-                  label: Text('Collectie'),
+                  label: Text('Archief'),
                 ),
               ],
               selected: {_kind},
