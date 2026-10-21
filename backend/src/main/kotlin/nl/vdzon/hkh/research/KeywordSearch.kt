@@ -37,6 +37,8 @@ data class CandidateCard(
     val hasText: Boolean = false,
     /** Fragmenten uit de documenttekst rond een teksttreffer, met de treffer tussen « en ». */
     val fragments: List<String> = emptyList(),
+    /** Afbeelding van het record zoals opgeslagen (nog niet omgezet naar een publieke link). */
+    val imageUrl: String? = null,
 )
 
 /** Per zoekterm: welke trefwoordvarianten meededen en hoeveel records er in totaal bij horen. */
@@ -228,7 +230,7 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
                 CandidateCard(
                     ref = ref, title = rs.getString("title").orEmpty(), year = (rs.getObject("year") as Number?)?.toInt(),
                     hasImage = rs.getString("image_url") != null, summary = summary, keywords = keywords[ref].orEmpty(),
-                    matchedTerms = emptySet(), score = 0.0, hasText = rs.getBoolean("has_text"),
+                    matchedTerms = emptySet(), score = 0.0, hasText = rs.getBoolean("has_text"), imageUrl = rs.getString("image_url"),
                 )
             },
             *args,

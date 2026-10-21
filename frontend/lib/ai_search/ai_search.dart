@@ -144,6 +144,7 @@ class AiSearchTurn {
     this.moreAvailable = false,
     this.moreSummary,
     this.expandsTurnId,
+    this.preview,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -180,6 +181,9 @@ class AiSearchTurn {
     moreAvailable: json['moreAvailable'] as bool? ?? false,
     moreSummary: json['moreSummary'] as String?,
     expandsTurnId: json['expandsTurnId'] as String?,
+    preview: json['preview'] == null
+        ? null
+        : AiSearchPreview.fromJson(json['preview'] as Map<String, dynamic>),
   );
 
   final String id;
@@ -223,6 +227,9 @@ class AiSearchTurn {
   final String? expandsTurnId;
 
   bool get isExpansion => expandsTurnId != null;
+
+  /// Pijplijn: de eerste treffers, direct na de snelle zoekstap.
+  final AiSearchPreview? preview;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
@@ -289,6 +296,69 @@ class AiSearchSession {
 
   final String id;
   final List<AiSearchTurn> turns;
+}
+
+/// Eén van de eerste treffers die getoond worden terwijl het model nog werkt.
+class AiPreviewHit {
+  const AiPreviewHit({
+    required this.collection,
+    required this.ident,
+    required this.title,
+    required this.url,
+    this.year,
+    this.imageUrl,
+  });
+
+  factory AiPreviewHit.fromJson(Map<String, dynamic> json) => AiPreviewHit(
+    collection: json['collection'] as String? ?? '',
+    ident: json['ident'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+    year: (json['year'] as num?)?.toInt(),
+    imageUrl: json['imageUrl'] as String?,
+  );
+
+  final String collection;
+  final String ident;
+  final String title;
+  final String url;
+  final int? year;
+  final String? imageUrl;
+}
+
+/// De eerste treffers en de aantallen per collectie, direct na de snelle zoekstap
+/// van de pijplijn en nog voordat het model ze heeft beoordeeld.
+class AiSearchPreview {
+  const AiSearchPreview({
+    required this.total,
+    required this.perCollection,
+    required this.terms,
+    required this.hits,
+  });
+
+  factory AiSearchPreview.fromJson(Map<String, dynamic> json) {
+    final counts = <String, int>{
+      for (final entry
+          in (json['perCollection'] as Map<String, dynamic>? ?? const {})
+              .entries)
+        entry.key: (entry.value as num).toInt(),
+    };
+    return AiSearchPreview(
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      perCollection: counts,
+      terms: (json['terms'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(growable: false),
+      hits: (json['hits'] as List<dynamic>? ?? const [])
+          .map((item) => AiPreviewHit.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false),
+    );
+  }
+
+  final int total;
+  final Map<String, int> perCollection;
+  final List<String> terms;
+  final List<AiPreviewHit> hits;
 }
 
 /// Wat de site vooraf moet weten om een vraag te stellen. Alleen de agent-methode

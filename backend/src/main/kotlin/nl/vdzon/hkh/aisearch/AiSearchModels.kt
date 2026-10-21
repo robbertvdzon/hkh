@@ -18,6 +18,27 @@ enum class AiResearchMethod {
 
 data class AiSourceRef(val collection: String, val ident: String)
 
+/** Eén van de eerste treffers die de gebruiker te zien krijgt terwijl het model nog werkt. */
+data class AiPreviewHit(
+    val collection: String,
+    val ident: String,
+    val title: String,
+    val year: Int?,
+    val hasImage: Boolean,
+    /** Publieke link naar de afbeelding, of null. */
+    val imageUrl: String?,
+    /** Publieke link naar het record, zoals de bronnen in een antwoord. */
+    val url: String,
+)
+
+/** De eerste treffers en aantallen na de snelle zoekstap. */
+data class AiSearchPreview(
+    val total: Int,
+    val perCollection: Map<String, Int>,
+    val terms: List<String>,
+    val hits: List<AiPreviewHit>,
+)
+
 data class AiSearchTurn(
     val id: String,
     val sessionId: String,
@@ -55,6 +76,8 @@ data class AiSearchTurn(
     val moreSummary: String? = null,
     /** Als deze beurt een uitwerking is: de beurt waarvan het antwoord en de bronnen de basis zijn. */
     val expandsTurnId: String? = null,
+    /** Pijplijn: de eerste treffers, direct na de snelle zoekstap; null bij agent of oudere vragen. */
+    val preview: AiSearchPreview? = null,
 )
 
 /** Verslag van één zoekronde, door de agent gemeld na afloop van die ronde. */

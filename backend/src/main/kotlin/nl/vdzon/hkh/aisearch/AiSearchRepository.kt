@@ -234,6 +234,14 @@ class AiSearchRepository(
         )
     }
 
+    /** Bewaart de eerste treffers van de pijplijn, zodat de site ze direct kan tonen. */
+    fun savePreview(turnId: String, preview: AiSearchPreview) {
+        jdbc.update(
+            "UPDATE ai_search_turn SET preview = ?::json, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid",
+            objectMapper.writeValueAsString(preview), turnId,
+        )
+    }
+
     /** Bewaart bijsturing; een nieuwe aanwijzing of stop wordt opnieuw aangeboden aan de agent. */
     fun steer(turnId: String, stop: Boolean?, hint: String?): Boolean = jdbc.update(
         """
@@ -353,6 +361,28 @@ class AiSearchRepository(
             moreAvailable = rs.getBoolean("more_available"),
             moreSummary = rs.getString("more_summary"),
             expandsTurnId = rs.getString("expands_turn_id"),
+            preview = parsePreview(rs.getString("preview")),
+        )
+    }
+
+    private fun parsePreview(json: String?): AiSearchPreview? {
+        if (json.isNullOrBlank()) return null
+        val node = runCatching { objectMapper.readTree(json) }.getOrNull() ?: return null
+        return AiSearchPreview(
+            total = node.path("total").asInt(),
+            perCollection = LinkedHashMap<String, Int>().also { map -> node.path("perCollection").properties().forEach { (key, value) -> map[key] = value.asInt() } },
+            terms = buildList { for (item in node.path("terms")) add(item.asText()) },
+            hits = buildList {
+                for (item in node.path("hits")) {
+                    add(
+                        AiPreviewHit(
+                            collection = item.path("collection").asText(), ident = item.path("ident").asText(), title = item.path("title").asText(""),
+                            year = item.path("year").takeIf { it.isNumber }?.asInt(), hasImage = item.path("hasImage").asBoolean(false),
+                            imageUrl = item.path("imageUrl").takeIf { it.isTextual }?.asText(), url = item.path("url").asText(""),
+                        ),
+                    )
+                }
+            },
         )
     }
 

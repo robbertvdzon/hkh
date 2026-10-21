@@ -23,9 +23,23 @@ data class ResearchInput(
 
 data class ResearchRoundReport(val round: Int, val chosen: Int, val conclusion: String, val nextLeads: List<String>, val reportedAt: Instant = Instant.now())
 
+/** De eerste treffers na de snelle zoekstap, nog voordat het model ze heeft beoordeeld. */
+data class ResearchPreview(
+    /** Hoeveel records de zoektermen raakten. */
+    val total: Int,
+    /** Aantal per collectie onder de gerangschikte kandidaten, grootste eerst. */
+    val perCollection: Map<String, Int>,
+    val terms: List<String>,
+    /** De zeven best gerangschikte treffers met variatie; leeg bij minder dan drie bruikbare treffers. */
+    val hits: List<CandidateCard>,
+)
+
 /** Terugkoppeling naar de aanroeper tijdens het onderzoek. */
 interface ResearchListener {
     fun progress(percent: Int, message: String)
+
+    /** Direct na de snelle zoekstap, vóór het eerste modelwerk: de eerste treffers voor de gebruiker. */
+    fun preview(preview: ResearchPreview) {}
 
     /** Na de richtstap: de tussenconclusie en het aantal geselecteerde records. De uitkomst (stop) is informatief. */
     fun round(report: ResearchRoundReport): Boolean
@@ -85,6 +99,7 @@ class ResearchPipelineService(
         }
         val prior = if (input.priorSources.isNotEmpty()) search.cards(input.priorSources) else emptyList()
         val candidates = (prior + found.candidates).distinctBy { it.ref }
+        if (found.candidates.isNotEmpty()) listener.preview(buildPreview(found, queries))
 
         // Stap 2: richten. Het model ziet alle kaarten en geeft de definitieve zoekopdracht terug.
         var conclusion = ""
@@ -147,6 +162,33 @@ class ResearchPipelineService(
         val written = job(stats, AiRole.WRITER, "uitwerken", "${input.idempotencyPrefix}-expand", writeInstruction, WRITE_SCHEMA, 1500, listener, writeFiles)
         val result = toAgentResult(written, numbered.associate { (number, document) -> number to document.ref }, bounded = false)
         return ResearchOutcome(result, ResearchStats(stats, 0, 0, numbered.size, selection.map { it.toString() }), listOf(report))
+    }
+
+    /** De eerste treffers en de aantallen per collectie voor de gebruiker, zonder modelwerk. */
+    private fun buildPreview(found: SearchResult, queries: List<ResearchQuery>): ResearchPreview = ResearchPreview(
+        total = found.totalFound,
+        perCollection = found.candidates.groupingBy { it.ref.collection }.eachCount().entries.sortedByDescending { it.value }.associate { it.key to it.value },
+        terms = queries.flatMap { it.terms }.distinct().take(6),
+        hits = if (found.candidates.size < MIN_PREVIEW_HITS) emptyList() else pickPreviewHits(found.candidates),
+    )
+
+    /** De best gerangschikte treffers, met hoogstens [PREVIEW_MAX_PHOTOS] foto's zodat er ook artikelen en documenten bij zitten. */
+    fun pickPreviewHits(candidates: List<CandidateCard>): List<CandidateCard> {
+        val chosen = LinkedHashSet<ResearchRef>()
+        var photos = 0
+        for (card in candidates) {
+            if (chosen.size == PREVIEW_HITS) break
+            val photo = card.ref.collection == "beeldbank"
+            if (photo && photos >= PREVIEW_MAX_PHOTOS) continue
+            chosen += card.ref
+            if (photo) photos++
+        }
+        // Te weinig anderen gevonden: vul aan met de overgebleven foto's.
+        for (card in candidates) {
+            if (chosen.size == PREVIEW_HITS) break
+            chosen += card.ref
+        }
+        return candidates.filter { it.ref in chosen }
     }
 
     private fun searchAll(queries: List<ResearchQuery>, listener: ResearchListener): SearchResult {
@@ -479,6 +521,9 @@ class ResearchPipelineService(
         /** Hoeveel records de definitieve selectie hoogstens bevat. */
         const val SELECTION_CAP = 300
         const val ALSO_FOUND_MAX = 60
+        const val PREVIEW_HITS = 7
+        const val PREVIEW_MAX_PHOTOS = 4
+        const val MIN_PREVIEW_HITS = 3
         const val PREVIOUS_ANSWER_CHARS = 30_000
         /** Het eerste antwoord is altijd begrensd; de gebruiker kiest zelf voor de volledige uitwerking. */
         const val BOUNDED_LENGTH_RULE = "Begrens het antwoord tot HOOGSTENS TIEN ALINEA'S (ongeveer 4.000 tot 7.000 tekens) en hoogstens zes foto's: de belangrijkste feiten en de beste beelden, in een logische opbouw. Gebruik alleen de bronnen die daarvoor nodig zijn; je hoeft niet alles te verwerken. Een korte feitelijke vraag mag ook korter."

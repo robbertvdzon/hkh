@@ -11,6 +11,7 @@ import 'ai_disclaimer.dart';
 import 'ai_search.dart';
 import 'ai_question_card.dart';
 import 'answer_pdf_saver.dart';
+import 'answer_source_dialog.dart';
 import 'answer_sources_page.dart';
 import 'research_depth_selector.dart';
 
@@ -1110,6 +1111,10 @@ class _TurnCardState extends State<_TurnCard> {
                   ),
               ],
             ),
+            if (turn.method == 'PIPELINE' && turn.preview != null) ...[
+              const SizedBox(height: 12),
+              _FirstHits(preview: turn.preview!),
+            ],
             if (turn.researchLog.isNotEmpty) ...[
               const SizedBox(height: 12),
               if (turn.method == 'PIPELINE')
@@ -1209,6 +1214,166 @@ class _ResearchLog extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Hoe een collectie in de aantallen heet: (enkelvoud, meervoud).
+const _collectionNames = <String, (String, String)>{
+  'beeldbank': ('foto', "foto's"),
+  'artikelen': ('artikel', 'artikelen'),
+  'archief': ('document', 'documenten'),
+  'transcripties': ('transcriptie', 'transcripties'),
+  'library': ('boek of tijdschrift', 'boeken en tijdschriften'),
+  'bidprent': ('bidprentje', 'bidprentjes'),
+  'objecten': ('voorwerp', 'voorwerpen'),
+};
+
+String _countLabel(String collection, int count) {
+  final names = _collectionNames[collection];
+  final name = names == null ? collection : (count == 1 ? names.$1 : names.$2);
+  return '$count $name';
+}
+
+IconData _collectionIcon(String collection) => switch (collection) {
+  'beeldbank' => Icons.photo_outlined,
+  'artikelen' => Icons.article_outlined,
+  'archief' => Icons.description_outlined,
+  'transcripties' => Icons.notes_outlined,
+  'library' => Icons.menu_book_outlined,
+  'bidprent' => Icons.sticky_note_2_outlined,
+  'objecten' => Icons.inventory_2_outlined,
+  _ => Icons.description_outlined,
+};
+
+/// Pijplijn: direct na de snelle zoekstap de eerste treffers, nog voordat het model ze heeft beoordeeld.
+class _FirstHits extends StatelessWidget {
+  const _FirstHits({required this.preview});
+
+  final AiSearchPreview preview;
+
+  String get _countLine {
+    final entries = preview.perCollection.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total =
+        '${preview.total} ${preview.total == 1 ? 'archiefstuk' : 'archiefstukken'} gevonden';
+    if (entries.isEmpty) return '$total.';
+    final shown = entries.fold<int>(0, (sum, entry) => sum + entry.value);
+    final parts = entries
+        .map((entry) => _countLabel(entry.key, entry.value))
+        .join(', ');
+    return shown >= preview.total
+        ? '$total: $parts.'
+        : '$total, waaronder $parts.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('first-hits'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: appAccentBackground,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            preview.hits.isEmpty
+                ? 'Eerste zoekresultaat'
+                : 'Eerste treffers op uw zoekwoorden, nog niet beoordeeld',
+            style: theme.textTheme.titleSmall?.copyWith(color: appGreen),
+          ),
+          const SizedBox(height: 6),
+          if (preview.terms.isNotEmpty)
+            Text(
+              'Gezocht op ${preview.terms.join(', ')}.',
+              style: const TextStyle(color: appMutedText, fontSize: 13),
+            ),
+          Text(_countLine, key: const Key('first-hits-count')),
+          for (final hit in preview.hits) ...[
+            const SizedBox(height: 6),
+            _HitRow(hit: hit),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HitRow extends StatelessWidget {
+  const _HitRow({required this.hit});
+
+  final AiPreviewHit hit;
+
+  @override
+  Widget build(BuildContext context) {
+    final names = _collectionNames[hit.collection];
+    final kind = names?.$1 ?? hit.collection;
+    final image = hit.imageUrl;
+    return InkWell(
+      key: ValueKey('first-hit-${hit.collection}-${hit.ident}'),
+      borderRadius: BorderRadius.circular(8),
+      onTap: hit.url.isEmpty
+          ? null
+          : () => showAnswerSource(
+              context,
+              url: hit.url,
+              source: AnswerSourceScope.maybeOf(context),
+            ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox.square(
+                dimension: 44,
+                child: image == null
+                    ? ColoredBox(
+                        color: Colors.white,
+                        child: Icon(
+                          _collectionIcon(hit.collection),
+                          color: appGreen,
+                        ),
+                      )
+                    : Image.network(
+                        image,
+                        fit: BoxFit.cover,
+                        cacheWidth: 96,
+                        errorBuilder: (_, __, ___) => ColoredBox(
+                          color: Colors.white,
+                          child: Icon(
+                            _collectionIcon(hit.collection),
+                            color: appGreen,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hit.title.isEmpty ? 'Zonder titel' : hit.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    hit.year == null ? kind : '$kind · ${hit.year}',
+                    style: const TextStyle(color: appMutedText, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Pijplijn: na het eerste onderzoek een korte uitkomst, terwijl het volledige antwoord nog wordt geschreven.

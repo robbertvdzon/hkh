@@ -264,6 +264,18 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
      gebruikt de volledige versie onder de oorspronkelijke vraag.
 
   De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%).
+  **Eerste treffers**: direct na de snelle zoekstap (ongeveer twee seconden, vóór het eerste
+  modelwerk) bewaart de pijplijn op de beurt de eerste treffers (`ai_search_turn.preview`, JSON) en
+  toont de voortgangskaart een blok **Eerste treffers op uw zoekwoorden, nog niet beoordeeld**:
+  de zoektermen ("Gezocht op …"), een regel met het aantal gevonden archiefstukken en hun verdeling
+  per collectie (grootste eerst, "waaronder" als het totaal groter is dan het aantal beoordeelde
+  kandidaten) en zeven treffers in rangorde met een klein plaatje bij foto's, de titel en
+  "soort · jaar"; een tik opent de bron zoals een bronlink in een antwoord. De zeven hebben
+  variatie: hoogstens vier foto's, de rest artikelen en documenten (aangevuld met foto's als er te
+  weinig andere zijn). Zijn er minder dan drie treffers dan blijft het bij de aantallen. Het blok
+  staat boven de eerste uitkomst en verdwijnt met de rest van de voortgangskaart zodra het antwoord
+  er is. De tijd tot de eerste terugkoppeling in het logboek is voor de pijplijn het moment van
+  deze treffers.
   Na het richten toont de voortgangskaart een blok met de kop **Het antwoord komt eraan. Hier
   alvast een korte uitkomst van een eerste onderzoek:**, daaronder de eerste uitkomst (vier tot
   vijf zinnen, door het model gebaseerd op de samenvattingen en fragmenten van de gevonden

@@ -8,7 +8,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import nl.vdzon.hkh.research.ResearchCancelledException
 import nl.vdzon.hkh.research.ResearchInput
+import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.research.ResearchListener
+import nl.vdzon.hkh.research.ResearchPreview
 import nl.vdzon.hkh.research.ResearchPipelineService
 import nl.vdzon.hkh.research.ResearchRef
 import nl.vdzon.hkh.research.ResearchRoundReport
@@ -388,6 +390,26 @@ class AiSearchService(
                 repository.updateProgress(turn.id, AiTurnStatus.RUNNING, percent, message)
             }
 
+            override fun preview(preview: ResearchPreview) {
+                repository.savePreview(
+                    turn.id,
+                    AiSearchPreview(
+                        total = preview.total,
+                        perCollection = preview.perCollection,
+                        terms = preview.terms,
+                        hits = preview.hits.map { card ->
+                            AiPreviewHit(
+                                collection = card.ref.collection, ident = card.ref.ident, title = card.title, year = card.year, hasImage = card.hasImage,
+                                imageUrl = if (card.hasImage) CollectionLinks.safeMedia(card.imageUrl) else null,
+                                url = CollectionLinks.detail(card.ref.collection, card.ref.ident, publicOrigin),
+                            )
+                        },
+                    ),
+                )
+                // Het eerste wat de bezoeker ziet is de eerste terugkoppeling.
+                requestLog.firstFeedback(turn.id)
+            }
+
             override fun round(report: ResearchRoundReport): Boolean {
                 repository.recordRound(turn.id, AiResearchRound(report.round, report.chosen, report.conclusion, report.nextLeads, report.reportedAt))
                 requestLog.firstFeedback(turn.id)
@@ -702,6 +724,8 @@ data class AiSearchTurnView(
     val moreSummary: String?,
     /** Als deze beurt een uitwerking is: de beurt waarvan het antwoord en de bronnen de basis zijn. */
     val expandsTurnId: String?,
+    /** Pijplijn: de eerste treffers, direct na de snelle zoekstap. */
+    val preview: AiSearchPreview?,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
@@ -721,7 +745,7 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
     researchLog.map { AiResearchRoundView(it.round, it.sources, it.found, it.next, it.reportedAt) },
     AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
     status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1 && method == AiResearchMethod.AGENT,
-    moreAvailable, moreSummary, expandsTurnId,
+    moreAvailable, moreSummary, expandsTurnId, preview,
     createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 

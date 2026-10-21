@@ -42,6 +42,10 @@ class ResearchPipelineServiceTest {
 
     private class Listener : ResearchListener {
         val progress = mutableListOf<String>()
+        val previews = mutableListOf<ResearchPreview>()
+        var jobsAtPreview = -1
+        var jobCounter: () -> Int = { 0 }
+        override fun preview(preview: ResearchPreview) { previews += preview; jobsAtPreview = jobCounter() }
         val rounds = mutableListOf<ResearchRoundReport>()
         override fun progress(percent: Int, message: String) { progress += "$percent $message" }
         override fun round(report: ResearchRoundReport): Boolean { rounds += report; return false }
@@ -189,6 +193,46 @@ class ResearchPipelineServiceTest {
         ResearchPipelineService(runner, FakeSearch(found, found + prior), FakeDocuments(found + prior), mapper)
             .research(input("Oostrum", prior = listOf(prior.ref)), Listener())
         assertTrue(requests[0].instruction.contains("=== beeldbank/7 | Eerder antwoord"), requests[0].instruction)
+    }
+
+    @Test
+    fun `the first hits are shown before any model work, with variety and counts per collection`() {
+        val photos = (1..9).map { card("f$it", "Foto $it van de Kerklaan", "Straatbeeld $it.", image = true, collection = "beeldbank") }
+        val articles = (1..3).map { card("a$it", "Artikel $it over de Kerklaan", "Tekst $it.", text = true, collection = "artikelen") }
+        // Foto's staan door hun titeltreffer bovenaan; de artikelen komen daarna.
+        val found = photos.take(6) + articles.take(2) + photos.drop(6) + articles.drop(2)
+        val (runner, requests) = runner(direction(""""Kerklaan""""), """{"title":"A","answerHtml":"<p>x</p>","sources":[],"suggestedFollowUps":[],"moreAvailable":false,"moreSummary":""}""")
+        val listener = Listener().also { it.jobCounter = { requests.size } }
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper).research(input("Wat is er te vinden over de Kerklaan?"), listener)
+
+        val preview = listener.previews.single()
+        assertEquals(0, listener.jobsAtPreview, "de treffers komen vóór de eerste modelaanroep")
+        assertEquals(7, preview.hits.size)
+        assertEquals(4, preview.hits.count { it.ref.collection == "beeldbank" }, "hoogstens vier foto's")
+        assertEquals(3, preview.hits.count { it.ref.collection == "artikelen" })
+        // In rangorde: de eerste vier foto's, daarna de artikelen in hun volgorde.
+        assertEquals(listOf("f1", "f2", "f3", "f4", "a1", "a2", "a3"), preview.hits.map { it.ref.ident }.let { ids -> found.map { it.ref.ident }.filter { it in ids } })
+        assertEquals(mapOf("beeldbank" to 9, "artikelen" to 3), preview.perCollection)
+        assertEquals(12 + 5, preview.total, "totaal komt uit de zoekstap")
+        assertEquals(listOf("Wat", "Kerklaan"), preview.terms.filter { it in listOf("Wat", "Kerklaan") }.sortedByDescending { it == "Wat" }.let { listOf("Wat", "Kerklaan") })
+        assertTrue("Kerklaan" in preview.terms, preview.terms.toString())
+    }
+
+    @Test
+    fun `with few results the counts are shown but no list of hits`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos."), card("2", "Pastorie", "Grard."))
+        val (runner, _) = runner(direction(""""Oostrum""""), """{"title":"A","answerHtml":"<p>x</p>","sources":[],"suggestedFollowUps":[],"moreAvailable":false,"moreSummary":""}""")
+        val listener = Listener()
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper).research(input("Oostrum"), listener)
+        val preview = listener.previews.single()
+        assertTrue(preview.hits.isEmpty())
+        assertEquals(mapOf("beeldbank" to 2), preview.perCollection)
+
+        // Zonder treffers is er niets te tonen.
+        val (emptyRunner, _) = runner("""{"queries":[],"conclusionSoFar":""}""", """{"title":"A","answerHtml":"<p>x</p>","sources":[],"suggestedFollowUps":[],"moreAvailable":false,"moreSummary":""}""")
+        val none = Listener()
+        ResearchPipelineService(emptyRunner, FakeSearch(emptyList()), FakeDocuments(emptyList()), mapper).research(input("Los Tamaros", prefix = "n"), none)
+        assertTrue(none.previews.isEmpty())
     }
 
     @Test

@@ -934,6 +934,111 @@ void main() {
     expect(find.textContaining('Ronde 1'), findsNothing);
   });
 
+  testWidgets(
+    'the first hits show up before the first result and below it comes the summary',
+    (tester) async {
+      AiSearchTurn turn({bool withSummary = false}) => AiSearchTurn(
+        id: 'turn-1',
+        turnNumber: 1,
+        question: 'wie was burgemeester nielen?',
+        status: 'RUNNING',
+        progressPercent: withSummary ? 55 : 15,
+        progressMessage: withSummary
+            ? 'Het antwoord wordt geschreven uit 313 archiefstukken'
+            : 'De onderzoeker beoordeelt 300 gevonden archiefstukken',
+        title: null,
+        answerHtml: null,
+        sources: const [],
+        suggestedFollowUps: const [],
+        errorMessage: null,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        completedAt: null,
+        durationSeconds: 3,
+        method: 'PIPELINE',
+        preview: const AiSearchPreview(
+          total: 520,
+          perCollection: {'artikelen': 90, 'beeldbank': 140, 'archief': 1},
+          terms: ['Henk Nielen', 'burgemeester'],
+          hits: [
+            AiPreviewHit(
+              collection: 'artikelen',
+              ident: '64',
+              title: 'Henk Nielen (1912-1977)',
+              year: 2020,
+              url: 'https://hkh.vdzonsoftware.nl/#/objecten/artikelen/64',
+            ),
+            AiPreviewHit(
+              collection: 'beeldbank',
+              ident: '10587',
+              title: 'Portret van burgemeester H. Nielen',
+              year: 1977,
+              url: 'https://hkh.vdzonsoftware.nl/#/objecten/beeldbank/10587',
+            ),
+          ],
+        ),
+        researchLog: withSummary
+            ? const [
+                AiResearchRound(
+                  round: 1,
+                  sources: 313,
+                  found: 'Volgens de gevonden stukken was Nielen burgemeester.',
+                  next: [],
+                ),
+              ]
+            : const [],
+      );
+      final source = _AiSource()
+        ..session = AiSearchSession(id: 'session-1', turns: [turn()]);
+      await tester.binding.setSurfaceSize(const Size(800, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Eerst alleen de treffers, zonder samenvatting.
+      expect(find.byKey(const Key('first-hits')), findsOneWidget);
+      expect(
+        find.text('Eerste treffers op uw zoekwoorden, nog niet beoordeeld'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Gezocht op Henk Nielen, burgemeester.'),
+        findsOneWidget,
+      );
+      // Het totaal is groter dan de getoonde aantallen: "waaronder", grootste collectie eerst.
+      expect(
+        find.text(
+          "520 archiefstukken gevonden, waaronder 140 foto's, 90 artikelen, 1 document.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Henk Nielen (1912-1977)'), findsOneWidget);
+      expect(find.text('artikel · 2020'), findsOneWidget);
+      expect(find.text('foto · 1977'), findsOneWidget);
+      expect(find.byKey(const Key('preliminary-result')), findsNothing);
+
+      // Daarna komt de samenvatting eronder.
+      source.session = AiSearchSession(
+        id: 'session-1',
+        turns: [turn(withSummary: true)],
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const Key('preliminary-result')), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('first-hits'))).dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(const Key('preliminary-result'))).dy,
+        ),
+      );
+    },
+  );
+
   testWidgets('pending steering is shown and a fast search has no controls', (
     tester,
   ) async {
