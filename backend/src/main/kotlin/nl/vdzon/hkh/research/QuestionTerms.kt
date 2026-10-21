@@ -102,7 +102,7 @@ object QuestionTerms {
         "verder", "daarna", "daarbij", "daarvan", "daarover", "hierover", "erover", "ervan", "waarvan", "hieruit", "daaruit",
         "zoals", "bijvoorbeeld", "bv", "evt", "eventueel", "liefst", "vooral", "alleen", "ongeveer", "diep", "dieper", "niveau",
         "voetnoot", "voetnoten", "footnoot", "footnoten", "onderin", "onderaan", "onderdeel", "onderdelen", "toepassing", "weergeven", "weergave",
-        "kunt", "zodat", "omdat", "terwijl", "hoewel", "indien", "wel", "niet", "ja", "nee", "geldt", "geld", "gelden",
+        "kunt", "zodat", "omdat", "terwijl", "hoewel", "indien", "wel", "niet", "ja", "nee", "geldt", "geld", "gelden", "weer", "weeral",
         "twintig", "dertig", "veertig", "vijftig", "zestig", "zeventig", "tachtig", "negentig", "honderd", "begin", "eind", "einde", "midden",
     )
 }

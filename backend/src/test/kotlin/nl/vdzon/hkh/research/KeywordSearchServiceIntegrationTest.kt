@@ -50,6 +50,9 @@ class KeywordSearchServiceIntegrationTest(
         assertTrue(idents.indexOf("ks-1") < idents.indexOf("ks-2"), "exacte naam vóór variant: $idents")
         assertTrue("ks-2" in idents, "Oostrom moet als variant meedoen: $idents")
         assertTrue("ks-4" in idents, "vangnet volledige tekst: $idents")
+        // Een trefwoordtreffer is sterk, een record dat alleen via de volledige tekst gevonden is niet.
+        assertTrue(result.candidates.first { it.ref.ident == "ks-1" }.strong, "exacte naam als trefwoord")
+        assertTrue(!result.candidates.first { it.ref.ident == "ks-4" }.strong, "alleen in de tekst")
         val report = result.terms.single()
         assertEquals("Oostrum", report.term)
         assertTrue("Grard Oostrom" in report.variants, report.variants.toString())

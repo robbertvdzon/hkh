@@ -219,6 +219,34 @@ class ResearchPipelineServiceTest {
     }
 
     @Test
+    fun `strong matches come first, a few photos are always included and a year sort shows no list`() {
+        // Documenten waarin de term alleen ergens in de tekst staat, eerst in de ruwe rangorde.
+        val weak = (1..6).map { card("w$it", "Gemeente verslag $it", "Algemeen.", text = true, collection = "archief") }
+        val strongArticle = card("s1", "Henk Nielen (1912-1977)", "Biografie.", text = true, collection = "artikelen").copy(strong = true)
+        val strongPhotos = (1..3).map { card("p$it", "Portret burgemeester Nielen $it", "Portret.", image = true, collection = "beeldbank").copy(strong = true) }
+        val found = weak + strongArticle + strongPhotos
+        val service = ResearchPipelineService(runner().first, FakeSearch(found), FakeDocuments(found), mapper)
+
+        val hits = service.pickPreviewHits(found).map { it.ref.ident }
+        assertEquals(7, hits.size)
+        assertEquals(listOf("s1", "p1", "p2", "p3"), hits.take(4), "sterke treffers eerst, in rangorde")
+        assertEquals(3, hits.count { it.startsWith("p") }, "foto's zijn er altijd bij als ze bestaan")
+        assertEquals(3, hits.count { it.startsWith("w") }, "de rest wordt aangevuld met de beste andere treffers")
+
+        // Eén foto beschikbaar: die gaat mee, de rest zijn documenten.
+        val one = weak + card("only", "Foto", "x", image = true, collection = "beeldbank")
+        assertTrue(service.pickPreviewHits(one).any { it.ref.ident == "only" })
+
+        // Bij "de oudste" staat het jaar van veel foto's niet in de gegevens: dan alleen aantallen, geen lijst.
+        val (runner, _) = runner(direction(""""luchtfoto""""), """{"title":"A","answerHtml":"<p>x</p>","sources":[],"suggestedFollowUps":[],"moreAvailable":false,"moreSummary":""}""")
+        val listener = Listener()
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper).research(input("Zoek de oudste luchtfoto van Heemskerk"), listener)
+        val preview = listener.previews.single()
+        assertTrue(preview.hits.isEmpty())
+        assertEquals(found.size, preview.perCollection.values.sum())
+    }
+
+    @Test
     fun `with few results the counts are shown but no list of hits`() {
         val found = listOf(card("1", "Kerklaan 13a", "Toos."), card("2", "Pastorie", "Grard."))
         val (runner, _) = runner(direction(""""Oostrum""""), """{"title":"A","answerHtml":"<p>x</p>","sources":[],"suggestedFollowUps":[],"moreAvailable":false,"moreSummary":""}""")

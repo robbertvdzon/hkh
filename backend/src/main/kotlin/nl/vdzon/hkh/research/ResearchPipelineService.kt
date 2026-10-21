@@ -168,27 +168,36 @@ class ResearchPipelineService(
     private fun buildPreview(found: SearchResult, queries: List<ResearchQuery>): ResearchPreview = ResearchPreview(
         total = found.totalFound,
         perCollection = found.candidates.groupingBy { it.ref.collection }.eachCount().entries.sortedByDescending { it.value }.associate { it.key to it.value },
-        terms = queries.flatMap { it.terms }.distinct().take(6),
-        hits = if (found.candidates.size < MIN_PREVIEW_HITS) emptyList() else pickPreviewHits(found.candidates),
+        terms = queries.flatMap { it.terms }.distinct().take(PREVIEW_TERMS),
+        // Bij "oudste" of "nieuwste" is een lijst op jaar misleidend: veel foto's hebben geen jaar. Dan alleen de aantallen.
+        hits = if (found.candidates.size < MIN_PREVIEW_HITS || queries.any { it.sortByYear != null }) emptyList() else pickPreviewHits(found.candidates),
     )
 
-    /** De best gerangschikte treffers, met hoogstens [PREVIEW_MAX_PHOTOS] foto's zodat er ook artikelen en documenten bij zitten. */
+    /**
+     * De beste treffers voor de gebruiker: sterke treffers (term in de titel of een trefwoord) vóór treffers
+     * die alleen ergens in een lange tekst staan, met minstens [PREVIEW_MIN_PHOTOS] en hoogstens
+     * [PREVIEW_MAX_PHOTOS] foto's, zodat er ook plaatjes en daarnaast artikelen en documenten bij zitten.
+     */
     fun pickPreviewHits(candidates: List<CandidateCard>): List<CandidateCard> {
+        val ranked = candidates.sortedByDescending { it.strong }
+        fun isPhoto(card: CandidateCard) = card.ref.collection == "beeldbank"
         val chosen = LinkedHashSet<ResearchRef>()
-        var photos = 0
-        for (card in candidates) {
+        // Eerst de beste foto's reserveren, dan aanvullen in rangorde.
+        ranked.filter(::isPhoto).take(PREVIEW_MIN_PHOTOS).forEach { chosen += it.ref }
+        var photos = chosen.size
+        for (card in ranked) {
             if (chosen.size == PREVIEW_HITS) break
-            val photo = card.ref.collection == "beeldbank"
-            if (photo && photos >= PREVIEW_MAX_PHOTOS) continue
+            if (card.ref in chosen) continue
+            if (isPhoto(card) && photos >= PREVIEW_MAX_PHOTOS) continue
             chosen += card.ref
-            if (photo) photos++
+            if (isPhoto(card)) photos++
         }
         // Te weinig anderen gevonden: vul aan met de overgebleven foto's.
-        for (card in candidates) {
+        for (card in ranked) {
             if (chosen.size == PREVIEW_HITS) break
             chosen += card.ref
         }
-        return candidates.filter { it.ref in chosen }
+        return ranked.filter { it.ref in chosen }
     }
 
     private fun searchAll(queries: List<ResearchQuery>, listener: ResearchListener): SearchResult {
@@ -523,6 +532,8 @@ class ResearchPipelineService(
         const val ALSO_FOUND_MAX = 60
         const val PREVIEW_HITS = 7
         const val PREVIEW_MAX_PHOTOS = 4
+        const val PREVIEW_MIN_PHOTOS = 2
+        const val PREVIEW_TERMS = 3
         const val MIN_PREVIEW_HITS = 3
         const val PREVIOUS_ANSWER_CHARS = 30_000
         /** Het eerste antwoord is altijd begrensd; de gebruiker kiest zelf voor de volledige uitwerking. */

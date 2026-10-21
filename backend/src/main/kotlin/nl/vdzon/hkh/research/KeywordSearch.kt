@@ -39,6 +39,8 @@ data class CandidateCard(
     val fragments: List<String> = emptyList(),
     /** Afbeelding van het record zoals opgeslagen (nog niet omgezet naar een publieke link). */
     val imageUrl: String? = null,
+    /** Sterke treffer: de term staat in de titel of komt overeen met een trefwoord, niet alleen ergens in de tekst. */
+    val strong: Boolean = false,
 )
 
 /** Per zoekterm: welke trefwoordvarianten meededen en hoeveel records er in totaal bij horen. */
@@ -79,7 +81,7 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
         val cards = loadCards(ranked.map { it.first })
         var candidates = ranked.mapNotNull { (ref, score) ->
             val hit = hits.getValue(ref)
-            cards[ref]?.copy(matchedTerms = hit.perTerm.keys, score = Math.round(score * 100) / 100.0, fragments = hit.fragments.take(MAX_FRAGMENTS))
+            cards[ref]?.copy(matchedTerms = hit.perTerm.keys, score = Math.round(score * 100) / 100.0, fragments = hit.fragments.take(MAX_FRAGMENTS), strong = hit.strong)
         }
         val sort = queries.firstNotNullOfOrNull { it.sortByYear }
         if (sort != null) {
@@ -140,7 +142,7 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
                 ORDER BY s DESC, m.collection, m.ident
                 LIMIT $MAX_PER_TERM
                 """.trimIndent(),
-                { rs, _ -> record(hits, ResearchRef(rs.getString("collection"), rs.getString("ident")), term, rs.getDouble("s"), rs.getBoolean("t"), rs.getBoolean("d"), null) },
+                { rs, _ -> record(hits, ResearchRef(rs.getString("collection"), rs.getString("ident")), term, rs.getDouble("s"), rs.getBoolean("t"), rs.getBoolean("d"), null, strong = rs.getDouble("s") >= STRONG_KEYWORD_SCORE) },
                 *(listOf<Any>(titlePattern) + filter.args).toTypedArray(),
             )
         }
@@ -190,9 +192,10 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
         return TermReport(term, listOf("$from-$to"), count, 0)
     }
 
-    private fun record(hits: MutableMap<ResearchRef, Hit>, ref: ResearchRef, term: String, score: Double, titleHit: Boolean, hasText: Boolean, fragment: String?) {
+    private fun record(hits: MutableMap<ResearchRef, Hit>, ref: ResearchRef, term: String, score: Double, titleHit: Boolean, hasText: Boolean, fragment: String?, strong: Boolean = false) {
         val hit = hits.getOrPut(ref) { Hit() }
         hit.perTerm.merge(term, score, ::maxOf)
+        if (titleHit || strong) hit.strong = true
         if (titleHit) hit.titleHit = true
         if (hasText) hit.hasText = true
         if (fragment != null && fragment !in hit.fragments) hit.fragments += fragment
@@ -245,6 +248,7 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
         val perTerm = mutableMapOf<String, Double>()
         var titleHit = false
         var hasText = false
+        var strong = false
         val fragments = mutableListOf<String>()
 
         fun total(): Double = perTerm.values.sum() + 0.5 * (perTerm.size - 1) + (if (titleHit) TITLE_BONUS else 0.0) + (if (hasText) TEXT_BONUS else 0.0)
@@ -290,6 +294,8 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
         const val TEXT_SCORE = 0.45
         const val YEAR_SCORE = 0.4
         const val TITLE_BONUS = 0.6
+        /** Vanaf deze gelijkenis met een trefwoord telt een keywordtreffer als sterk (bijna een exacte naam of straat). */
+        const val STRONG_KEYWORD_SCORE = 0.6
         const val TEXT_BONUS = 0.3
         const val HEADLINE_CHARS = 50_000
         const val HEADLINE_OPTIONS = "MaxFragments=2, MinWords=12, MaxWords=30, StartSel=«, StopSel=», FragmentDelimiter=…"

@@ -270,9 +270,12 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
   de zoektermen ("Gezocht op …"), een regel met het aantal gevonden archiefstukken en hun verdeling
   per collectie (grootste eerst, "waaronder" als het totaal groter is dan het aantal beoordeelde
   kandidaten) en zeven treffers in rangorde met een klein plaatje bij foto's, de titel en
-  "soort · jaar"; een tik opent de bron zoals een bronlink in een antwoord. De zeven hebben
-  variatie: hoogstens vier foto's, de rest artikelen en documenten (aangevuld met foto's als er te
-  weinig andere zijn). Zijn er minder dan drie treffers dan blijft het bij de aantallen. Het blok
+  "soort · jaar"; een tik opent de bron zoals een bronlink in een antwoord. De zeven zijn
+  gekozen met sterke treffers eerst (de term staat in de titel of komt overeen met een
+  trefwoord, in plaats van alleen ergens in een lange tekst) en met variatie: minstens twee en
+  hoogstens vier foto's, de rest artikelen en documenten. Zijn er minder dan drie treffers, of
+  zoekt de vraag het oudste of nieuwste (veel foto's hebben geen jaar), dan blijft het bij de
+  aantallen. "Gezocht op" toont hoogstens drie termen. Het blok
   staat boven de eerste uitkomst en verdwijnt met de rest van de voortgangskaart zodra het antwoord
   er is. De tijd tot de eerste terugkoppeling in het logboek is voor de pijplijn het moment van
   deze treffers.

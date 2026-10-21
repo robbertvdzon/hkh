@@ -49,6 +49,12 @@ class QuestionTermsTest {
     }
 
     @Test
+    fun `filler words such as weer are not search terms`() {
+        assertEquals(listOf("Oostrum"), QuestionTerms.extract("En ook weer iets over Oostrum").terms.filter { it.equals("Oostrum", true) || it == "weer" })
+        assert("weer" !in QuestionTerms.extract("Vertel eens weer iets over de Kerklaan").terms)
+    }
+
+    @Test
     fun `a question without usable words gives an empty query`() {
         assert(QuestionTerms.extract("en hij?").isEmpty)
         assert(QuestionTerms.extract("Kun je dat nog eens doen?").isEmpty)
