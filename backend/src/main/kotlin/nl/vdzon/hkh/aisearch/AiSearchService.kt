@@ -58,7 +58,7 @@ class AiSearchService(
         ensureCapacity()
         val cleaned = validateQuestion(question)
         val sessionId = repository.createSession(AiSearchOwner(visitorId = identity.visitorId, userId = identity.userId, userEmail = identity.userEmail))
-        schedule(logged(repository.createTurn(sessionId, cleaned, depth = depth, method = modelSettings.method()), identity.userEmail))
+        schedule(logged(repository.createTurn(sessionId, cleaned, depth = depth, method = modelSettings.method()), identity.userEmail, visitor = visitorKey(identity.visitorId, identity.userId)))
         return get(identity, sessionId)
     }
 
@@ -66,7 +66,7 @@ class AiSearchService(
 
     fun followUp(identity: AiSearchIdentity, sessionId: String, question: String, depth: AiResearchDepth = AiResearchDepth.DEFAULT): AiSearchSessionView {
         requireSession(identity, sessionId)
-        addFollowUp(sessionId, question, null, depth, identity.userEmail)
+        addFollowUp(sessionId, question, null, depth, identity.userEmail, visitorKey(identity.visitorId, identity.userId))
         return get(identity, sessionId)
     }
 
@@ -92,7 +92,7 @@ class AiSearchService(
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         if (turns.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
-        schedule(logged(repository.createTurn(sessionId, EXPAND_QUESTION, source.dossierContext, source.depth, AiResearchMethod.PIPELINE, expandsTurnId = turnId), identity.userEmail, question = source.question))
+        schedule(logged(repository.createTurn(sessionId, EXPAND_QUESTION, source.dossierContext, source.depth, AiResearchMethod.PIPELINE, expandsTurnId = turnId), identity.userEmail, question = source.question, visitor = visitorKey(identity.visitorId, identity.userId)))
         return get(identity, sessionId)
     }
 
@@ -116,7 +116,7 @@ class AiSearchService(
         ensureCapacity()
         val cleaned = validateQuestion(question)
         val sessionId = repository.createSession(owner)
-        schedule(logged(repository.createTurn(sessionId, cleaned, dossierContext, depth, modelSettings.method()), owner.userEmail))
+        schedule(logged(repository.createTurn(sessionId, cleaned, dossierContext, depth, modelSettings.method()), owner.userEmail, visitor = visitorKey(owner.visitorId, owner.userId)))
         return sessionView(sessionId)
     }
 
@@ -229,20 +229,23 @@ class AiSearchService(
 
     // ---- Intern ----
 
-    private fun addFollowUp(sessionId: String, question: String, dossierContext: String?, depth: AiResearchDepth, userEmail: String? = null) {
+    private fun addFollowUp(sessionId: String, question: String, dossierContext: String?, depth: AiResearchDepth, userEmail: String? = null, visitor: String? = null) {
         ensureAvailable()
         if (repository.hasActiveTurn(sessionId)) throw ResponseStatusException(HttpStatus.CONFLICT, "Er loopt al een onderzoek")
         ensureCapacity()
         val previous = repository.turns(sessionId)
         if (previous.size >= MAX_TURNS) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Dit gesprek heeft het maximum aantal vervolgvragen bereikt")
-        schedule(logged(repository.createTurn(sessionId, validateQuestion(question), dossierContext, depth, modelSettings.method()), userEmail))
+        schedule(logged(repository.createTurn(sessionId, validateQuestion(question), dossierContext, depth, modelSettings.method()), userEmail, visitor = visitor))
     }
 
     /** Legt de nieuwe beurt vast in het logboek van verzoeken; de beurt-id is de verwijzing voor de afronding. */
-    private fun logged(turn: AiSearchTurn, userEmail: String?, question: String = turn.question): AiSearchTurn {
-        requestLog.open(RequestKind.AI_QUESTION, question, userEmail, reference = turn.id, expansion = turn.expandsTurnId != null)
+    private fun logged(turn: AiSearchTurn, userEmail: String?, question: String = turn.question, visitor: String? = null): AiSearchTurn {
+        requestLog.open(RequestKind.AI_QUESTION, question, userEmail, reference = turn.id, expansion = turn.expandsTurnId != null, visitor = visitor)
         return turn
     }
+
+    /** De sleutel waarmee het logboek unieke bezoekers telt: ingelogde gebruiker of het bezoekerscookie. */
+    private fun visitorKey(visitorId: String?, userId: String?): String? = userId?.let { "u:$it" } ?: visitorId?.let { "v:$it" }
 
     /** Sluit de logboekregel van een beurt af met status, modellen, kosten en de tijd tot het antwoord. */
     private fun logFinished(turnId: String) {

@@ -92,7 +92,7 @@ class CollectionController(
         if ((input.query != null || input.fields.isNotEmpty()) && (input.integer("page") ?: 0) == 0) {
             val user = authorization?.let { runCatching { sessions.authenticate(it) }.getOrNull() }
             val description = listOfNotNull(input.query, input.fields.entries.joinToString("; ") { "${it.key}: ${it.value}" }.takeIf { it.isNotBlank() }).joinToString(" | ")
-            requestLog.logSearch(description, input.collection, user?.email, System.currentTimeMillis() - started)
+            requestLog.logSearch(description, input.collection, user?.email, System.currentTimeMillis() - started, user?.id)
         }
         return SearchResponse(result.items.map(CollectionItem::toSummary), result.total, result.page,
             result.pageSize, service.documentTextAvailable(),

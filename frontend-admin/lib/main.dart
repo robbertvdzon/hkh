@@ -12,7 +12,8 @@ import 'ai/admin_ai_model.dart';
 import 'ai/admin_ai_research.dart';
 import 'requests/admin_request_log.dart';
 import 'collection/admin_collection_scrape.dart';
-import 'news/admin_latest_news.dart';
+import 'dashboard/admin_dashboard.dart';
+import 'shell/admin_router.dart';
 
 void main() {
   final sessionSource = AppConfig.previewMode
@@ -26,7 +27,7 @@ void main() {
   runApp(
     HkhAdminApp(
       sessionSource: sessionSource,
-      newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
+      dashboardSource: AdminDashboardClient(AppConfig.apiBaseUrl),
       scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
       aiModelSource: AdminAiModelClient(AppConfig.apiBaseUrl),
       aiResearchSource: AdminAiResearchClient(AppConfig.apiBaseUrl),
@@ -35,51 +36,73 @@ void main() {
   );
 }
 
-class HkhAdminApp extends StatelessWidget {
+class HkhAdminApp extends StatefulWidget {
   const HkhAdminApp({
     required this.sessionSource,
-    required this.newsSource,
     required this.scrapeSource,
     this.aiModelSource,
     this.aiResearchSource,
     this.requestLogSource,
+    this.dashboardSource,
     this.googleButtonBuilder,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
-  final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
 
-  /// Modelkeuze van de digitale onderzoeker; zonder bron wordt het blok niet getoond.
+  /// Modelkeuze van de digitale onderzoeker; zonder bron ontbreekt dat onderdeel.
   final AdminAiModelSource? aiModelSource;
 
-  /// Vergelijkingsoverzicht en testset; zonder bron wordt het blok niet getoond.
+  /// Vergelijkingsoverzicht en testset; zonder bron ontbreekt dat onderdeel.
   final AdminAiResearchSource? aiResearchSource;
 
-  /// Logboek van verzoeken; zonder bron wordt het blok niet getoond.
+  /// Logboek van verzoeken; zonder bron ontbreekt dat onderdeel.
   final AdminRequestLogSource? requestLogSource;
+
+  /// Statusgegevens voor de startpagina; zonder bron toont de startpagina alleen de knoppen.
+  final AdminDashboardSource? dashboardSource;
   final Widget Function()? googleButtonBuilder;
 
   @override
+  State<HkhAdminApp> createState() => _HkhAdminAppState();
+}
+
+class _HkhAdminAppState extends State<HkhAdminApp> {
+  late final AdminRouterDelegate _delegate = AdminRouterDelegate(_page);
+  final _parser = const AdminRouteParser();
+
+  Widget _page(BuildContext context, String path, void Function(String) go) =>
+      AdminGate(
+        sessionSource: widget.sessionSource,
+        scrapeSource: widget.scrapeSource,
+        aiModelSource: widget.aiModelSource,
+        aiResearchSource: widget.aiResearchSource,
+        requestLogSource: widget.requestLogSource,
+        dashboardSource: widget.dashboardSource,
+        path: path,
+        onNavigate: go,
+        googleButtonBuilder:
+            widget.googleButtonBuilder ?? google_button.renderGoogleButton,
+      );
+
+  @override
+  void dispose() {
+    _delegate.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'HKH Beheer',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF594A78)),
         useMaterial3: true,
       ),
-      home: AdminGate(
-        sessionSource: sessionSource,
-        newsSource: newsSource,
-        scrapeSource: scrapeSource,
-        aiModelSource: aiModelSource,
-        aiResearchSource: aiResearchSource,
-        requestLogSource: requestLogSource,
-        googleButtonBuilder:
-            googleButtonBuilder ?? google_button.renderGoogleButton,
-      ),
+      routerDelegate: _delegate,
+      routeInformationParser: _parser,
     );
   }
 }
@@ -87,22 +110,28 @@ class HkhAdminApp extends StatelessWidget {
 class AdminGate extends StatefulWidget {
   const AdminGate({
     required this.sessionSource,
-    required this.newsSource,
     required this.scrapeSource,
     required this.googleButtonBuilder,
+    required this.path,
+    required this.onNavigate,
     this.aiModelSource,
     this.aiResearchSource,
     this.requestLogSource,
+    this.dashboardSource,
     super.key,
   });
 
   final AdminSessionSource sessionSource;
-  final AdminLatestNewsSource newsSource;
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
   final AdminAiResearchSource? aiResearchSource;
   final AdminRequestLogSource? requestLogSource;
+  final AdminDashboardSource? dashboardSource;
   final Widget Function() googleButtonBuilder;
+
+  /// Het huidige adres (`/`, `/collectie`, ...) en hoe de app naar een ander adres gaat.
+  final String path;
+  final void Function(String path) onNavigate;
 
   @override
   State<AdminGate> createState() => _AdminGateState();
@@ -190,13 +219,15 @@ class _AdminGateState extends State<AdminGate> {
     }
     final identity = _identity;
     if (identity != null) {
-      return _AdminHome(
+      return _AdminShell(
         identity: identity,
-        newsSource: widget.newsSource,
+        path: widget.path,
+        onNavigate: widget.onNavigate,
         scrapeSource: widget.scrapeSource,
         aiModelSource: widget.aiModelSource,
         aiResearchSource: widget.aiResearchSource,
         requestLogSource: widget.requestLogSource,
+        dashboardSource: widget.dashboardSource,
         onSignOut: _signOut,
       );
     }
@@ -276,207 +307,104 @@ class _LoginScreen extends StatelessWidget {
   }
 }
 
-class _AdminHome extends StatefulWidget {
-  const _AdminHome({
+/// Het kader om elke beheerpagina: balk met terugknop en uitloggen, en per pagina de inhoud.
+class _AdminShell extends StatelessWidget {
+  const _AdminShell({
     required this.identity,
-    required this.newsSource,
+    required this.path,
+    required this.onNavigate,
     required this.scrapeSource,
     required this.onSignOut,
     this.aiModelSource,
     this.aiResearchSource,
     this.requestLogSource,
+    this.dashboardSource,
   });
 
   final AdminIdentity identity;
-  final AdminLatestNewsSource newsSource;
+  final String path;
+  final void Function(String path) onNavigate;
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
   final AdminAiResearchSource? aiResearchSource;
   final AdminRequestLogSource? requestLogSource;
+  final AdminDashboardSource? dashboardSource;
   final VoidCallback onSignOut;
 
-  @override
-  State<_AdminHome> createState() => _AdminHomeState();
-}
+  /// Brede tabellen gebruiken de hele breedte; formulieren blijven smal.
+  double? get _maxWidth => switch (path) {
+    AdminPaths.requestLog || AdminPaths.aiCompare => null,
+    AdminPaths.start => 1000,
+    _ => 720,
+  };
 
-class _AdminHomeState extends State<_AdminHome> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _messageController = TextEditingController();
-  bool _saving = false;
-  String? _success;
-  String? _error;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _publish() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _saving = true;
-      _success = null;
-      _error = null;
-    });
-    try {
-      await widget.newsSource.create(
-        identity: widget.identity,
-        title: _titleController.text.trim(),
-        message: _messageController.text.trim(),
-      );
-      if (!mounted) return;
-      _titleController.clear();
-      _messageController.clear();
-      setState(() => _success = 'Het nieuwsbericht is gepubliceerd.');
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Publiceren is mislukt. Probeer het opnieuw.');
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+  Widget _content() {
+    switch (path) {
+      case AdminPaths.collection:
+        return _CollectionScrapeSection(
+          identity: identity,
+          source: scrapeSource,
+        );
+      case AdminPaths.aiSettings:
+        final source = aiModelSource;
+        return source == null
+            ? const Text('AI-instellingen zijn niet beschikbaar.')
+            : _AiModelSection(identity: identity, source: source);
+      case AdminPaths.aiCompare:
+        final source = aiResearchSource;
+        return source == null
+            ? const Text('AI vergelijken is niet beschikbaar.')
+            : AdminAiResearchSection(identity: identity, source: source);
+      case AdminPaths.requestLog:
+        final source = requestLogSource;
+        return source == null
+            ? const Text('Het logboek is niet beschikbaar.')
+            : AdminRequestLogPage(identity: identity, source: source);
+      default:
+        return AdminDashboardPage(
+          identity: identity,
+          source: dashboardSource,
+          onOpen: onNavigate,
+          showAiSettings: aiModelSource != null,
+          showAiCompare: aiResearchSource != null,
+          showRequestLog: requestLogSource != null,
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final onStart = path == AdminPaths.start;
+    final maxWidth = _maxWidth;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('HKH Beheer'),
+        leading: onStart
+            ? null
+            : IconButton(
+                key: const Key('admin-back'),
+                tooltip: 'Terug naar het overzicht',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => onNavigate(AdminPaths.start),
+              ),
+        title: Text(
+          onStart ? 'HKH Beheer' : 'HKH Beheer · ${AdminPaths.title(path)}',
+        ),
         actions: [
           IconButton(
-            onPressed: widget.onSignOut,
+            onPressed: onSignOut,
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
+            constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.verified_user_outlined, size: 56),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Beheerder geverifieerd',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(widget.identity.email, textAlign: TextAlign.center),
-                  const SizedBox(height: 32),
-                  _CollectionScrapeSection(
-                    identity: widget.identity,
-                    source: widget.scrapeSource,
-                  ),
-                  if (widget.aiModelSource case final aiModelSource?) ...[
-                    const SizedBox(height: 32),
-                    _AiModelSection(
-                      identity: widget.identity,
-                      source: aiModelSource,
-                    ),
-                  ],
-                  if (widget.aiResearchSource case final aiResearchSource?) ...[
-                    const SizedBox(height: 32),
-                    AdminAiResearchSection(
-                      identity: widget.identity,
-                      source: aiResearchSource,
-                    ),
-                  ],
-                  if (widget.requestLogSource case final requestLogSource?) ...[
-                    const SizedBox(height: 32),
-                    AdminRequestLogSection(
-                      identity: widget.identity,
-                      source: requestLogSource,
-                    ),
-                  ],
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Nieuw bericht',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Publiceer een bericht dat direct in de HKH-app verschijnt.',
-                  ),
-                  const SizedBox(height: 20),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextFormField(
-                          controller: _titleController,
-                          maxLength: 160,
-                          decoration: const InputDecoration(
-                            labelText: 'Titel',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Vul een titel in.'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _messageController,
-                          minLines: 5,
-                          maxLines: 12,
-                          maxLength: 10000,
-                          decoration: const InputDecoration(
-                            labelText: 'Bericht',
-                            alignLabelWithHint: true,
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Vul een bericht in.'
-                              : null,
-                        ),
-                        if (_success != null) ...[
-                          Text(
-                            _success!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        if (_error != null) ...[
-                          Text(
-                            _error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        FilledButton.icon(
-                          onPressed: _saving ? null : _publish,
-                          icon: _saving
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.publish),
-                          label: const Text('Publiceren'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: _content(),
             ),
           ),
         ),

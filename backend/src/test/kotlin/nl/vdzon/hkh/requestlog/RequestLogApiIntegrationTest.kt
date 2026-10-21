@@ -1,7 +1,11 @@
 package nl.vdzon.hkh.requestlog
 
+import jakarta.servlet.http.Cookie
+import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import nl.vdzon.hkh.auth.PreviewRuntimeConfig
 import nl.vdzon.hkh.collection.CollectionItemStore
@@ -27,6 +31,7 @@ class RequestLogApiIntegrationTest(
     @param:Autowired private val mockMvc: MockMvc,
     @param:Autowired private val items: CollectionItemStore,
     @param:Autowired private val log: RequestLogService,
+    @param:Autowired private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
 ) {
     @Test
     fun `a collection search is logged with the forwarded address and the admin reads the log`() {
@@ -68,6 +73,85 @@ class RequestLogApiIntegrationTest(
         assertNotNull(entry.firstFeedbackMs)
         assertNotNull(entry.answerMs)
         assertTrue(entry.firstFeedbackMs!! <= entry.answerMs!!)
+    }
+
+    @Test
+    fun `the Cloudflare address wins, bots and test traffic are marked, visitors get a key`() {
+        items.upsert(ScrapedRecord("beeldbank", "rl-2", "Pastorie", "Huishoudster Grard Oostrom.", 1960, null, null, "https://example.org/rl-2", emptyMap()))
+        val visitor = UUID.randomUUID()
+        val browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0 Safari/537.36"
+        // Een gewone bezoeker met bezoekerscookie.
+        mockMvc.get("/api/collections/search?q=Grard") {
+            header("CF-Connecting-IP", "198.51.100.23"); header("X-Forwarded-For", "6.6.6.6, 10.0.0.1"); header("User-Agent", browser)
+            cookie(Cookie("hkh_ai_visitor", visitor.toString()))
+        }.andExpect { status { isOk() } }
+        // Dezelfde bezoeker zonder cookie krijgt een hash van adres en browser.
+        mockMvc.get("/api/collections/search?q=Grard") { header("CF-Connecting-IP", "198.51.100.24"); header("User-Agent", browser) }.andExpect { status { isOk() } }
+        // Een script en een aanroep die zich als testverkeer meldt.
+        mockMvc.get("/api/collections/search?q=Grard") { header("CF-Connecting-IP", "198.51.100.25"); header("User-Agent", "curl/8.7.1") }.andExpect { status { isOk() } }
+        mockMvc.get("/api/collections/search?q=Grard") { header("CF-Connecting-IP", "198.51.100.26"); header("User-Agent", "HKH-Test/claude") }.andExpect { status { isOk() } }
+
+        val byIp = log.recent(50).filter { it.question == "Grard" }.associateBy { it.ip }
+        val normal = byIp.getValue("198.51.100.23")
+        assertEquals("v:$visitor", normal.visitorKey)
+        assertFalse(normal.bot)
+        assertFalse(normal.test)
+        assertEquals(browser, normal.userAgent)
+        assertTrue(byIp.getValue("198.51.100.24").visitorKey!!.startsWith("h:"))
+        assertTrue(byIp.getValue("198.51.100.25").bot)
+        assertFalse(byIp.getValue("198.51.100.25").test)
+        assertTrue(byIp.getValue("198.51.100.26").test)
+        assertFalse(byIp.getValue("198.51.100.26").bot)
+        // Het echte adres komt uit de Cloudflare-kop, niet uit de kop die een client kan invullen.
+        assertTrue(byIp.keys.none { it == "6.6.6.6" })
+    }
+
+    @Test
+    fun `old rows lose the full address and the visitor key, and the statistics count unique visitors without bots`() {
+        jdbc.update("DELETE FROM request_log")
+        fun insert(ageDays: Int, ip: String?, visitor: String?, bot: Boolean = false, test: Boolean = false, kind: String = "COLLECTION_SEARCH") = jdbc.update(
+            "INSERT INTO request_log (created_at, kind, ip, question, visitor_key, bot, test, status) VALUES (CURRENT_TIMESTAMP - make_interval(days => ?), ?, ?, 'x', ?, ?, ?, 'SUCCEEDED')",
+            ageDays, kind, ip, visitor, bot, test,
+        )
+        insert(40, "217.120.100.76", "h:oud")
+        insert(1, "198.51.100.1", "h:a")
+        insert(1, "198.51.100.1", "h:a")
+        insert(0, "198.51.100.2", "v:b")
+        insert(0, "198.51.100.3", "h:script", bot = true)
+        insert(0, "198.51.100.4", "h:test", test = true)
+        insert(0, "198.51.100.5", "u:c", kind = "AI_QUESTION")
+
+        assertEquals(1, log.anonymizeOld())
+        val old = log.recent(20).first { it.ipAnonymized }
+        assertEquals("217.120.100.0", old.ip)
+        assertNull(old.visitorKey)
+        assertEquals(0, log.anonymizeOld(), "een tweede keer is er niets meer te doen")
+
+        val week = log.usage(java.time.Instant.now().minusSeconds(7 * 86_400))
+        assertEquals(4, week.uniqueVisitors, "a, b, test en c; het script telt niet mee")
+        assertEquals(1, week.testVisitors)
+        assertEquals(1, week.testRequests)
+        assertEquals(1, week.botRequests)
+        assertEquals(1, week.aiQuestions)
+        assertEquals(4, week.searches)
+        val month = log.usage(java.time.Instant.now().minusSeconds(30 * 86_400))
+        assertEquals(week.uniqueVisitors, month.uniqueVisitors, "de oude regel is al verwijderd uit de teller")
+    }
+
+    @Test
+    fun `the dashboard shows status for administrators only`() {
+        mockMvc.get("/api/admin/dashboard").andExpect { status { isServiceUnavailable() } }
+        mockMvc.get("/api/admin/dashboard") { header(PreviewRuntimeConfig.ADMIN_HEADER, PreviewRuntimeConfig.ADMIN_HEADER_VALUE) }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.ai.method") { exists() }
+                jsonPath("$.ai.roles.length()") { value(4) }
+                jsonPath("$.collection.totalRecords") { exists() }
+                jsonPath("$.collection.cards.cards") { exists() }
+                jsonPath("$.usage.today.uniqueVisitors") { exists() }
+                jsonPath("$.usage.last30Days.costUsd") { exists() }
+                jsonPath("$.usage.retentionDays") { value(30) }
+            }
     }
 
     companion object {

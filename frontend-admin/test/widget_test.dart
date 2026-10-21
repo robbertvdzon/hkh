@@ -2,25 +2,73 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_admin/auth/admin_session.dart';
 import 'package:hkh_admin/main.dart';
-import 'package:hkh_admin/news/admin_latest_news.dart';
+import 'package:hkh_admin/dashboard/admin_dashboard.dart';
+import 'package:hkh_admin/shell/admin_router.dart';
 import 'package:hkh_admin/ai/admin_ai_model.dart';
 import 'package:hkh_admin/ai/admin_ai_research.dart';
 import 'package:hkh_admin/collection/admin_collection_scrape.dart';
 import 'package:hkh_admin/requests/admin_request_log.dart';
 
-class _NewsSource implements AdminLatestNewsSource {
-  String? title;
-  String? message;
+class _DashboardSource implements AdminDashboardSource {
+  int loads = 0;
+  bool failing = false;
 
   @override
-  Future<void> create({
-    required AdminIdentity identity,
-    required String title,
-    required String message,
-  }) async {
-    this.title = title;
-    this.message = message;
+  Future<DashboardData> load(AdminIdentity identity) async {
+    loads++;
+    if (failing) throw StateError('Overzicht laden mislukt (503)');
+    return DashboardData(
+      ai: const DashboardAi(
+        method: 'PIPELINE',
+        roles: [
+          DashboardRole(label: 'Agent', model: 'claude-haiku-5-5'),
+          DashboardRole(label: 'Richten', model: 'claude-sonnet-5-5'),
+          DashboardRole(label: 'Schrijven', model: 'claude-sonnet-5-5'),
+        ],
+        writeBudgetChars: 450000,
+        runtimeConfigured: true,
+        runtimeReachable: true,
+        workersOnline: 1,
+      ),
+      collection: DashboardCollection(
+        totalRecords: 23194,
+        running: false,
+        cardsDone: 23142,
+        cardsFailed: 52,
+        cardsPending: 0,
+        lastRun: DashboardRun(
+          status: 'COMPLETED',
+          mode: 'CARDS',
+          startedAt: DateTime(2026, 10, 20, 4, 0),
+          finishedAt: DateTime(2026, 10, 20, 4, 39),
+          failed: 52,
+        ),
+      ),
+      today: const UsagePeriod(
+        aiQuestions: 3,
+        expansions: 1,
+        searches: 9,
+        uniqueVisitors: 6,
+        testVisitors: 2,
+        testRequests: 4,
+        botRequests: 7,
+        failed: 1,
+        costUsd: 0.84,
+        averageAnswerMs: 95000,
+      ),
+      last7Days: const UsagePeriod(uniqueVisitors: 31, aiQuestions: 20),
+      last30Days: const UsagePeriod(uniqueVisitors: 80, aiQuestions: 64),
+      retentionDays: 30,
+    );
   }
+}
+
+/// Opent een onderdeel vanaf de startpagina via zijn tegel.
+Future<void> _open(WidgetTester tester, String tile) async {
+  final finder = find.byKey(Key('admin-tile-$tile'));
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
 }
 
 class _ScrapeSource implements AdminScrapeSource {
@@ -191,6 +239,36 @@ class _RequestLogSource implements AdminRequestLogSource {
     limits.add(limit);
     return [
       RequestLogEntry(
+        id: 4,
+        createdAt: DateTime(2026, 10, 20, 18, 10, 0),
+        kind: 'AI_QUESTION',
+        question: 'testvraag over de touwslagerij',
+        expansion: false,
+        status: 'SUCCEEDED',
+        ip: '198.51.100.7',
+        userAgent: 'HKH-Test/claude',
+        test: true,
+        model: 'anthropic/claude-sonnet-5-5',
+        firstFeedbackMs: 35000,
+        answerMs: 108000,
+        costUsd: 0.02,
+      ),
+      RequestLogEntry(
+        id: 3,
+        createdAt: DateTime(2026, 10, 20, 18, 7, 0),
+        kind: 'COLLECTION_SEARCH',
+        question: 'Grard',
+        collection: 'beeldbank',
+        expansion: false,
+        status: 'SUCCEEDED',
+        ip: '198.51.100.9',
+        ipAnonymized: true,
+        userAgent: 'curl/8.7.1',
+        bot: true,
+        firstFeedbackMs: 12,
+        answerMs: 12,
+      ),
+      RequestLogEntry(
         id: 2,
         createdAt: DateTime(2026, 10, 20, 18, 5, 0),
         kind: 'AI_QUESTION',
@@ -199,6 +277,7 @@ class _RequestLogSource implements AdminRequestLogSource {
         status: 'SUCCEEDED',
         ip: '203.0.113.7',
         userEmail: 'robbert@example.com',
+        userAgent: 'Mozilla/5.0 (Macintosh) Chrome/130',
         model: 'anthropic/claude-sonnet-5-5',
         firstFeedbackMs: 95000,
         answerMs: 311000,
@@ -213,6 +292,7 @@ class _RequestLogSource implements AdminRequestLogSource {
         expansion: false,
         status: 'SUCCEEDED',
         ip: '203.0.113.7',
+        userAgent: 'Mozilla/5.0 (Macintosh) Chrome/130',
         firstFeedbackMs: 42,
         answerMs: 42,
       ),
@@ -309,40 +389,126 @@ class _AuthenticatedSession implements AdminSessionSource {
 }
 
 void main() {
-  testWidgets('shows the verified administrator', (tester) async {
-    final newsSource = _NewsSource();
+  testWidgets('the start page shows status and opens the sections', (
+    tester,
+  ) async {
+    final dashboard = _DashboardSource();
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: newsSource,
         scrapeSource: _ScrapeSource(),
+        aiModelSource: _AiModelSource(),
+        aiResearchSource: _AiResearchSource(),
+        requestLogSource: _RequestLogSource(),
+        dashboardSource: dashboard,
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Beheerder geverifieerd'), findsOneWidget);
-    expect(find.text('admin@example.com'), findsOneWidget);
-    expect(find.text('Nieuw bericht'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextFormField).first, 'Dorpsnieuws');
-    await tester.enterText(
-      find.byType(TextFormField).last,
-      'Een historisch bericht.',
+    expect(
+      find.text('Beheerder geverifieerd · admin@example.com'),
+      findsOneWidget,
     );
-    await tester.ensureVisible(find.text('Publiceren'));
-    await tester.tap(find.text('Publiceren'));
+    expect(find.text('Nieuw bericht'), findsNothing);
+    // Gebruik: unieke bezoekers met testverkeer apart, tijden, kosten, bots.
+    expect(find.byKey(const Key('admin-usage-table')), findsOneWidget);
+    expect(find.text('6 (waarvan 2 test)'), findsOneWidget);
+    expect(find.text('31'), findsOneWidget);
+    expect(find.text('1:35'), findsOneWidget);
+    expect(find.text('\$0.84'), findsOneWidget);
+    expect(find.text('Bots (niet meegeteld)'), findsOneWidget);
+    // Aandacht voor wat misgaat.
+    expect(find.text('1 AI-vraag mislukt vandaag.'), findsOneWidget);
+    // Een tegel per onderdeel, met statusregels.
+    expect(find.text('23.194 records'), findsOneWidget);
+    expect(
+      find.text('AI-kaarten: 23.142 klaar, 52 mislukt, 0 te doen'),
+      findsOneWidget,
+    );
+    expect(find.text('Methode: pijplijn'), findsOneWidget);
+    expect(
+      find.text('Richten: claude-sonnet-5-5 · Schrijven: claude-sonnet-5-5'),
+      findsOneWidget,
+    );
+    expect(find.text('Runtime bereikbaar, 1 worker online'), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-ai-vergelijken')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-logboek')), findsOneWidget);
+
+    // Een tegel opent het onderdeel; de terugknop brengt je terug.
+    await _open(tester, 'collectie');
+    expect(find.text('HKH Beheer · Collectie'), findsOneWidget);
+    expect(find.byKey(const ValueKey('scrape-cards')), findsOneWidget);
+    expect(find.byKey(const Key('admin-usage-table')), findsNothing);
+    await tester.tap(find.byKey(const Key('admin-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('HKH Beheer'), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-collectie')), findsOneWidget);
+  });
+
+  testWidgets('the start page keeps its buttons when the status fails', (
+    tester,
+  ) async {
+    final dashboard = _DashboardSource()..failing = true;
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        scrapeSource: _ScrapeSource(),
+        requestLogSource: _RequestLogSource(),
+        dashboardSource: dashboard,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(newsSource.title, 'Dorpsnieuws');
-    expect(newsSource.message, 'Een historisch bericht.');
-    expect(find.text('Het nieuwsbericht is gepubliceerd.'), findsOneWidget);
+    expect(find.text('Overzicht laden mislukt (503)'), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-collectie')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-logboek')), findsOneWidget);
+    // Zonder modelbron ontbreken de AI-tegels.
+    expect(find.byKey(const Key('admin-tile-ai-instellingen')), findsNothing);
+
+    dashboard.failing = false;
+    await tester.tap(find.byKey(const Key('dashboard-refresh')));
+    await tester.pumpAndSettle();
+    expect(find.text('Overzicht laden mislukt (503)'), findsNothing);
+    expect(dashboard.loads, 2);
+  });
+
+  testWidgets('a deep link opens the section and unknown addresses fall back', (
+    tester,
+  ) async {
+    Future<void> openAt(String route) async {
+      tester.platformDispatcher.defaultRouteNameTestValue = route;
+      await tester.pumpWidget(
+        HkhAdminApp(
+          sessionSource: _AuthenticatedSession(),
+          scrapeSource: _ScrapeSource(),
+          requestLogSource: _RequestLogSource(),
+          dashboardSource: _DashboardSource(),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    addTearDown(tester.platformDispatcher.clearDefaultRouteNameTestValue);
+    await tester.binding.setSurfaceSize(const Size(1800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await openAt('/logboek');
+    expect(find.text('HKH Beheer · Logboek van verzoeken'), findsOneWidget);
+    expect(find.byKey(const Key('request-log-table')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await openAt('/bestaat-niet');
+    expect(find.text('HKH Beheer'), findsOneWidget);
+    expect(find.byKey(const Key('admin-usage-table')), findsOneWidget);
+    expect(AdminPaths.normalise('/collectie/'), AdminPaths.collection);
+    expect(AdminPaths.normalise('/x'), AdminPaths.start);
   });
 
   testWidgets('explains when Google login is not configured', (tester) async {
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: const DisabledAdminSessionSource(),
-        newsSource: _NewsSource(),
         scrapeSource: _ScrapeSource(),
         googleButtonBuilder: () => const SizedBox.shrink(),
       ),
@@ -362,11 +528,11 @@ void main() {
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: _NewsSource(),
         scrapeSource: scrapeSource,
       ),
     );
     await tester.pumpAndSettle();
+    await _open(tester, 'collectie');
 
     final button = find.byKey(const ValueKey('scrape-text'));
     await tester.ensureVisible(button);
@@ -386,11 +552,11 @@ void main() {
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: _NewsSource(),
         scrapeSource: scrapeSource,
       ),
     );
     await tester.pumpAndSettle();
+    await _open(tester, 'collectie');
 
     final button = find.byKey(const ValueKey('scrape-cards'));
     await tester.ensureVisible(button);
@@ -420,12 +586,12 @@ void main() {
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: _NewsSource(),
         scrapeSource: _ScrapeSource(),
         aiModelSource: aiModelSource,
       ),
     );
     await tester.pumpAndSettle();
+    await _open(tester, 'ai-instellingen');
 
     expect(
       find.textContaining(
@@ -468,12 +634,12 @@ void main() {
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: _NewsSource(),
         scrapeSource: _ScrapeSource(),
         aiModelSource: aiModelSource,
       ),
     );
     await tester.pumpAndSettle();
+    await _open(tester, 'ai-instellingen');
 
     await tester.ensureVisible(find.byKey(const Key('ai-method-select')));
     await tester.tap(find.text('Pijplijn'));
@@ -526,21 +692,24 @@ void main() {
     expect(aiModelSource.writeBudget, isNull);
   });
 
-  testWidgets('the administrator reads the request log', (tester) async {
+  testWidgets('the administrator reads and filters the request log', (
+    tester,
+  ) async {
     final logSource = _RequestLogSource();
-    await tester.binding.setSurfaceSize(const Size(1600, 1400));
+    await tester.binding.setSurfaceSize(const Size(1800, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       HkhAdminApp(
         sessionSource: _AuthenticatedSession(),
-        newsSource: _NewsSource(),
         scrapeSource: _ScrapeSource(),
         requestLogSource: logSource,
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('request-log-table')));
-    expect(find.text('Logboek van verzoeken'), findsOneWidget);
+    await _open(tester, 'logboek');
+
+    expect(find.text('HKH Beheer · Logboek van verzoeken'), findsOneWidget);
+    expect(find.byKey(const Key('request-log-table')), findsOneWidget);
     expect(find.text('AI (uitwerking)'), findsOneWidget);
     expect(find.text('Collectie: beeldbank'), findsOneWidget);
     expect(find.text('203.0.113.7'), findsNWidgets(2));
@@ -549,16 +718,35 @@ void main() {
     expect(find.text('5:11'), findsOneWidget);
     expect(find.text('42 ms'), findsNWidgets(2));
     expect(find.text('\$0.46'), findsOneWidget);
-    expect(logSource.limits, [100]);
+    expect(find.text('Mozilla/5.0 (Macintosh) Chrome/130'), findsNWidgets(2));
+    expect(logSource.limits, [200]);
 
-    // De knop opent dezelfde tabel schermvullend over de volle breedte.
-    await tester.tap(find.byKey(const Key('request-log-open')));
+    // Bots zijn standaard verborgen, testverkeer is zichtbaar en gemarkeerd.
+    expect(find.byKey(const Key('request-log-count')), findsOneWidget);
+    expect(find.text('3 van 4 regels'), findsOneWidget);
+    expect(find.text('curl/8.7.1'), findsNothing);
+    expect(find.text('test'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('request-log-bots')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('request-log-table-full')), findsOneWidget);
-    expect(find.byKey(const Key('full-width-table-close')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('full-width-table-close')));
+    expect(find.text('4 van 4 regels'), findsOneWidget);
+    expect(find.text('curl/8.7.1'), findsOneWidget);
+    expect(find.text('198.51.100.9 *'), findsOneWidget);
+    expect(find.text('bot'), findsOneWidget);
+
+    // Testverkeer is uit te zetten en de soort te filteren.
+    await tester.tap(find.byKey(const Key('request-log-test')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('request-log-table-full')), findsNothing);
+    expect(find.text('3 van 4 regels'), findsOneWidget);
+    expect(find.text('test'), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('request-log-kind')),
+        matching: find.text('Collectie'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2 van 4 regels'), findsOneWidget);
+    expect(find.text('AI (uitwerking)'), findsNothing);
   });
 
   testWidgets(
@@ -568,12 +756,12 @@ void main() {
       await tester.pumpWidget(
         HkhAdminApp(
           sessionSource: _AuthenticatedSession(),
-          newsSource: _NewsSource(),
           scrapeSource: _ScrapeSource(),
           aiResearchSource: researchSource,
         ),
       );
       await tester.pumpAndSettle();
+      await _open(tester, 'ai-vergelijken');
 
       await tester.ensureVisible(find.byKey(const Key('ai-research-table')));
       expect(find.text('De tweelingjuffen'), findsOneWidget);

@@ -289,6 +289,34 @@ gaat niet in de instructie van de runtime-job (maximaal 65.536 tekens) maar als 
 tekstbestanden (`/job/input/objects/<naam>-<n>/content`, elk hoogstens 45.000 tekens, regels
 afgebroken op 400 tekens); de instructie verwijst ernaar en vraagt ze volledig te lezen.
 
+## Beheer: startpagina en onderdelen
+
+Het beheerscherm (hkh-admin) opent met een **startpagina** en heeft per onderdeel een eigen
+pagina met een eigen adres (`#/collectie`, `#/ai-instellingen`, `#/ai-vergelijken`,
+`#/logboek`), zodat terug, vooruit en bladwijzers in de browser werken; onbekende adressen vallen
+terug op de startpagina. Op elke onderpagina staat links in de balk een terugknop naar het
+overzicht en rechts het uitloggen.
+
+De startpagina toont bovenaan "Beheerder geverifieerd · <e-mailadres>" en een ververs-knop, een
+rood blok **Aandacht** als er iets mis is (AI-runtime niet bereikbaar of zonder worker, AI-vragen
+mislukt vandaag, laatste collectie-run mislukt, records zonder AI-kaart), de kaart **Gebruik** en
+een tegel per onderdeel met statusregels:
+
+- **Gebruik**: per vandaag, 7 en 30 dagen de unieke bezoekers (met "waarvan N test"), AI-vragen,
+  uitwerkingen, zoekopdrachten, gemiddelde antwoordtijd van AI, kosten (API-equivalent), mislukte
+  AI-vragen, testverkeer en bots (niet meegeteld), plus de bewaartermijn van IP-adressen.
+- **Collectie**: aantal records, laatste run (status, soort en tijdstip) en de stand van de
+  AI-kaarten (klaar, mislukt, te doen).
+- **AI-instellingen**: methode, modellen van richten en schrijven (of agent), en of de runtime
+  bereikbaar is met hoeveel workers online.
+- **AI vergelijken** en **Logboek van verzoeken**: de verzoeken van vandaag en de unieke
+  bezoekers van de week.
+
+Een tegel ontbreekt als zijn bron niet beschikbaar is. Zonder statusgegevens (fout of storing)
+blijven de tegels staan met een foutmelding erboven. API: `GET /api/admin/dashboard` (module
+`dashboard`, alleen voor beheerders). Het plaatsen van nieuwsberichten via beheer bestaat niet meer
+(`/api/admin/news` is verwijderd; het openbare `GET /api/news` blijft bestaan).
+
 ## Beheer: vergelijken en testset
 
 Het blok **AI-onderzoek: vergelijken** in het beheerscherm toont de testset (vaste vragen met
@@ -323,26 +351,55 @@ configuratie. Alleen modellen uit de catalogus zijn te kiezen. API:
 
 ## Beheer: logboek van verzoeken
 
-Het beheerscherm toont onderaan het blok **Logboek van verzoeken**: alle AI-vragen (met hun
-uitwerkingen) en zoekopdrachten in de collecties, nieuwste eerst, met per regel het tijdstip,
-het IP-adres van de bezoeker (achter de route uit `X-Forwarded-For`), de ingelogde gebruiker
-(bij de testset "testset: <beheerder>"), de soort (AI, AI (uitwerking), Collectie of
-Collectie: <collectie>), de vraag of zoektekst, het model (of de modellen) uit de
-onderzoeksstatistieken, de tijd tot de eerste terugkoppeling (bij een AI-vraag de
-tussenconclusie, bij zoeken de duur van de zoekopdracht), de tijd tot het antwoord, de status
-(bezig, afgerond, mislukt, gestopt) en de kosten (API-equivalent). Boven de tabel staan een
-keuze voor het aantal regels (50 tot 1000), een knop die de tabel schermvullend over de volle
-breedte opent (met horizontale en verticale scrollbalk; sluiten met het kruisje) en een
-ververs-knop. De vergelijktabel **Recente onderzoeken** heeft dezelfde knop **Volledige
-breedte**.
+De pagina **Logboek van verzoeken** toont over de volle breedte van het scherm, met horizontale
+scrollbalk, alle AI-vragen (met hun uitwerkingen) en zoekopdrachten in de collecties, nieuwste
+eerst, met per regel het tijdstip, het IP-adres van de bezoeker, de ingelogde gebruiker (bij de
+testset "testset: <beheerder>"), de soort (AI, AI (uitwerking), Collectie of Collectie:
+<collectie>), de vraag of zoektekst, het model (of de modellen) uit de onderzoeksstatistieken, de
+tijd tot de eerste terugkoppeling (bij een AI-vraag de tussenconclusie, bij zoeken de duur van de
+zoekopdracht), de tijd tot het antwoord, de status (bezig, afgerond, mislukt, gestopt), de kosten
+(API-equivalent), het browsertype en een markering **bot** en/of **test**. Boven de tabel staan een
+keuze voor de soort (Alles, AI, Collectie), de schakelaars **Bots tonen** (standaard uit) en
+**Testverkeer tonen** (standaard aan), het aantal regels (50 tot 1000), een ververs-knop en
+"N van M regels". De vergelijktabel **Recente onderzoeken** staat op de pagina **AI vergelijken**
+over de volle breedte.
 
 Technisch: tabel `request_log` (module `requestlog`). Een AI-vraag wordt vastgelegd bij het
 aanmaken van de beurt (verwijzing = beurt-id), krijgt `first_feedback_ms` bij de eerste
 rondemelding of tussenconclusie en wordt afgesloten zodra de beurt slaagt, mislukt of stopt. Een
 zoekopdracht (`GET /api/collections/search` met zoektekst of filters, alleen de eerste pagina)
 wordt in één keer vastgelegd met de duur. Een fout in het logboek laat een verzoek nooit
-mislukken. API: `GET /api/admin/requests?limit=` (beheerder). Het logboek wordt niet
-automatisch opgeschoond.
+mislukken. API: `GET /api/admin/requests?limit=` (beheerder).
+
+- **IP-adres**: de kop `CF-Connecting-IP` van Cloudflare (die een client niet zelf kan invullen),
+  anders het eerste adres van `X-Forwarded-For`, anders `X-Real-IP`, anders het adres van de
+  verbinding. Testsetruns hebben geen webverzoek en dus geen adres.
+- **Bot**: het browsertype ontbreekt of bevat een bekende bot-, crawler- of scriptaanduiding
+  (bijvoorbeeld bot, crawl, spider, curl, python-requests, headless). De Flutter-app (Dart) en
+  gewone browsers zijn geen bots. Bots staan in het logboek maar tellen niet mee in de bezoekers.
+- **Test**: een aanroep waarvan het browsertype met `HKH-Test` begint (zo melden testaanroepen
+  van de beheerder en Claude zich), een testsetrun, of een ingelogde beheerder. Testverkeer telt
+  mee in alle aantallen en is gemarkeerd; de startpagina toont "waarvan N test".
+- **Unieke bezoekers**: per regel een pseudonieme sleutel: `u:` de ingelogde gebruiker, `v:` het
+  bezoekerscookie, anders `h:` een HMAC van IP-adres en browsertype (geheim in `app_setting`,
+  `request-log.salt`). Bots tellen niet mee.
+- **Bewaartermijn**: een nachtelijke taak (03:30) kapt van regels ouder dan 30 dagen het
+  IP-adres af (IPv4 naar /24, IPv6 naar /48), verwijdert de bezoekerssleutel en markeert de regel
+  (`ip_anonymized`, in het logboek een * achter het adres). De regel zelf blijft staan, dus
+  aantallen, tijden en kosten blijven kloppen; unieke bezoekers zijn daarna niet meer te tellen.
+
+## Privacy- en cookieverklaring
+
+De pagina `/vereniging/privacy-en-cookies` ("Privacy- en cookieverklaring", in de voettekst onder
+Vereniging naast "Privacy · Disclaimer · ANBI") beschrijft in gewoon Nederlands: wie
+verantwoordelijk is (contact info@historischekringheemskerk.nl), de cookies en browseropslag (het
+bezoekerscookie `hkh_ai_visitor` van een jaar, het technische cookie van de server, de
+inlogsessie en de weergavekeuze; allemaal functioneel, daarom geen cookiemelding), wat het
+logboek bijhoudt en waarvoor, de bewaartermijn van 30 dagen voor het volledige IP-adres, dat
+vragen zonder IP-adres langer bewaard blijven, dat vragen naar een externe AI-dienst (Anthropic)
+gaan, het Google-account, Cloudflare als hosting, de rechten van bezoekers en de klachtmogelijkheid
+bij de Autoriteit Persoonsgegevens. De tekst is een eerste versie en moet door het bestuur worden
+gecontroleerd voordat hij live gaat. Er staat bewust geen aparte melding op de AI-pagina.
 
 ## PDF-export van een AI-antwoord
 

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
-import '../widgets/full_width_table.dart';
 
 /// Eén verzoek aan de site: een AI-vraag (of de uitwerking ervan) of een
 /// zoekopdracht in de collecties.
@@ -23,6 +22,10 @@ class RequestLogEntry {
     this.firstFeedbackMs,
     this.answerMs,
     this.costUsd,
+    this.userAgent,
+    this.bot = false,
+    this.test = false,
+    this.ipAnonymized = false,
   });
 
   factory RequestLogEntry.fromJson(Map<String, dynamic> json) =>
@@ -40,6 +43,10 @@ class RequestLogEntry {
         firstFeedbackMs: (json['firstFeedbackMs'] as num?)?.toInt(),
         answerMs: (json['answerMs'] as num?)?.toInt(),
         costUsd: (json['costUsd'] as num?)?.toDouble(),
+        userAgent: json['userAgent'] as String?,
+        bot: json['bot'] as bool? ?? false,
+        test: json['test'] as bool? ?? false,
+        ipAnonymized: json['ipAnonymized'] as bool? ?? false,
       );
 
   final int id;
@@ -55,6 +62,16 @@ class RequestLogEntry {
   final int? firstFeedbackMs;
   final int? answerMs;
   final double? costUsd;
+  final String? userAgent;
+
+  /// Bot of script: telt niet mee in de bezoekersaantallen.
+  final bool bot;
+
+  /// Testverkeer: telt mee, maar is gemarkeerd.
+  final bool test;
+
+  /// Het IP-adres is na de bewaartermijn afgekapt.
+  final bool ipAnonymized;
 
   String get kindLabel => switch (kind) {
     'AI_QUESTION' => expansion ? 'AI (uitwerking)' : 'AI',
@@ -97,9 +114,9 @@ class AdminRequestLogClient implements AdminRequestLogSource {
   }
 }
 
-/// Beheerblok: het logboek van alle verzoeken, nieuwste eerst.
-class AdminRequestLogSection extends StatefulWidget {
-  const AdminRequestLogSection({
+/// Pagina met het logboek van alle verzoeken, nieuwste eerst, over de volle breedte.
+class AdminRequestLogPage extends StatefulWidget {
+  const AdminRequestLogPage({
     required this.identity,
     required this.source,
     super.key,
@@ -109,19 +126,31 @@ class AdminRequestLogSection extends StatefulWidget {
   final AdminRequestLogSource source;
 
   @override
-  State<AdminRequestLogSection> createState() => _AdminRequestLogSectionState();
+  State<AdminRequestLogPage> createState() => _AdminRequestLogPageState();
 }
 
-class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
+enum _KindFilter { all, ai, collection }
+
+class _AdminRequestLogPageState extends State<AdminRequestLogPage> {
   List<RequestLogEntry> _entries = const [];
   bool _loading = true;
   String? _error;
-  int _limit = 100;
+  int _limit = 200;
+  _KindFilter _kind = _KindFilter.all;
+  bool _showBots = false;
+  bool _showTest = true;
+  final _horizontal = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _horizontal.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -148,6 +177,18 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
     }
   }
 
+  List<RequestLogEntry> get _visible => [
+    for (final entry in _entries)
+      if ((_showBots || !entry.bot) &&
+          (_showTest || !entry.test) &&
+          switch (_kind) {
+            _KindFilter.all => true,
+            _KindFilter.ai => entry.kind == 'AI_QUESTION',
+            _KindFilter.collection => entry.kind == 'COLLECTION_SEARCH',
+          })
+        entry,
+  ];
+
   static String _when(DateTime time) {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(time.day)}-${two(time.month)} ${two(time.hour)}:${two(time.minute)}:${two(time.second)}';
@@ -173,9 +214,9 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
     _ => status.toLowerCase(),
   };
 
-  Widget _table(Key key) => DataTable(
-    key: key,
-    columnSpacing: 16,
+  Widget _table(List<RequestLogEntry> entries) => DataTable(
+    key: const Key('request-log-table'),
+    columnSpacing: 20,
     headingTextStyle: const TextStyle(
       fontWeight: FontWeight.w600,
       fontSize: 12,
@@ -192,13 +233,26 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
       DataColumn(label: Text('Antwoord')),
       DataColumn(label: Text('Status')),
       DataColumn(label: Text('Kosten')),
+      DataColumn(label: Text('Browser')),
+      DataColumn(label: Text('Markering')),
     ],
     rows: [
-      for (final entry in _entries)
+      for (final entry in entries)
         DataRow(
           cells: [
             DataCell(Text(_when(entry.createdAt))),
-            DataCell(Text(entry.ip ?? '')),
+            DataCell(
+              Tooltip(
+                message: entry.ipAnonymized
+                    ? 'Afgekapt na de bewaartermijn'
+                    : 'Volledig adres',
+                child: Text(
+                  entry.ip == null
+                      ? ''
+                      : (entry.ipAnonymized ? '${entry.ip} *' : entry.ip!),
+                ),
+              ),
+            ),
             DataCell(Text(entry.userEmail ?? '')),
             DataCell(
               Text(
@@ -210,7 +264,7 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
             ),
             DataCell(
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 360),
+                constraints: const BoxConstraints(maxWidth: 420),
                 child: Tooltip(
                   message: entry.question,
                   child: Text(
@@ -223,7 +277,7 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
             ),
             DataCell(
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
+                constraints: const BoxConstraints(maxWidth: 240),
                 child: Text(entry.model ?? '', overflow: TextOverflow.ellipsis),
               ),
             ),
@@ -231,92 +285,127 @@ class _AdminRequestLogSectionState extends State<AdminRequestLogSection> {
             DataCell(Text(_seconds(entry.answerMs))),
             DataCell(Text(_status(entry.status))),
             DataCell(Text(_cost(entry.costUsd))),
+            DataCell(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Tooltip(
+                  message: entry.userAgent ?? '',
+                  child: Text(
+                    entry.userAgent ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+            DataCell(
+              Text([if (entry.bot) 'bot', if (entry.test) 'test'].join(', ')),
+            ),
           ],
         ),
     ],
   );
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long_outlined),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Logboek van verzoeken',
-                  style: Theme.of(context).textTheme.titleLarge,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visible = _visible;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Alle AI-vragen (met hun uitwerkingen) en zoekopdrachten in de '
+          'collecties, nieuwste eerst: wie vroeg wat, hoe snel kwam de eerste '
+          'terugkoppeling en het antwoord, welk model en wat het kostte '
+          '(API-equivalent). IP-adressen worden na 30 dagen afgekapt (met een '
+          '* gemarkeerd).',
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SegmentedButton<_KindFilter>(
+              key: const Key('request-log-kind'),
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: _KindFilter.all, label: Text('Alles')),
+                ButtonSegment(value: _KindFilter.ai, label: Text('AI')),
+                ButtonSegment(
+                  value: _KindFilter.collection,
+                  label: Text('Collectie'),
                 ),
-              ),
-              DropdownButton<int>(
-                key: const Key('request-log-limit'),
-                value: _limit,
-                items: const [
-                  DropdownMenuItem(value: 50, child: Text('50')),
-                  DropdownMenuItem(value: 100, child: Text('100')),
-                  DropdownMenuItem(value: 500, child: Text('500')),
-                  DropdownMenuItem(value: 1000, child: Text('1000')),
-                ],
-                onChanged: _loading
-                    ? null
-                    : (value) {
-                        if (value == null) return;
-                        setState(() => _limit = value);
-                        _load();
-                      },
-              ),
-              IconButton(
-                key: const Key('request-log-open'),
-                tooltip: 'Openen over de volle breedte',
-                onPressed: _loading || _entries.isEmpty
-                    ? null
-                    : () => showFullWidthTable(
-                        context,
-                        title: 'Logboek van verzoeken',
-                        tableBuilder: (_) =>
-                            _table(const Key('request-log-table-full')),
-                      ),
-                icon: const Icon(Icons.open_in_full),
-              ),
-              IconButton(
-                key: const Key('request-log-refresh'),
-                tooltip: 'Verversen',
-                onPressed: _loading ? null : _load,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Alle AI-vragen (met hun uitwerkingen) en zoekopdrachten in de collecties, '
-            'nieuwste eerst: wie vroeg wat, hoe snel kwam de eerste terugkoppeling en het '
-            'antwoord, welk model en wat het kostte (API-equivalent).',
-          ),
-          const SizedBox(height: 12),
-          if (_error != null)
+              ],
+              selected: {_kind},
+              onSelectionChanged: (value) =>
+                  setState(() => _kind = value.single),
+            ),
+            FilterChip(
+              key: const Key('request-log-bots'),
+              label: const Text('Bots tonen'),
+              selected: _showBots,
+              onSelected: (value) => setState(() => _showBots = value),
+            ),
+            FilterChip(
+              key: const Key('request-log-test'),
+              label: const Text('Testverkeer tonen'),
+              selected: _showTest,
+              onSelected: (value) => setState(() => _showTest = value),
+            ),
+            DropdownButton<int>(
+              key: const Key('request-log-limit'),
+              value: _limit,
+              items: const [
+                DropdownMenuItem(value: 50, child: Text('50 regels')),
+                DropdownMenuItem(value: 200, child: Text('200 regels')),
+                DropdownMenuItem(value: 500, child: Text('500 regels')),
+                DropdownMenuItem(value: 1000, child: Text('1000 regels')),
+              ],
+              onChanged: _loading
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() => _limit = value);
+                      _load();
+                    },
+            ),
+            IconButton(
+              key: const Key('request-log-refresh'),
+              tooltip: 'Verversen',
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh),
+            ),
             Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              '${visible.length} van ${_entries.length} regels',
+              key: const Key('request-log-count'),
+              style: theme.textTheme.bodySmall,
             ),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_entries.isEmpty)
-            const Text('Nog geen verzoeken.')
-          else
-            SingleChildScrollView(
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_error != null)
+          Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (visible.isEmpty)
+          const Text('Geen verzoeken die aan de filters voldoen.')
+        else
+          Scrollbar(
+            controller: _horizontal,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _horizontal,
               scrollDirection: Axis.horizontal,
-              child: _table(const Key('request-log-table')),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _table(visible),
             ),
-        ],
-      ),
-    ),
-  );
+          ),
+      ],
+    );
+  }
 }

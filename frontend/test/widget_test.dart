@@ -683,6 +683,34 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('the privacy and cookie statement is linked in the footer', (
+      tester,
+    ) async {
+      final router = await _pumpApp(
+        tester,
+        size: const Size(1200, 1300),
+        route: '/vereniging/contact',
+      );
+      final link = find.text('Privacy- en cookieverklaring');
+      await _scrollTo(tester, link);
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(_path(router), '/vereniging/privacy-en-cookies');
+      expect(find.byKey(const Key('privacy-page')), findsOneWidget);
+      expect(
+        find.textContaining('info@historischekringheemskerk.nl'),
+        findsWidgets,
+      );
+      expect(find.textContaining('hkh_ai_visitor'), findsOneWidget);
+      expect(find.textContaining('30 dagen'), findsWidgets);
+      // De bestaande privacyregeling blijft bereikbaar.
+      await _scrollTo(tester, find.byKey(const Key('privacy-regulation-link')));
+      await tester.tap(find.byKey(const Key('privacy-regulation-link')));
+      await tester.pumpAndSettle();
+      expect(_path(router), '/vereniging/anbi');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('collections page opens search and the AI question', (
       tester,
     ) async {

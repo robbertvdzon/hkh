@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
-import '../widgets/full_width_table.dart';
 
 /// Eén beurt in het vergelijkingsoverzicht.
 class AiTurnComparison {
@@ -467,19 +466,6 @@ class _AdminAiResearchSectionState extends State<AdminAiResearchSection> {
                       'Recente onderzoeken',
                       style: theme.textTheme.titleSmall,
                     ),
-                  ),
-                  TextButton.icon(
-                    key: const Key('ai-research-open'),
-                    onPressed: _turns.isEmpty
-                        ? null
-                        : () => showFullWidthTable(
-                            context,
-                            title: 'Recente onderzoeken',
-                            tableBuilder: (_) =>
-                                _table(const Key('ai-research-table-full')),
-                          ),
-                    icon: const Icon(Icons.open_in_full, size: 18),
-                    label: const Text('Volledige breedte'),
                   ),
                 ],
               ),

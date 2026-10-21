@@ -8,7 +8,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 
 /** De anonieme sleutel voor alle publieke AI-zoekroutes, inclusief de PDF-export. */
-const val VISITOR_COOKIE = "hkh_ai_visitor"
+const val VISITOR_COOKIE = nl.vdzon.hkh.requestlog.VISITOR_COOKIE_NAME
 
 /**
  * Geeft de bezoeker uit de cookie terug, of maakt er een nieuwe aan en zet die op de response.

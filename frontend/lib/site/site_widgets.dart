@@ -756,6 +756,7 @@ class SiteFooter extends StatelessWidget {
         ('Werkgroepen en meedoen', '/vereniging/werkgroepen'),
         ('Contact', '/vereniging/contact'),
         ('Privacy · Disclaimer · ANBI', '/vereniging/anbi'),
+        ('Privacy- en cookieverklaring', '/vereniging/privacy-en-cookies'),
       ]),
     ];
     final navigation = AppNavigationScope.of(context);

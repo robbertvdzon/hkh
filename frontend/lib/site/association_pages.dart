@@ -7,6 +7,7 @@ import '../content/site_structure.dart';
 import '../theme/app_style.dart';
 import 'content_renderer.dart';
 import 'discover_pages.dart';
+import 'privacy_page.dart';
 import 'site_widgets.dart';
 
 const _crumbs = [('Vereniging', '/vereniging')];
@@ -21,6 +22,8 @@ Widget? associationSectionPage(String slug) {
       return const PublicationsPage();
     case 'anbi':
       return const DocumentsPage();
+    case 'privacy-en-cookies':
+      return const PrivacyCookiePage();
     case 'contact':
       return const ContactPage();
     case 'links':
