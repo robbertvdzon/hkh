@@ -869,6 +869,71 @@ void main() {
     expect(source.steerings, [('turn-1', true, null)]);
   });
 
+  testWidgets('a running pipeline shows the first result instead of rounds', (
+    tester,
+  ) async {
+    final base = runningTurn(
+      steerable: false,
+      log: const [
+        AiResearchRound(
+          round: 1,
+          sources: 87,
+          found:
+              'Henk Nielen was burgemeester van Heemskerk van 1945 tot 1977. Volgens de gevonden stukken groeide de gemeente in die jaren sterk.',
+          next: [],
+        ),
+      ],
+    );
+    final turn = AiSearchTurn(
+      id: base.id,
+      turnNumber: 1,
+      question: base.question,
+      status: 'RUNNING',
+      progressPercent: 55,
+      progressMessage: 'Het antwoord wordt geschreven uit 87 archiefstukken',
+      title: null,
+      answerHtml: null,
+      sources: const [],
+      suggestedFollowUps: const [],
+      errorMessage: null,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+      completedAt: null,
+      durationSeconds: 40,
+      researchLog: base.researchLog,
+      method: 'PIPELINE',
+    );
+    final source = _AiSource()
+      ..session = AiSearchSession(id: 'session-1', turns: [turn]);
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AiSearchPage(source: source, initialSessionId: 'session-1'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('preliminary-result')), findsOneWidget);
+    expect(
+      find.text(
+        'Het antwoord komt eraan. Hier alvast een korte uitkomst van een eerste onderzoek:',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Henk Nielen was burgemeester'), findsOneWidget);
+    expect(
+      find.text(
+        'Gebaseerd op 87 gevonden archiefstukken. Het volledige antwoord wordt nog geschreven.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('research-log')), findsNothing);
+    expect(find.text('Onderzoekslogboek'), findsNothing);
+    expect(find.textContaining('Ronde 1'), findsNothing);
+  });
+
   testWidgets('pending steering is shown and a fast search has no controls', (
     tester,
   ) async {

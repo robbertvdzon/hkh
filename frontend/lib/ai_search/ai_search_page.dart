@@ -1112,7 +1112,10 @@ class _TurnCardState extends State<_TurnCard> {
             ),
             if (turn.researchLog.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _ResearchLog(rounds: turn.researchLog),
+              if (turn.method == 'PIPELINE')
+                _PreliminaryResult(round: turn.researchLog.last)
+              else
+                _ResearchLog(rounds: turn.researchLog),
             ],
             if (widget.onSteer != null) ...[
               const SizedBox(height: 12),
@@ -1206,6 +1209,50 @@ class _ResearchLog extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Pijplijn: na het eerste onderzoek een korte uitkomst, terwijl het volledige antwoord nog wordt geschreven.
+class _PreliminaryResult extends StatelessWidget {
+  const _PreliminaryResult({required this.round});
+
+  final AiResearchRound round;
+
+  @override
+  Widget build(BuildContext context) {
+    final found = round.sources > 0;
+    return Container(
+      key: const Key('preliminary-result'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: appAccentBackground,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            found
+                ? 'Het antwoord komt eraan. Hier alvast een korte uitkomst van een eerste onderzoek:'
+                : 'Eerste uitkomst van het onderzoek:',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: appGreen),
+          ),
+          if (round.found.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(round.found),
+          ],
+          if (found) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Gebaseerd op ${round.sources} ${round.sources == 1 ? 'gevonden archiefstuk' : 'gevonden archiefstukken'}. Het volledige antwoord wordt nog geschreven.',
+              style: const TextStyle(color: appMutedText, fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 /// Bijsturen: genoeg gevonden, schrijf nu het antwoord met wat er is.

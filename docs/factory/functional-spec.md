@@ -263,8 +263,15 @@ vragen (instelling `ai-search.method`), en een vraag legt bij het stellen vast w
      niet als vraag en toont de titel van de volledige versie; de context van een vervolgvraag
      gebruikt de volledige versie onder de oorspronkelijke vraag.
 
-  De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%);
-  het logboek krijgt één regel met de tussenconclusie en het aantal geselecteerde records.
+  De voortgang loopt van zoeken (6%) via richten (15%) en ophalen (45%) naar schrijven (55%).
+  Na het richten toont de voortgangskaart een blok met de kop **Het antwoord komt eraan. Hier
+  alvast een korte uitkomst van een eerste onderzoek:**, daaronder de eerste uitkomst (vier tot
+  vijf zinnen, door het model gebaseerd op de samenvattingen en fragmenten van de gevonden
+  archiefstukken) en de regel "Gebaseerd op N gevonden archiefstukken. Het volledige antwoord wordt
+  nog geschreven." (zonder gevonden stukken alleen de kop "Eerste uitkomst van het onderzoek:").
+  Het blok vervangt voor de pijplijn het onderzoekslogboek met "Ronde 1"; de agent behoudt zijn
+  rondes. De uitkomst staat in `research_log` (veld `found`) en kost in de richtstap ongeveer
+  zeven seconden extra ten opzichte van twee zinnen.
   **Stoppen** breekt het onderzoek af; **Genoeg gevonden** bestaat alleen voor de agent. Per
   vraag worden jobs, modellen, tokens en kosten bewaard in `research_stats` voor vergelijking.
   Een pijplijnonderzoek dat bij een herstart liep, wordt als mislukt gemeld.

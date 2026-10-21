@@ -84,6 +84,9 @@ class ResearchPipelineServiceTest {
         // De richtstap ziet alle kaarten met treffertelling en fragmentruimte.
         assertTrue(requests[0].instruction.contains("=== beeldbank/1 | Kerklaan 13a | 1950 | foto | gevonden op: Oostrum ==="), requests[0].instruction)
         assertTrue(requests[0].instruction.contains("In totaal zijn 7 records geraakt; de 2 best gerangschikte kaarten staan hieronder."), requests[0].instruction)
+        // De eerste uitkomst voor de gebruiker is een korte alinea van vier tot vijf zinnen, zonder het woord kaarten.
+        assertTrue(requests[0].instruction.contains("vier tot vijf zinnen"), requests[0].instruction)
+        assertTrue(requests[0].instruction.contains("terwijl het volledige antwoord nog wordt geschreven"), requests[0].instruction)
         // SQL 2 krijgt de zoekopdracht van het model; een onbekend record wordt genegeerd.
         val selection = search.selections.single()
         assertEquals(listOf("Oostrum", "Oostrom"), selection.terms)
