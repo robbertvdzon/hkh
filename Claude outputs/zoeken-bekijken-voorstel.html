@@ -1,0 +1,722 @@
+<title>Zoeken &amp; Bekijken</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef0ea;
+    --paper-raised:#ffffff;
+    --card-alt:#e4e8df;
+    --chrome:#dde2d7;
+    --ink:#1d2420;
+    --ink-soft:#556058;
+    --ink-faint:#7c8579;
+    --line:#cbd2c4;
+    --accent:#204e4a;
+    --accent-strong:#163935;
+    --accent-ink:#eef7f5;
+    --brass:#93691f;
+    --brass-strong:#7a561a;
+    --brass-soft:#efdfb8;
+    --brass-soft-ink:#4a3813;
+    --page-bg:#fbf9f3;
+    --page-ink:#242019;
+    --shadow: 0 1px 2px rgba(20,30,25,0.06), 0 10px 28px -12px rgba(20,30,25,0.28);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#12160f;
+      --paper-raised:#1a2018;
+      --card-alt:#212820;
+      --chrome:#2a322a;
+      --ink:#e9ece4;
+      --ink-soft:#a9b4a3;
+      --ink-faint:#7c8779;
+      --line:#333d32;
+      --accent:#5cae9f;
+      --accent-strong:#7bc3b5;
+      --accent-ink:#0c1a17;
+      --brass:#d8ac52;
+      --brass-strong:#e6bd6a;
+      --brass-soft:#3a2f18;
+      --brass-soft-ink:#f0d8a0;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#12160f;
+    --paper-raised:#1a2018;
+    --card-alt:#212820;
+    --chrome:#2a322a;
+    --ink:#e9ece4;
+    --ink-soft:#a9b4a3;
+    --ink-faint:#7c8779;
+    --line:#333d32;
+    --accent:#5cae9f;
+    --accent-strong:#7bc3b5;
+    --accent-ink:#0c1a17;
+    --brass:#d8ac52;
+    --brass-strong:#e6bd6a;
+    --brass-soft:#3a2f18;
+    --brass-soft-ink:#f0d8a0;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    font-size:16px;
+    line-height:1.55;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:56px 24px 96px;}
+
+  header.intro{margin-bottom:52px;}
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--brass-strong);
+    display:flex;align-items:center;gap:8px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--brass);display:inline-block;}
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:clamp(30px,4.4vw,42px);
+    line-height:1.1;
+    letter-spacing:-.01em;
+    margin:0 0 16px;
+    text-wrap:balance;
+  }
+  .intro p{
+    max-width:64ch;
+    color:var(--ink-soft);
+    font-size:16.5px;
+    margin:0 0 10px;
+  }
+  .intro p strong{color:var(--ink);font-weight:600;}
+  .intro ul{margin:14px 0 10px;padding-left:20px;color:var(--ink-soft);max-width:62ch;}
+  .intro li{margin-bottom:4px;}
+  .intro li strong{color:var(--ink);}
+
+  section.proposal{margin-bottom:64px;}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+  .sec-num{
+    font-family:"IBM Plex Mono",monospace;
+    color:var(--accent);
+    font-size:14px;
+    font-weight:500;
+  }
+  h2{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:26px;
+    margin:0;
+    letter-spacing:-.005em;
+  }
+  .sec-sub{color:var(--ink-soft);max-width:62ch;margin:6px 0 24px;font-size:15px;}
+
+  /* device / browser frame */
+  .frame{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .frame-bar{
+    background:var(--chrome);
+    padding:9px 14px;
+    display:flex;align-items:center;gap:8px;
+    border-bottom:1px solid var(--line);
+  }
+  .frame-bar .dot{width:9px;height:9px;border-radius:50%;background:var(--line);}
+  .frame-bar .favicon{
+    width:16px;height:16px;border-radius:4px;margin-left:6px;flex:none;
+    background:#204e4a;color:#fff;
+    font-family:"IBM Plex Mono",monospace;font-size:6.5px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;letter-spacing:.02em;
+  }
+  .frame-bar .url{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:11.5px;
+    color:var(--ink-faint);
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:4px 10px;
+    flex:1;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .frame-body{padding:28px;}
+
+  /* notes row */
+  .notes{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+  .note{
+    display:flex;align-items:center;gap:7px;
+    background:var(--brass-soft);
+    color:var(--brass-soft-ink);
+    border-radius:999px;
+    padding:6px 13px 6px 10px;
+    font-size:13px;
+    font-weight:500;
+  }
+  .note svg{width:13px;height:13px;flex:none;stroke:var(--brass-strong);}
+  .caveat{font-size:12px;color:var(--ink-faint);margin:10px 0 0;}
+
+  /* ===== Homepage mockup ===== */
+  .home-hero h3{
+    font-family:"Fraunces",Georgia,serif;font-weight:600;font-size:22px;margin:0 0 8px;text-wrap:balance;
+  }
+  .home-hero p{color:var(--ink-soft);margin:0 0 20px;max-width:56ch;font-size:14.5px;}
+  .home-search{display:flex;gap:9px;margin-bottom:6px;}
+  .home-results{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+  .home-more{
+    font-size:13px;color:var(--accent);font-weight:600;margin-top:10px;display:inline-block;
+    text-decoration:none;
+  }
+  .home-more:hover{text-decoration:underline;}
+  .news-block{margin-top:30px;padding-top:22px;border-top:1px solid var(--line);}
+  .news-block h4{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-faint);margin:0 0 10px;
+  }
+  .news-item{font-size:13.5px;color:var(--ink-soft);margin:0 0 6px;}
+  .news-item strong{color:var(--ink);}
+
+  /* ===== Detail page mockup ===== */
+  .detail-title{
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:600;
+    font-size:25px;
+    margin:0 0 6px;
+    text-wrap:balance;
+  }
+  .detail-desc{color:var(--ink-soft);margin:0 0 22px;max-width:60ch;user-select:text;}
+
+  .pdf-block{
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    margin-bottom:12px;
+    background:var(--card-alt);
+  }
+  .pdf-toolbar{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 12px;
+    background:var(--card-alt);
+    border-bottom:1px solid var(--line);
+  }
+  .pdf-toolbar .grow{flex:1;}
+  .pdf-toolbar button{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:7px;border:1px solid transparent;
+    background:transparent;color:var(--ink-soft);cursor:pointer;
+  }
+  .pdf-toolbar button:hover{background:var(--paper-raised);border-color:var(--line);color:var(--ink);}
+  .pdf-toolbar svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7;}
+  .pdf-toolbar .pageinfo{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:3px 9px;
+  }
+  .pdf-page-scroll{
+    max-height:320px;overflow:auto;
+    padding:22px 20px 26px;
+    display:flex;justify-content:center;
+    background:var(--card-alt);
+  }
+  .pdf-page{
+    background:var(--page-bg);
+    color:var(--page-ink);
+    width:100%;max-width:480px;
+    padding:26px 26px 30px;
+    border-radius:2px;
+    box-shadow:0 1px 1px rgba(0,0,0,.05), 0 12px 24px -14px rgba(0,0,0,.35);
+    user-select:text;
+  }
+  .pdf-page h3{
+    font-family:"Fraunces",Georgia,serif;font-weight:700;font-size:21px;margin:0 0 3px;
+  }
+  .pdf-page .byline{font-size:12px;color:#6b6455;margin:0 0 14px;font-style:italic;}
+  .pdf-page .cols{columns:2;column-gap:20px;font-size:12.2px;line-height:1.5;color:#332f26;}
+  .pdf-page .cols p{margin:0 0 9px;}
+
+  .pdf-actions{display:flex;gap:8px;margin-bottom:24px;}
+  .pdf-action{
+    display:inline-flex;align-items:center;gap:7px;
+    font:inherit;font-size:13px;font-weight:600;
+    padding:8px 14px;border-radius:8px;
+    border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);
+    text-decoration:none;cursor:pointer;
+  }
+  .pdf-action:hover{border-color:var(--accent);color:var(--accent);}
+  .pdf-action svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
+
+  dl.fields{
+    display:grid;grid-template-columns:max-content 1fr;
+    row-gap:9px;column-gap:18px;
+    margin:0 0 22px;
+    font-size:14.5px;
+  }
+  dl.fields dt{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;color:var(--ink-faint);
+    text-transform:uppercase;letter-spacing:.04em;
+    padding-top:2px;white-space:nowrap;
+  }
+  dl.fields dd{margin:0;user-select:text;}
+
+  .source-row{
+    display:flex;align-items:center;gap:8px;
+    padding-top:16px;border-top:1px solid var(--line);
+    font-size:13.5px;color:var(--ink-soft);
+    flex-wrap:wrap;
+  }
+  .source-row a{
+    color:var(--accent);text-decoration:none;font-weight:500;
+    display:inline-flex;align-items:center;gap:5px;
+    border-bottom:1px solid transparent;
+  }
+  .source-row a:hover{border-color:var(--accent);}
+  .source-row a svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;}
+
+  /* ===== Search mockup ===== */
+  .search-row{display:flex;gap:10px;margin-bottom:10px;}
+  .search-input{
+    flex:1;font:inherit;font-size:15.5px;
+    padding:12px 14px;border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper-raised);color:var(--ink);
+  }
+  .search-input:focus{outline:none;border-color:var(--accent);}
+  .search-btn{
+    font:inherit;font-weight:600;font-size:14.5px;
+    padding:0 20px;border-radius:9px;border:none;
+    background:var(--accent);color:var(--accent-ink);cursor:pointer;
+  }
+  .search-btn:hover{background:var(--accent-strong);}
+  .hint{font-size:12.5px;color:var(--ink-faint);margin:0 0 16px;}
+  .hint code{
+    font-family:"IBM Plex Mono",monospace;background:var(--card-alt);
+    border-radius:4px;padding:1px 5px;font-size:11.5px;
+  }
+
+  .adv-toggle{
+    display:inline-flex;align-items:center;gap:6px;
+    background:none;border:none;color:var(--accent);
+    font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
+    padding:6px 0;margin-bottom:6px;
+  }
+  .adv-toggle svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4;transition:transform .18s ease;}
+  .adv-toggle[aria-expanded="true"] svg{transform:rotate(180deg);}
+
+  .adv-panel{
+    max-height:0;overflow:hidden;
+    transition:max-height .25s ease, opacity .2s ease, margin .25s ease;
+    opacity:0;
+  }
+  .adv-panel.open{max-height:480px;opacity:1;margin-bottom:18px;}
+  .adv-list{
+    display:flex;flex-direction:column;
+    background:var(--card-alt);border:1px solid var(--line);border-radius:10px;
+    padding:6px 16px;
+  }
+  .adv-row{
+    display:grid;grid-template-columns:150px 1fr;align-items:center;gap:14px;
+    padding:9px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .adv-row:last-child{border-bottom:none;}
+  .adv-row label{
+    font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.03em;
+    color:var(--ink-soft);
+  }
+  .adv-row input{
+    font:inherit;font-size:13.5px;padding:7px 10px;border-radius:7px;
+    border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);width:100%;
+  }
+  .adv-row input:focus{outline:none;border-color:var(--accent);}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px;}
+  .chip{
+    font-size:12.5px;padding:5px 12px;border-radius:999px;
+    border:1px solid var(--line);background:var(--paper-raised);color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+
+  .results{display:flex;flex-direction:column;gap:10px;}
+  .result{
+    display:flex;gap:13px;
+    padding:13px 14px;border:1px solid var(--line);border-radius:10px;
+    background:var(--paper-raised);
+  }
+  .thumb{
+    width:52px;height:52px;border-radius:7px;flex:none;
+    background:var(--card-alt);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink-faint);
+  }
+  .thumb.sm{width:40px;height:40px;}
+  .thumb svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;}
+  .thumb.sm svg{width:16px;height:16px;}
+  .result-body{min-width:0;}
+  .result-title{font-weight:600;font-size:14.5px;margin:0 0 2px;}
+  .result-meta{font-size:11.5px;color:var(--ink-faint);margin:0 0 4px;
+    font-family:"IBM Plex Mono",monospace;letter-spacing:.01em;}
+  .result-desc{font-size:13px;color:var(--ink-soft);margin:0;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .no-results{color:var(--ink-faint);font-size:13.5px;padding:18px 4px;}
+  mark{background:var(--brass-soft);color:var(--brass-soft-ink);border-radius:3px;padding:0 2px;}
+
+  footer.next{
+    border-top:1px solid var(--line);
+    padding-top:28px;margin-top:8px;
+    color:var(--ink-soft);font-size:14px;max-width:62ch;
+  }
+  footer.next strong{color:var(--ink);}
+  footer.next ul{margin:10px 0 0;padding-left:20px;}
+  footer.next li{margin-bottom:4px;}
+
+  @media (max-width:600px){
+    .frame-body{padding:18px;}
+    dl.fields{grid-template-columns:1fr;row-gap:3px;}
+    dl.fields dd{margin-bottom:8px;}
+    .adv-row{grid-template-columns:1fr;gap:4px;}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="intro">
+    <div class="eyebrow">Voorstel · ronde 2</div>
+    <h1>Vanaf de voordeur doorzoekbaar</h1>
+    <p>Verwerkt in dit voorstel:</p>
+    <ul>
+      <li><strong>Uitgebreid zoeken</strong> wordt een lijst van alle velden onder elkaar, elk met een eigen invulveld — niet één dropdown waarbij je maar op één veld tegelijk kunt zoeken.</li>
+      <li>Bij de PDF komen twee knoppen: <strong>open in nieuwe pagina</strong> en <strong>download</strong>, naast de ingesloten weergave.</li>
+      <li>Zoeken kan voortaan ook <strong>direct vanaf de startpagina</strong> — nu is de aparte zoekpagina nog het enige scherm dat iets kan.</li>
+      <li>Een eigen <strong>tabblad-icoontje</strong> ("HKH"-badge), zoals bij de software factory — inmiddels al doorgevoerd in beide apps.</li>
+    </ul>
+    <p>Nog steeds <strong>werkende schetsen</strong> met echte inhoud uit de collectie, geen screenshots. Probeer de zoekbalk hieronder, en klap "Uitgebreid zoeken" open.</p>
+  </header>
+
+  <section class="proposal">
+    <div class="sec-head">
+      <span class="sec-num">1</span>
+      <h2>Startpagina</h2>
+    </div>
+    <p class="sec-sub">De zoekbalk staat meteen op de voordeur, boven het laatste nieuws — niet meer achter een aparte knop verstopt.</p>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <span class="favicon">HKH</span>
+        <span class="url">hkh.vdzonsoftware.nl</span>
+      </div>
+      <div class="frame-body home-hero">
+        <h3>Historisch Heemskerk</h3>
+        <p>Ontdek de geschiedenis van Heemskerk vanuit een vraag, een naam of een jaartal.</p>
+        <div class="home-search">
+          <input class="search-input" id="homeQ" type="text" placeholder="Zoek in de collectie…" value="ansichtkaart">
+          <button class="search-btn" id="homeGo">Zoeken</button>
+        </div>
+        <div class="home-results" id="homeResults"></div>
+        <a class="home-more" href="#zoekscherm-frame">Alle 23.126 resultaten en uitgebreid zoeken →</a>
+
+        <div class="news-block">
+          <h4>Laatste nieuws</h4>
+          <p class="news-item"><strong>Nieuwe foto's van de Kerkweg beschreven</strong> — 34 ansichtkaarten uit de jaren '30 toegevoegd aan de beeldbank.</p>
+          <p class="news-item"><strong>Heemskring-jaargang 2025 compleet</strong> — alle vier de nummers zijn nu doorzoekbaar.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Zoeken zonder eerst te hoeven doorklikken</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Toont meteen een paar treffers, met link naar het volledige zoekscherm</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Laatste nieuws blijft gewoon staan, verschuift alleen naar beneden</div>
+    </div>
+  </section>
+
+  <section class="proposal">
+    <div class="sec-head">
+      <span class="sec-num">2</span>
+      <h2>Artikelpagina</h2>
+    </div>
+    <p class="sec-sub">De PDF rendert in de pagina zelf; daarnaast twee expliciete knoppen om 'm in een nieuw tabblad te openen of te downloaden. Alle tekst is selecteerbaar, de bronlink is een echte hyperlink.</p>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <span class="favicon">HKH</span>
+        <span class="url">hkh.vdzonsoftware.nl/artikelen/1989040101</span>
+      </div>
+      <div class="frame-body">
+        <h3 class="detail-title">Een kring voor iedereen</h3>
+        <p class="detail-desc">Over de oprichting, werkgroepen en lidmaatschap van de nieuwe vereniging.</p>
+
+        <div class="pdf-block">
+          <div class="pdf-toolbar">
+            <button title="Uitzoomen"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></svg></button>
+            <button title="Inzoomen"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></button>
+            <span class="pageinfo">pagina 1 / 1</span>
+            <span class="grow"></span>
+          </div>
+          <div class="pdf-page-scroll">
+            <article class="pdf-page">
+              <h3>Een kring voor iedereen</h3>
+              <p class="byline">H.G. Hin — Heemskring Magazine, 1989, nr. 1</p>
+              <div class="cols">
+                <p>Steeds meer mensen zijn geïnteresseerd in de geschiedenis van hun eigen familie. Ook groeit bij velen de belangstelling voor de historie van de eigen woonplaats.</p>
+                <p>Wie wil immers niet weten wie zijn voorouders zijn, waar ze hebben gewoond en gewerkt? Hoe komen namen als Assumburg en Marquette in ons dorp? Waar komen namen als Breedweer en Commandeurs vandaan?</p>
+                <p>Veel vragen van velerlei aard, waarop de historie interessante antwoorden kan geven. Daarvoor moet je gaan graven in die geschiedenis.</p>
+                <p>Gelukkig zijn in Heemskerk veel mensen al jarenlang bezig te spitten in het verleden, en delen zij hun kennis graag met anderen die op zoek zijn naar hun wortels.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div class="pdf-actions">
+          <a class="pdf-action" href="https://www.historischekringheemskerk.nl/artikelen/pdf/1989040101.pdf" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+            Open in nieuwe pagina
+          </a>
+          <a class="pdf-action" href="https://www.historischekringheemskerk.nl/artikelen/pdf/1989040101.pdf" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+            Download
+          </a>
+        </div>
+        <p class="caveat">(In dit voorstel openen beide knoppen de echte bron-PDF in een tab — een geforceerde download laat een preview-pagina zoals deze niet toe. In de app zelf downloadt de tweede knop het bestand echt.)</p>
+
+        <dl class="fields">
+          <dt>Auteur(s)</dt><dd>Hin, H.G.</dd>
+          <dt>Rubriek</dt><dd>Verenigingszaken HKH</dd>
+          <dt>Medium</dt><dd>Heemskring Magazine, nr. 1</dd>
+          <dt>Uitgever</dt><dd>Historische Kring Heemskerk</dd>
+          <dt>Verschijningsjaar</dt><dd>1989</dd>
+        </dl>
+
+        <div class="source-row">
+          <span>Bron:</span>
+          <a href="https://www.historischekringheemskerk.nl/cgi-bin/artikelen.pl?ident=1989040101" target="_blank" rel="noopener">
+            historischekringheemskerk.nl/artikelen.pl?ident=1989040101
+            <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>PDF leesbaar in de pagina zelf</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Los te openen of te downloaden, naast de ingesloten weergave</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Titel, beschrijving, velden en bronlink zijn nu selecteerbaar/klikbaar</div>
+    </div>
+  </section>
+
+  <section class="proposal" id="zoekscherm-frame">
+    <div class="sec-head">
+      <span class="sec-num">3</span>
+      <h2>Zoekscherm</h2>
+    </div>
+    <p class="sec-sub">Standaard blijft het simpel: één zoekbalk over alle velden. "Uitgebreid zoeken" klapt een lijst open met élk veld apart — je vult in wat je wilt beperken, de rest laat je leeg.</p>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <span class="favicon">HKH</span>
+        <span class="url">hkh.vdzonsoftware.nl/zoeken</span>
+      </div>
+      <div class="frame-body">
+        <div class="search-row">
+          <input class="search-input" id="q" type="text" placeholder='Zoek op titel, auteur, plaats, jaar… of "een exacte frase"' value="">
+          <button class="search-btn" id="go">Zoeken</button>
+        </div>
+        <p class="hint">Losse woorden = EN. Tussen <code>"aanhalingstekens"</code> = exacte frase.</p>
+
+        <button class="adv-toggle" id="advToggle" aria-expanded="true">
+          Uitgebreid zoeken
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="adv-panel open" id="advPanel">
+          <div class="adv-list" id="advList"></div>
+        </div>
+
+        <div class="chips">
+          <span class="chip active" data-collection="">Alles (4)</span>
+          <span class="chip" data-collection="artikelen">Artikelen (2)</span>
+          <span class="chip" data-collection="archief">Archief (1)</span>
+          <span class="chip" data-collection="beeldbank">Foto's (1)</span>
+        </div>
+
+        <div class="results" id="results"></div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Elk veld heeft zijn eigen invulveld, niet één dropdown</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Ingevulde velden tellen mee als EN — leeg = geen beperking</div>
+      <div class="note"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Veldenlijst past zich aan op de gekozen collectie</div>
+    </div>
+    <p class="caveat">Probeer bijvoorbeeld: laat de zoekbalk leeg, vul bij "Rubriek" <code>Verenigingszaken</code> in.</p>
+  </section>
+
+  <footer class="next">
+    <strong>Volgende stap:</strong> als dit klopt, bouw ik in de Flutter-app:
+    <ul>
+      <li>een <code>PdfViewer</code>-package voor de ingesloten weergave, plus <code>url_launcher</code> voor "open in nieuwe pagina" en een echte download (via <code>url_launcher</code> op web, of een bestandsdownload op mobiel);</li>
+      <li><code>SelectionArea</code> zodat alle tekst selecteerbaar/kopieerbaar is;</li>
+      <li>het uitklapbare "Uitgebreid zoeken"-paneel met een invulveld per veld — dit vraagt ook een kleine uitbreiding van de zoek-API, die nu maar één veld tegelijk aankan;</li>
+      <li>dezelfde zoekbalk + eerste resultaten op de startpagina, met een link door naar het volledige zoekscherm.</li>
+    </ul>
+  </footer>
+
+</div>
+
+<script>
+  const records = [
+    {collection:'artikelen', ident:'1989040101', title:'Een kring voor iedereen',
+      description:'Over de oprichting, werkgroepen en lidmaatschap van de nieuwe vereniging.', year:1989,
+      fields:{'Auteur(s)':'Hin, H.G.', 'Rubriek':'Verenigingszaken HKH'}},
+    {collection:'artikelen', ident:'1989040202', title:'Waarom Heemskerkers wel ezels worden genoemd',
+      description:"Over de vermeende onstaansoorzaak van de bijnaam 'ezel' voor de Heemskerker vanuit agrarische oorsprong.", year:1989,
+      fields:{'Auteur(s)':'Diemeer Azn, Piet; Wijk, van, G.J.', 'Rubriek':'Bewoners, beroep, biografie'}},
+    {collection:'archief', ident:'10000', title:'Gemeentedag zaterdag 23 september 1995',
+      description:'Gemeentedag Heemskerk zaterdag 23 september 1995 van 10.00 uur tot 16.00 uur.', year:1995,
+      fields:{'Documentnummer':'10000'}},
+    {collection:'beeldbank', ident:'10001', title:'Straten Maerten van Heemskerckstraat',
+      description:'Dorpsweg vanaf Beverwijk. Ansichtkaart uit 1900.', year:1900,
+      fields:{'Fotograaf':'W. Seignette', 'Straat':'Maerten van Heemskerckstraat', 'Thema':'Straten dorp'}},
+  ];
+
+  const ALL_FIELDS = ['Titel', 'Beschrijving', 'Auteur(s)', 'Rubriek', 'Fotograaf', 'Documentnummer', 'Straat', 'Thema'];
+
+  const icons = {
+    artikelen:'<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3M9 12h6M9 16h6M9 8h3"/>',
+    archief:'<path d="M4 7h16v13H4z"/><path d="M4 7l3-4h10l3 4M10 11h4"/>',
+    beeldbank:'<rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-9 9"/>',
+    default:'<rect x="3" y="5" width="18" height="14" rx="1.5"/>'
+  };
+
+  function collectionLabel(c){
+    return {artikelen:'Artikelen', archief:'Archief', beeldbank:"Foto's"}[c] || c;
+  }
+
+  function highlight(text, terms){
+    if(!terms.length) return text;
+    let out = text;
+    terms.forEach(t=>{
+      if(!t) return;
+      const re = new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+      out = out.replace(re, '<mark>$1</mark>');
+    });
+    return out;
+  }
+
+  function fieldText(rec, fieldLabel){
+    if(fieldLabel === 'Titel') return rec.title;
+    if(fieldLabel === 'Beschrijving') return rec.description;
+    return rec.fields[fieldLabel] || '';
+  }
+
+  function allText(rec){
+    return [rec.title, rec.description, ...Object.values(rec.fields)].join(' ');
+  }
+
+  function wordsOrPhrase(text, value){
+    const t = text.toLowerCase();
+    const v = value.trim();
+    if(!v) return true;
+    const phrase = v.match(/^"(.+)"$/);
+    if(phrase) return t.includes(phrase[1].toLowerCase());
+    return v.toLowerCase().split(/\s+/).filter(Boolean).every(w => t.includes(w));
+  }
+
+  function buildAdvancedList(container, onChange){
+    container.innerHTML = ALL_FIELDS.map(f => `
+      <div class="adv-row">
+        <label for="adv-${f}">${f}</label>
+        <input id="adv-${f}" type="text" data-field="${f}" placeholder="…">
+      </div>
+    `).join('');
+    container.querySelectorAll('input').forEach(inp => inp.addEventListener('input', onChange));
+  }
+
+  function resultCard(r, terms, small){
+    return `
+      <div class="result">
+        <div class="thumb${small ? ' sm' : ''}"><svg viewBox="0 0 24 24">${icons[r.collection] || icons.default}</svg></div>
+        <div class="result-body">
+          <p class="result-title">${highlight(r.title, terms)}</p>
+          <p class="result-meta">${r.year} · ${collectionLabel(r.collection)}</p>
+          <p class="result-desc">${highlight(r.description, terms)}</p>
+        </div>
+      </div>`;
+  }
+
+  // --- Zoekscherm (met per-veld lijst) ---
+  const advList = document.getElementById('advList');
+  buildAdvancedList(advList, render);
+
+  function render(){
+    const q = document.getElementById('q').value;
+    const activeChip = document.querySelector('#zoekscherm-frame .chip.active');
+    const collection = activeChip ? activeChip.dataset.collection : '';
+
+    const fieldFilters = {};
+    advList.querySelectorAll('input').forEach(inp => {
+      if(inp.value.trim()) fieldFilters[inp.dataset.field] = inp.value.trim();
+    });
+
+    const phraseMatch = q.trim().match(/^"(.+)"$/);
+    const terms = phraseMatch ? [phraseMatch[1]] : q.trim().split(/\s+/).filter(Boolean);
+
+    const filtered = records.filter(r => {
+      if(collection && r.collection !== collection) return false;
+      if(!wordsOrPhrase(allText(r), q)) return false;
+      return Object.entries(fieldFilters).every(([f, v]) => wordsOrPhrase(fieldText(r, f), v));
+    });
+
+    const box = document.getElementById('results');
+    box.innerHTML = filtered.length
+      ? filtered.map(r => resultCard(r, terms, false)).join('')
+      : '<div class="no-results">Geen resultaten gevonden.</div>';
+  }
+
+  document.getElementById('go').addEventListener('click', render);
+  document.getElementById('q').addEventListener('input', render);
+  document.getElementById('q').addEventListener('keydown', e => { if(e.key === 'Enter') render(); });
+  document.querySelectorAll('#zoekscherm-frame .chip').forEach(chip=>{
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#zoekscherm-frame .chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      render();
+    });
+  });
+
+  const advToggle = document.getElementById('advToggle');
+  const advPanel = document.getElementById('advPanel');
+  advToggle.addEventListener('click', () => {
+    const open = advPanel.classList.toggle('open');
+    advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  render();
+
+  // --- Startpagina mini-zoek ---
+  function renderHome(){
+    const q = document.getElementById('homeQ').value;
+    const terms = q.trim().split(/\s+/).filter(Boolean);
+    const filtered = records.filter(r => wordsOrPhrase(allText(r), q)).slice(0, 2);
+    const box = document.getElementById('homeResults');
+    box.innerHTML = filtered.length
+      ? filtered.map(r => resultCard(r, terms, true)).join('')
+      : '<div class="no-results">Geen resultaten gevonden.</div>';
+  }
+  document.getElementById('homeGo').addEventListener('click', renderHome);
+  document.getElementById('homeQ').addEventListener('input', renderHome);
+  document.getElementById('homeQ').addEventListener('keydown', e => { if(e.key === 'Enter') renderHome(); });
+  renderHome();
+</script>

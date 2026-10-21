@@ -11,8 +11,8 @@ const exampleQuestions = [
   'Wat gebeurde er in Heemskerk tijdens de Tweede Wereldoorlog?',
 ];
 
-/// Het eenvoudige zoekscherm: één vraagveld, AI standaard aan, en achter het
-/// vinkje 'uitgebreid' de overige zoekwijzen.
+/// Het zoekscherm: één vraagveld dat door AI wordt beantwoord, met een
+/// verwijzing naar handmatig zoeken in het archief.
 class SimpleSearchPage extends StatefulWidget {
   const SimpleSearchPage({this.questionsEnabled = true, super.key});
   final bool questionsEnabled;
@@ -23,11 +23,6 @@ class SimpleSearchPage extends StatefulWidget {
 
 class _SimpleSearchPageState extends State<SimpleSearchPage> {
   final _query = TextEditingController();
-  bool _advanced = false;
-  late SearchMode _mode = widget.questionsEnabled
-      ? SearchMode.ai
-      : SearchMode.all;
-  String _collection = publicCollections.first.id;
 
   @override
   void dispose() {
@@ -35,12 +30,9 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
     super.dispose();
   }
 
-  void _submit() => submitSearch(
-    context,
-    mode: _mode,
-    query: _query.text,
-    collection: _collection,
-  );
+  void _submit() => widget.questionsEnabled
+      ? submitAiQuestion(context, _query.text)
+      : openManualSearch(context, _query.text);
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +62,7 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'De digitale onderzoeker zoekt in ruim 18.000 foto’s, documenten, boeken, bidprentjes en artikelen van de Historische Kring Heemskerk en geeft antwoord met bronnen.',
+                  'Zoekt in het hele archief van de Historische Kring Heemskerk: ruim 18.000 foto’s, documenten, boeken, bidprentjes en artikelen. Op basis van wat er gevonden wordt schrijft het een antwoord met bronnen. Dit duurt even, ongeveer twee minuten.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 17,
@@ -99,17 +91,6 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      if (_advanced) ...[
-                        SearchModeOptions(
-                          mode: _mode,
-                          collection: _collection,
-                          questionsEnabled: widget.questionsEnabled,
-                          onModeChanged: (m) => setState(() => _mode = m),
-                          onCollectionChanged: (c) =>
-                              setState(() => _collection = c),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
                       FilledButton.icon(
                         key: const Key('simple-submit'),
                         onPressed: _submit,
@@ -118,14 +99,13 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                           textStyle: const TextStyle(fontSize: 16),
                         ),
                         icon: Icon(
-                          _mode == SearchMode.ai ||
-                                  _mode == SearchMode.aiThorough
+                          widget.questionsEnabled
                               ? Icons.auto_awesome
                               : Icons.search,
                           size: 20,
                         ),
                         label: Text(
-                          _advanced ? searchButtonLabel(_mode) : 'Zoek',
+                          widget.questionsEnabled ? 'Vraag stellen' : 'Zoeken',
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -133,32 +113,11 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 8,
                         children: [
-                          SizedBox(
-                            height: 40,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Checkbox(
-                                  key: const Key('simple-advanced'),
-                                  value: _advanced,
-                                  onChanged: (v) => setState(() {
-                                    _advanced = v ?? false;
-                                    if (!_advanced) {
-                                      _mode = widget.questionsEnabled
-                                          ? SearchMode.ai
-                                          : SearchMode.all;
-                                    }
-                                  }),
-                                ),
-                                const Text('Uitgebreid'),
-                              ],
-                            ),
-                          ),
                           TextButton(
                             key: const Key('simple-collections'),
-                            onPressed: () => navigateTo(context, '/zoeken'),
+                            onPressed: () => openManualSearch(context),
                             child: const Text(
-                              'Zoeken in het archief',
+                              'Liever zelf zoeken? Handmatig zoeken',
                               style: TextStyle(
                                 decoration: TextDecoration.underline,
                               ),
@@ -198,7 +157,6 @@ class _SimpleSearchPageState extends State<SimpleSearchPage> {
                           label: Text(question),
                           onPressed: () => setState(() {
                             _query.text = question;
-                            _mode = SearchMode.ai;
                           }),
                         ),
                     ],

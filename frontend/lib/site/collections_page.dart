@@ -4,7 +4,8 @@ import '../theme/app_style.dart';
 import 'search_form.dart';
 import 'site_widgets.dart';
 
-/// Archief › Zoeken: één zoekveld met daaronder de keuze hoe te zoeken.
+/// Archief › Zoeken: één vraagveld; de vraag wordt door AI beantwoord. Zelf
+/// zoeken kan via Handmatig zoeken.
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({this.questionsEnabled = true, super.key});
   final bool questionsEnabled;
@@ -15,10 +16,6 @@ class CollectionsPage extends StatefulWidget {
 
 class _CollectionsPageState extends State<CollectionsPage> {
   final _query = TextEditingController();
-  late SearchMode _mode = widget.questionsEnabled
-      ? SearchMode.ai
-      : SearchMode.all;
-  String _collection = publicCollections.first.id;
 
   @override
   void dispose() {
@@ -26,12 +23,9 @@ class _CollectionsPageState extends State<CollectionsPage> {
     super.dispose();
   }
 
-  void _submit() => submitSearch(
-    context,
-    mode: _mode,
-    query: _query.text,
-    collection: _collection,
-  );
+  void _submit() => widget.questionsEnabled
+      ? submitAiQuestion(context, _query.text)
+      : openManualSearch(context, _query.text);
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +36,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
           title: 'Zoeken in het archief',
           crumbs: [('Archief', '/archief')],
           intro:
-              'Ruim 18.000 foto’s, archiefstukken, boeken, bidprentjes, Heemskring-artikelen en voorwerpen. Typ een naam, straat, onderwerp of jaartal en kies hoe u wilt zoeken.',
+              'Ruim 18.000 foto’s, krantenknipsels, boeken, bidprentjes, Heemskring-artikelen en voorwerpen. Stel uw vraag in gewone woorden.',
         ),
         AppCard(
           padding: const EdgeInsets.all(24),
@@ -56,56 +50,58 @@ class _CollectionsPageState extends State<CollectionsPage> {
                 textInputAction: TextInputAction.search,
                 style: const TextStyle(fontSize: 17),
                 decoration: const InputDecoration(
-                  hintText: 'Bijvoorbeeld: Kerklaan, Diemeer, aardbeien, 1953',
+                  hintText: 'Bijvoorbeeld: wie was burgemeester Nielen?',
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
-              const SizedBox(height: 14),
-              SearchModeOptions(
-                mode: _mode,
-                collection: _collection,
-                questionsEnabled: widget.questionsEnabled,
-                onModeChanged: (m) => setState(() => _mode = m),
-                onCollectionChanged: (c) => setState(() => _collection = c),
-              ),
+              if (widget.questionsEnabled) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  aiSearchExplanation,
+                  key: Key('collections-explanation'),
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    height: 1.5,
+                    color: appMutedText,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               FilledButton.icon(
                 key: const Key('collection-search-button'),
                 onPressed: _submit,
                 icon: Icon(
-                  _mode == SearchMode.ai || _mode == SearchMode.aiThorough
-                      ? Icons.auto_awesome
-                      : Icons.search,
+                  widget.questionsEnabled ? Icons.auto_awesome : Icons.search,
                   size: 18,
                 ),
-                label: Text(searchButtonLabel(_mode)),
+                label: Text(
+                  widget.questionsEnabled ? 'Vraag stellen' : 'Zoeken',
+                ),
               ),
-              if (widget.questionsEnabled) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    key: const Key('collections-earlier-questions'),
-                    onPressed: () => navigateTo(context, '/vragen'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (widget.questionsEnabled)
+                    TextButton(
+                      key: const Key('collections-earlier-questions'),
+                      onPressed: () => navigateTo(context, '/vragen'),
+                      child: const Text(
+                        'Eerdere AI-onderzoeken bekijken',
+                        style: TextStyle(decoration: TextDecoration.underline),
+                      ),
+                    ),
+                  TextButton(
+                    key: const Key('collections-manual'),
+                    onPressed: () => openManualSearch(context),
                     child: const Text(
-                      'Eerdere AI-onderzoeken bekijken',
+                      'Liever zelf zoeken? Handmatig zoeken in het archief',
                       style: TextStyle(decoration: TextDecoration.underline),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => navigateTo(context, '/zoeken'),
-            icon: const Icon(Icons.tune, size: 18),
-            label: const Text(
-              'Uitgebreid zoeken: filters op straat, thema, periode, auteur en meer',
-            ),
           ),
         ),
         const SizedBox(height: appSectionGap),

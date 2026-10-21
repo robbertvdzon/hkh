@@ -501,7 +501,6 @@ void main() {
     await openAt('/bestaat-niet');
     expect(find.text('HKH Beheer'), findsOneWidget);
     expect(find.byKey(const Key('admin-usage-table')), findsOneWidget);
-    expect(AdminPaths.normalise('/collectie/'), AdminPaths.collection);
     expect(AdminPaths.normalise('/archief'), AdminPaths.collection);
     expect(AdminPaths.normalise('/x'), AdminPaths.start);
   });

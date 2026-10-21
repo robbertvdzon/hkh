@@ -71,7 +71,7 @@ const subMenus = <String, List<({String label, String path})>>{
   ],
   '/archief': [
     (label: 'Zoeken', path: '/archief'),
-    (label: 'Uitgebreid zoeken in het archief', path: '/zoeken'),
+    (label: 'Handmatig zoeken in het archief', path: '/zoeken'),
   ],
   '/vereniging': [
     (label: 'Over de HKH', path: '/vereniging/over-de-hkh'),
@@ -122,7 +122,7 @@ List<({String label, String path})> subMenuFor(String location) =>
 /// Actieve subitem-route voor [location]: het subitem met het langste pad
 /// dat een voorvoegsel van de route is.
 String? activeSubMenuPath(String location) {
-  // Objecten en gedeelde antwoorden horen bij Uitgebreid zoeken; AI-onderzoek
+  // Objecten en gedeelde antwoorden horen bij Handmatig zoeken; AI-onderzoek
   // start vanaf Zoeken.
   final normalized =
       location.startsWith('/objecten') || location.startsWith('/gedeeld')

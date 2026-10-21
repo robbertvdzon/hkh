@@ -369,7 +369,7 @@ class _SearchAndAskState extends State<_SearchAndAsk> {
     final ask = _Box(
       title: 'Onderzoek',
       text:
-          'Stel een onderzoeksvraag in gewone taal. Een digitale onderzoeker zoekt de bronnen in het archief erbij en schrijft een antwoord met bronvermelding.',
+          'Stel een onderzoeksvraag in gewone taal. Het archief wordt doorzocht en u krijgt een antwoord met bronvermelding.',
       field: TextField(
         key: const Key('home-question-field'),
         controller: _question,

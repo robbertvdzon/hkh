@@ -520,7 +520,7 @@ class _HeaderSearchField extends StatelessWidget {
     label: 'Zoek in het archief',
     child: InkWell(
       key: const Key('header-search-field'),
-      onTap: () => onSearch('/archief'),
+      onTap: () => onSearch('/zoeken'),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         width: 300,

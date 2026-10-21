@@ -633,7 +633,7 @@ class AiSearchService(
 
     private fun ensureCapacity() {
         if (repository.activeTurnCount() >= properties.maxActiveSearches.coerceAtLeast(1)) {
-            throw ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Er lopen nu meerdere archiefonderzoeken. Probeer het over een paar minuten opnieuw.")
+            throw ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Er lopen nu meerdere archiefonderzoeken. Probeer het over een paar minuten opnieuw, of zoek ondertussen handmatig in het archief.")
         }
     }
 

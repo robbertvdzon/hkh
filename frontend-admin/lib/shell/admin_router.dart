@@ -18,8 +18,6 @@ class AdminPaths {
     final clean = path.length > 1 && path.endsWith('/')
         ? path.substring(0, path.length - 1)
         : path;
-    // Het oude adres van dit onderdeel blijft werken voor bladwijzers.
-    if (clean == '/collectie') return collection;
     return all.contains(clean) ? clean : start;
   }
 

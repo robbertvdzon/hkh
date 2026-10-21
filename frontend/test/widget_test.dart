@@ -431,14 +431,13 @@ void main() {
       );
     });
 
-    testWidgets('header search box opens the collection search', (
+    testWidgets('header search box opens manual search', (
       tester,
     ) async {
       final router = await _pumpApp(tester, size: const Size(1200, 1100));
       await tester.tap(find.byKey(const Key('header-search-field')));
       await tester.pumpAndSettle();
-      expect(_path(router), '/archief');
-      expect(find.byKey(const Key('collections-query')), findsOneWidget);
+      expect(_path(router), '/zoeken');
     });
   });
 
@@ -721,23 +720,15 @@ void main() {
         aiSource: aiSource,
         route: '/archief',
       );
-      // Eén onderdeel kiezen en zoeken.
-      await tester.enterText(
-        find.byKey(const Key('collections-query')),
-        'Adrichem',
-      );
-      await tester.tap(find.byKey(const Key('mode-single')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('mode-single-collection')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Bidprentjes').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('collection-search-button')));
+      // Geen keuzes meer onder het vraagveld; wel uitleg en een link naar zelf zoeken.
+      expect(find.byKey(const Key('mode-ai')), findsNothing);
+      expect(find.byKey(const Key('mode-all')), findsNothing);
+      expect(find.byKey(const Key('mode-single')), findsNothing);
+      expect(find.byKey(const Key('collections-explanation')), findsOneWidget);
+      expect(find.textContaining('digitale onderzoeker'), findsNothing);
+      await tester.tap(find.byKey(const Key('collections-manual')));
       await tester.pumpAndSettle();
       expect(_path(router), '/zoeken');
-      final params = router.routeInformationProvider.value.uri.queryParameters;
-      expect(params['collection'], 'bidprentjes');
-      expect(params['q'], 'Adrichem');
       // Met AI zoeken start een onderzoek.
       router.go('/archief');
       await tester.pumpAndSettle();
@@ -745,10 +736,7 @@ void main() {
         find.byKey(const Key('collections-query')),
         'Wie was Piet Diemeer?',
       );
-      expect(find.byKey(const Key('mode-ai-thorough')), findsNothing);
-      await tester.tap(find.byKey(const Key('mode-ai')));
-      await tester.pumpAndSettle();
-      expect(find.text('Onderzoek starten'), findsOneWidget);
+      expect(find.text('Vraag stellen'), findsOneWidget);
       await tester.tap(find.byKey(const Key('collection-search-button')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
@@ -1000,7 +988,8 @@ void main() {
       expect(find.byKey(const Key('menu-agenda')), findsNothing);
       expect(find.byKey(const Key('membership-action')), findsNothing);
       expect(find.byKey(const Key('header-search-field')), findsNothing);
-      // Zonder vinkje is AI met één zoekronde de standaard.
+      // Het zoekscherm is alleen AI: geen keuzes of vinkje.
+      expect(find.byKey(const Key('simple-advanced')), findsNothing);
       expect(find.byKey(const Key('mode-ai')), findsNothing);
       await tester.enterText(
         find.byKey(const Key('simple-query')),
@@ -1014,33 +1003,6 @@ void main() {
       expect(_path(router), '/vragen');
       // Ook het antwoordscherm houdt de slanke kop.
       expect(find.byKey(const Key('menu-agenda')), findsNothing);
-    });
-
-    testWidgets('the advanced checkbox reveals the four modes with AI first', (
-      tester,
-    ) async {
-      final router = await _pumpApp(
-        tester,
-        size: const Size(1200, 1300),
-        website: false,
-      );
-      await tester.tap(find.byKey(const Key('simple-advanced')));
-      await tester.pumpAndSettle();
-      final ai = tester.getTopLeft(find.byKey(const Key('mode-ai')));
-      final all = tester.getTopLeft(find.byKey(const Key('mode-all')));
-      expect(ai.dy, lessThan(all.dy));
-      expect(find.text('Onderzoek starten'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('mode-all')));
-      await tester.pumpAndSettle();
-      expect(find.text('Zoeken'), findsWidgets);
-      await tester.enterText(find.byKey(const Key('simple-query')), 'Kerklaan');
-      await tester.tap(find.byKey(const Key('simple-submit')));
-      await tester.pumpAndSettle();
-      expect(_path(router), '/zoeken');
-      expect(
-        router.routeInformationProvider.value.uri.queryParameters['q'],
-        'Kerklaan',
-      );
     });
 
     testWidgets('example questions fill the field and links open search', (
@@ -1115,9 +1077,6 @@ void main() {
         website: false,
         textScaleFactor: 1.3,
       );
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.byKey(const Key('simple-advanced')));
-      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await _scrollTo(tester, find.byKey(const Key('site-mode-switch')));
       expect(tester.takeException(), isNull);

@@ -48,7 +48,7 @@ class AiQuestionCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De digitale onderzoeker zoekt de bronnen erbij; dit kan enkele minuten duren.',
+              'Stel gerust een uitgebreide onderzoeksvraag over families, relaties tussen mensen en plekken, of veranderingen door de tijd. De bronnen worden erbij gezocht; dit kan enkele minuten duren.',
               style: TextStyle(color: appGreen),
             ),
             const SizedBox(height: 18),

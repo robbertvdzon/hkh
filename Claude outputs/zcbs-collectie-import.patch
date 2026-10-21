@@ -1,0 +1,2406 @@
+From dd42c20319b9ec1c7ce1b866776f75f0dd8b6827 Mon Sep 17 00:00:00 2001
+From: Robbert <robbert@vdzon.com>
+Date: Fri, 11 Sep 2026 16:32:52 +0000
+Subject: [PATCH] Collectie doorzoekbaar maken via ZCBS-import
+
+Nieuwe backend-module `collection` die de metadata uit de publieke ZCBS-
+beeldbanken van de HKH-website scrapet en in Postgres zet, plus zoek-API,
+een scrape-knop in frontend-admin en een zoekscherm in de frontend.
+
+Backend (Spring Modulith module `collection`):
+- Flyway V5: tabellen collection_item (JSONB velden + Nederlandse full-text
+  tsvector met GIN-index) en scrape_run (voortgang/historie).
+- ZcbsClient: haalt via cgi-bin/<collectie>.pl alle idents op (search=%25 +
+  istart-paginering) en parset recordpagina's met jsoup (ISO-8859-1).
+- CollectionScrapeService: rate-limited (300ms), hervatbaar, draait async;
+  slaat bestaande records over tenzij force=true.
+- Publieke API: GET /api/collections, /api/collections/search, /{coll}/{ident}.
+- Admin API: POST/GET /api/admin/collections/scrape(/status) via AdminAuthenticator.
+- Alleen metadata + beeld/PDF-URL's; de bestanden blijven op de HKH-webserver.
+
+Frontend-admin: kaart "Collectie ophalen (ZCBS)" met start-knop, force-optie
+en live voortgang.
+
+Frontend: knop "Doorzoek de collectie" + zoekscherm met filter per collectie,
+resultaten met lazy-geladen thumbnails en een detailpagina met alle velden.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MXEErCDJoihzv52oM8hVh7
+---
+ backend/pom.xml                               |   5 +
+ .../nl/vdzon/hkh/collection/CollectionItem.kt |  44 ++
+ .../collection/CollectionItemRepository.kt    | 148 +++++
+ .../hkh/collection/CollectionScrapeService.kt | 105 ++++
+ .../hkh/collection/CollectionSearchService.kt |  27 +
+ .../nl/vdzon/hkh/collection/ScrapeRun.kt      |  21 +
+ .../hkh/collection/ScrapeRunRepository.kt     | 108 ++++
+ .../nl/vdzon/hkh/collection/ZcbsClient.kt     | 150 +++++
+ .../nl/vdzon/hkh/collection/ZcbsProperties.kt |  20 +
+ .../collection/api/AdminScrapeController.kt   |  82 +++
+ .../collection/api/CollectionController.kt    | 106 ++++
+ .../nl/vdzon/hkh/collection/package-info.java |   2 +
+ .../src/main/resources/application.properties |   4 +
+ .../db/migration/V5__collection_items.sql     |  42 ++
+ .../nl/vdzon/hkh/ModulithArchitectureTest.kt  |   2 +-
+ .../collection/admin_collection_scrape.dart   | 111 ++++
+ frontend-admin/lib/main.dart                  | 206 +++++++
+ frontend-admin/test/widget_test.dart          |  20 +
+ frontend/lib/backend/backend_client.dart      |  54 +-
+ .../lib/collection/collection_search.dart     | 130 +++++
+ .../collection/collection_search_page.dart    | 522 ++++++++++++++++++
+ frontend/lib/main.dart                        |  39 +-
+ frontend/test/widget_test.dart                |  36 +-
+ 23 files changed, 1973 insertions(+), 11 deletions(-)
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItem.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItemRepository.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionScrapeService.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionSearchService.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRun.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRunRepository.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsClient.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsProperties.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/api/AdminScrapeController.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/api/CollectionController.kt
+ create mode 100644 backend/src/main/kotlin/nl/vdzon/hkh/collection/package-info.java
+ create mode 100644 backend/src/main/resources/db/migration/V5__collection_items.sql
+ create mode 100644 frontend-admin/lib/collection/admin_collection_scrape.dart
+ create mode 100644 frontend/lib/collection/collection_search.dart
+ create mode 100644 frontend/lib/collection/collection_search_page.dart
+
+diff --git a/backend/pom.xml b/backend/pom.xml
+index 2ee5b44..0880637 100644
+--- a/backend/pom.xml
++++ b/backend/pom.xml
+@@ -95,6 +95,11 @@
+             <artifactId>nimbus-jose-jwt</artifactId>
+             <version>${nimbus-jose-jwt.version}</version>
+         </dependency>
++        <dependency>
++            <groupId>org.jsoup</groupId>
++            <artifactId>jsoup</artifactId>
++            <version>1.18.3</version>
++        </dependency>
+ 
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItem.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItem.kt
+new file mode 100644
+index 0000000..89462b4
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItem.kt
+@@ -0,0 +1,44 @@
++package nl.vdzon.hkh.collection
++
++import java.time.Instant
++
++/**
++ * Eén record uit een ZCBS-collectie (artikelen, foto's, objecten, ...).
++ * Alleen metadata; het beeld/de PDF blijft op de HKH-webserver staan en wordt
++ * via [imageUrl] / [pdfUrl] on-demand geladen.
++ */
++data class CollectionItem(
++    val id: Long,
++    val collection: String,
++    val ident: String,
++    val title: String,
++    val description: String,
++    val year: Int?,
++    val imageUrl: String?,
++    val pdfUrl: String?,
++    val detailUrl: String,
++    val fields: Map<String, String>,
++    val scrapedAt: Instant,
++)
++
++/** Ruwe, geparste weergave van een recordpagina, vóór opslag. */
++data class ScrapedRecord(
++    val collection: String,
++    val ident: String,
++    val title: String,
++    val description: String,
++    val year: Int?,
++    val imageUrl: String?,
++    val pdfUrl: String?,
++    val detailUrl: String,
++    val fields: Map<String, String>,
++)
++
++data class CollectionCount(val collection: String, val count: Long)
++
++data class SearchResult(
++    val items: List<CollectionItem>,
++    val total: Long,
++    val page: Int,
++    val pageSize: Int,
++)
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItemRepository.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItemRepository.kt
+new file mode 100644
+index 0000000..f624b89
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionItemRepository.kt
+@@ -0,0 +1,148 @@
++package nl.vdzon.hkh.collection
++
++import java.sql.ResultSet
++import org.springframework.jdbc.core.JdbcTemplate
++import org.springframework.jdbc.core.RowMapper
++import org.springframework.stereotype.Repository
++import tools.jackson.databind.ObjectMapper
++
++interface CollectionItemStore {
++    fun upsert(record: ScrapedRecord)
++    fun existingIdents(collection: String): Set<String>
++    fun counts(): List<CollectionCount>
++    fun totalCount(): Long
++    fun find(collection: String, ident: String): CollectionItem?
++    fun search(query: String?, collection: String?, limit: Int, offset: Int): List<CollectionItem>
++    fun searchCount(query: String?, collection: String?): Long
++}
++
++@Repository
++class CollectionItemRepository(
++    private val jdbc: JdbcTemplate,
++    private val objectMapper: ObjectMapper,
++) : CollectionItemStore {
++
++    override fun upsert(record: ScrapedRecord) {
++        val fieldsJson = objectMapper.writeValueAsString(record.fields)
++        val searchText = buildSearchText(record)
++        jdbc.update(
++            """
++            INSERT INTO collection_item
++                (collection, ident, title, description, year, image_url, pdf_url, detail_url, fields, search_text, scraped_at)
++            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, CURRENT_TIMESTAMP)
++            ON CONFLICT (collection, ident) DO UPDATE SET
++                title = EXCLUDED.title,
++                description = EXCLUDED.description,
++                year = EXCLUDED.year,
++                image_url = EXCLUDED.image_url,
++                pdf_url = EXCLUDED.pdf_url,
++                detail_url = EXCLUDED.detail_url,
++                fields = EXCLUDED.fields,
++                search_text = EXCLUDED.search_text,
++                scraped_at = CURRENT_TIMESTAMP
++            """.trimIndent(),
++            record.collection,
++            record.ident,
++            record.title,
++            record.description,
++            record.year,
++            record.imageUrl,
++            record.pdfUrl,
++            record.detailUrl,
++            fieldsJson,
++            searchText,
++        )
++    }
++
++    override fun existingIdents(collection: String): Set<String> =
++        jdbc.query(
++            "SELECT ident FROM collection_item WHERE collection = ?",
++            { rs, _ -> rs.getString("ident") },
++            collection,
++        ).toHashSet()
++
++    override fun counts(): List<CollectionCount> =
++        jdbc.query(
++            "SELECT collection, COUNT(*) AS c FROM collection_item GROUP BY collection ORDER BY collection",
++        ) { rs, _ -> CollectionCount(rs.getString("collection"), rs.getLong("c")) }
++
++    override fun totalCount(): Long =
++        jdbc.queryForObject("SELECT COUNT(*) FROM collection_item", Long::class.java) ?: 0
++
++    override fun find(collection: String, ident: String): CollectionItem? =
++        jdbc.query(
++            "SELECT * FROM collection_item WHERE collection = ? AND ident = ?",
++            rowMapper,
++            collection,
++            ident,
++        ).singleOrNull()
++
++    override fun search(query: String?, collection: String?, limit: Int, offset: Int): List<CollectionItem> {
++        val (where, args) = buildWhere(query, collection)
++        val ordering = if (query.isNullOrBlank()) {
++            "ORDER BY collection, year DESC NULLS LAST, ident"
++        } else {
++            "ORDER BY ts_rank(search_vector, websearch_to_tsquery('dutch', ?)) DESC, year DESC NULLS LAST"
++        }
++        val fullArgs = if (query.isNullOrBlank()) args + listOf(limit, offset) else args + listOf(query) + listOf(limit, offset)
++        return jdbc.query(
++            "SELECT * FROM collection_item $where $ordering LIMIT ? OFFSET ?",
++            rowMapper,
++            *fullArgs.toTypedArray(),
++        )
++    }
++
++    override fun searchCount(query: String?, collection: String?): Long {
++        val (where, args) = buildWhere(query, collection)
++        return jdbc.queryForObject(
++            "SELECT COUNT(*) FROM collection_item $where",
++            Long::class.java,
++            *args.toTypedArray(),
++        ) ?: 0
++    }
++
++    private fun buildWhere(query: String?, collection: String?): Pair<String, List<Any>> {
++        val clauses = mutableListOf<String>()
++        val args = mutableListOf<Any>()
++        if (!query.isNullOrBlank()) {
++            clauses += "search_vector @@ websearch_to_tsquery('dutch', ?)"
++            args += query
++        }
++        if (!collection.isNullOrBlank()) {
++            clauses += "collection = ?"
++            args += collection
++        }
++        val where = if (clauses.isEmpty()) "" else "WHERE " + clauses.joinToString(" AND ")
++        return where to args
++    }
++
++    private fun buildSearchText(record: ScrapedRecord): String =
++        buildString {
++            append(record.title).append(' ')
++            append(record.description).append(' ')
++            append(record.ident).append(' ')
++            record.fields.values.forEach { append(it).append(' ') }
++        }.trim()
++
++    private val rowMapper = RowMapper { rs: ResultSet, _: Int ->
++        CollectionItem(
++            id = rs.getLong("id"),
++            collection = rs.getString("collection"),
++            ident = rs.getString("ident"),
++            title = rs.getString("title"),
++            description = rs.getString("description"),
++            year = (rs.getObject("year") as Number?)?.toInt(),
++            imageUrl = rs.getString("image_url"),
++            pdfUrl = rs.getString("pdf_url"),
++            detailUrl = rs.getString("detail_url"),
++            fields = parseFields(rs.getString("fields")),
++            scrapedAt = rs.getTimestamp("scraped_at").toInstant(),
++        )
++    }
++
++    @Suppress("UNCHECKED_CAST")
++    private fun parseFields(json: String?): Map<String, String> {
++        if (json.isNullOrBlank()) return emptyMap()
++        return objectMapper.readValue(json, Map::class.java) as Map<String, String>
++    }
++}
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionScrapeService.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionScrapeService.kt
+new file mode 100644
+index 0000000..464968a
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionScrapeService.kt
+@@ -0,0 +1,105 @@
++package nl.vdzon.hkh.collection
++
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.Executors
++import java.util.concurrent.atomic.AtomicBoolean
++import org.slf4j.LoggerFactory
++import org.springframework.stereotype.Service
++
++/**
++ * Start en bewaakt het scrapen van alle ZCBS-collecties. Draait op een
++ * achtergrondthread, is rate-limited en hervatbaar (bestaande records worden
++ * overgeslagen tenzij force=true).
++ */
++@Service
++class CollectionScrapeService(
++    private val client: ZcbsClient,
++    private val items: CollectionItemStore,
++    private val runs: ScrapeRunStore,
++    private val properties: ZcbsProperties,
++) {
++    private val logger = LoggerFactory.getLogger(javaClass)
++    private val running = AtomicBoolean(false)
++    private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
++        Thread(r, "zcbs-scraper").apply { isDaemon = true }
++    }
++
++    /** Start een scrape. Gooit [ScrapeAlreadyRunningException] als er al één loopt. */
++    fun start(startedBy: String, force: Boolean): ScrapeRun {
++        if (!running.compareAndSet(false, true)) {
++            throw ScrapeAlreadyRunningException()
++        }
++        val runId = runs.start(startedBy, force)
++        executor.submit {
++            try {
++                scrapeAll(runId, force)
++            } finally {
++                running.set(false)
++            }
++        }
++        return runs.latest()!!
++    }
++
++    fun status(): ScrapeRun? = runs.latest()
++
++    fun isRunning(): Boolean = running.get()
++
++    private fun scrapeAll(runId: Long, force: Boolean) {
++        val progress = RunProgress(id = runId)
++        try {
++            logger.info("Scrape {} gestart (force={})", runId, force)
++            for (collection in properties.collections) {
++                progress.currentCollection = collection
++                runs.update(progress)
++                scrapeCollection(collection, force, progress)
++            }
++            runs.update(progress)
++            runs.finish(runId, ScrapeStatus.COMPLETED, "Klaar: ${progress.processed} opgehaald, ${progress.skipped} overgeslagen, ${progress.failed} mislukt")
++            logger.info("Scrape {} voltooid: {}", runId, progress)
++        } catch (ex: Exception) {
++            logger.error("Scrape {} mislukt", runId, ex)
++            runs.update(progress)
++            runs.finish(runId, ScrapeStatus.FAILED, "Mislukt: ${ex.message}")
++        }
++    }
++
++    private fun scrapeCollection(collection: String, force: Boolean, progress: RunProgress) {
++        val idents = client.listIdents(collection)
++        progress.total += idents.size
++        progress.perCollection.putIfAbsent(collection, 0)
++        runs.update(progress)
++
++        val existing = if (force) emptySet() else items.existingIdents(collection)
++        for (ident in idents) {
++            if (!force && ident in existing) {
++                progress.skipped++
++                continue
++            }
++            try {
++                val record = client.fetchRecord(collection, ident)
++                items.upsert(record)
++                progress.processed++
++                progress.perCollection.merge(collection, 1, Int::plus)
++            } catch (ex: Exception) {
++                progress.failed++
++                logger.warn("Record {}/{} mislukt: {}", collection, ident, ex.message)
++            }
++            if (progress.processed % 25 == 0) runs.update(progress)
++            sleep()
++        }
++        runs.update(progress)
++    }
++
++    private fun sleep() {
++        val delay = properties.requestDelayMs
++        if (delay > 0) {
++            try {
++                Thread.sleep(delay)
++            } catch (ex: InterruptedException) {
++                Thread.currentThread().interrupt()
++            }
++        }
++    }
++}
++
++class ScrapeAlreadyRunningException : RuntimeException("Er loopt al een scrape.")
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionSearchService.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionSearchService.kt
+new file mode 100644
+index 0000000..bdfaac6
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/CollectionSearchService.kt
+@@ -0,0 +1,27 @@
++package nl.vdzon.hkh.collection
++
++import org.springframework.stereotype.Service
++
++@Service
++class CollectionSearchService(private val store: CollectionItemStore) {
++
++    fun collections(): List<CollectionCount> = store.counts()
++
++    fun total(): Long = store.totalCount()
++
++    fun detail(collection: String, ident: String): CollectionItem? = store.find(collection, ident)
++
++    fun search(query: String?, collection: String?, page: Int, pageSize: Int): SearchResult {
++        val safePage = page.coerceAtLeast(0)
++        val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
++        val cleanedQuery = query?.trim()?.takeIf { it.isNotEmpty() }
++        val cleanedCollection = collection?.trim()?.takeIf { it.isNotEmpty() }
++        val items = store.search(cleanedQuery, cleanedCollection, safeSize, safePage * safeSize)
++        val total = store.searchCount(cleanedQuery, cleanedCollection)
++        return SearchResult(items, total, safePage, safeSize)
++    }
++
++    private companion object {
++        const val MAX_PAGE_SIZE = 100
++    }
++}
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRun.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRun.kt
+new file mode 100644
+index 0000000..3d99ad7
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRun.kt
+@@ -0,0 +1,21 @@
++package nl.vdzon.hkh.collection
++
++import java.time.Instant
++
++enum class ScrapeStatus { RUNNING, COMPLETED, FAILED }
++
++data class ScrapeRun(
++    val id: Long,
++    val status: ScrapeStatus,
++    val startedBy: String,
++    val force: Boolean,
++    val startedAt: Instant,
++    val finishedAt: Instant?,
++    val total: Int,
++    val processed: Int,
++    val skipped: Int,
++    val failed: Int,
++    val currentCollection: String?,
++    val message: String?,
++    val perCollection: Map<String, Int>,
++)
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRunRepository.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRunRepository.kt
+new file mode 100644
+index 0000000..bd74ad0
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ScrapeRunRepository.kt
+@@ -0,0 +1,108 @@
++package nl.vdzon.hkh.collection
++
++import java.sql.ResultSet
++import org.springframework.jdbc.core.JdbcTemplate
++import org.springframework.jdbc.core.RowMapper
++import org.springframework.stereotype.Repository
++import tools.jackson.databind.ObjectMapper
++
++interface ScrapeRunStore {
++    fun start(startedBy: String, force: Boolean): Long
++    fun update(run: RunProgress)
++    fun finish(id: Long, status: ScrapeStatus, message: String?)
++    fun latest(): ScrapeRun?
++    fun anyRunning(): Boolean
++}
++
++/** Mutabele voortgang die de scraper tijdens het draaien bijwerkt. */
++data class RunProgress(
++    val id: Long,
++    var total: Int = 0,
++    var processed: Int = 0,
++    var skipped: Int = 0,
++    var failed: Int = 0,
++    var currentCollection: String? = null,
++    val perCollection: MutableMap<String, Int> = linkedMapOf(),
++)
++
++@Repository
++class ScrapeRunRepository(
++    private val jdbc: JdbcTemplate,
++    private val objectMapper: ObjectMapper,
++) : ScrapeRunStore {
++
++    override fun start(startedBy: String, force: Boolean): Long =
++        jdbc.queryForObject(
++            """
++            INSERT INTO scrape_run (status, started_by, force_rescrape)
++            VALUES ('RUNNING', ?, ?)
++            RETURNING id
++            """.trimIndent(),
++            Long::class.java,
++            startedBy,
++            force,
++        )!!
++
++    override fun update(run: RunProgress) {
++        jdbc.update(
++            """
++            UPDATE scrape_run
++            SET total = ?, processed = ?, skipped = ?, failed = ?,
++                current_collection = ?, per_collection = ?::jsonb
++            WHERE id = ?
++            """.trimIndent(),
++            run.total,
++            run.processed,
++            run.skipped,
++            run.failed,
++            run.currentCollection,
++            objectMapper.writeValueAsString(run.perCollection),
++            run.id,
++        )
++    }
++
++    override fun finish(id: Long, status: ScrapeStatus, message: String?) {
++        jdbc.update(
++            """
++            UPDATE scrape_run
++            SET status = ?, message = ?, current_collection = NULL, finished_at = CURRENT_TIMESTAMP
++            WHERE id = ?
++            """.trimIndent(),
++            status.name,
++            message,
++            id,
++        )
++    }
++
++    override fun latest(): ScrapeRun? =
++        jdbc.query("SELECT * FROM scrape_run ORDER BY started_at DESC, id DESC LIMIT 1", rowMapper)
++            .singleOrNull()
++
++    override fun anyRunning(): Boolean =
++        (jdbc.queryForObject("SELECT COUNT(*) FROM scrape_run WHERE status = 'RUNNING'", Long::class.java) ?: 0) > 0
++
++    private val rowMapper = RowMapper { rs: ResultSet, _: Int ->
++        ScrapeRun(
++            id = rs.getLong("id"),
++            status = ScrapeStatus.valueOf(rs.getString("status")),
++            startedBy = rs.getString("started_by"),
++            force = rs.getBoolean("force_rescrape"),
++            startedAt = rs.getTimestamp("started_at").toInstant(),
++            finishedAt = rs.getTimestamp("finished_at")?.toInstant(),
++            total = rs.getInt("total"),
++            processed = rs.getInt("processed"),
++            skipped = rs.getInt("skipped"),
++            failed = rs.getInt("failed"),
++            currentCollection = rs.getString("current_collection"),
++            message = rs.getString("message"),
++            perCollection = parseCounts(rs.getString("per_collection")),
++        )
++    }
++
++    @Suppress("UNCHECKED_CAST")
++    private fun parseCounts(json: String?): Map<String, Int> {
++        if (json.isNullOrBlank()) return emptyMap()
++        val raw = objectMapper.readValue(json, Map::class.java) as Map<String, Any?>
++        return raw.mapValues { (it.value as? Number)?.toInt() ?: 0 }
++    }
++}
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsClient.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsClient.kt
+new file mode 100644
+index 0000000..86d8bc8
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsClient.kt
+@@ -0,0 +1,150 @@
++package nl.vdzon.hkh.collection
++
++import java.io.ByteArrayInputStream
++import java.net.URI
++import java.time.Duration
++import org.jsoup.Jsoup
++import org.jsoup.nodes.Document
++import org.springframework.http.client.SimpleClientHttpRequestFactory
++import org.springframework.stereotype.Component
++import org.springframework.web.client.RestClient
++
++/**
++ * Praat met de ZCBS Perl-scripts (cgi-bin/<collectie>.pl) op de HKH-webserver.
++ * Pagina's zijn ISO-8859-1 en worden met jsoup geparst.
++ */
++@Component
++class ZcbsClient(private val properties: ZcbsProperties) {
++
++    private val restClient: RestClient = run {
++        val factory = SimpleClientHttpRequestFactory().apply {
++            setConnectTimeout(Duration.ofSeconds(properties.timeoutSeconds))
++            setReadTimeout(Duration.ofSeconds(properties.timeoutSeconds))
++        }
++        RestClient.builder()
++            .baseUrl(properties.baseUrl)
++            .requestFactory(factory)
++            .defaultHeader("User-Agent", "HKH-collectie-import/1.0 (+historischekringheemskerk.nl)")
++            .build()
++    }
++
++    /** Alle ident-nummers van een collectie, via de "toon alles"-query (search=%25) en istart-paginering. */
++    fun listIdents(collection: String): List<String> {
++        val idents = LinkedHashSet<String>()
++        var istart = 1
++        var previous = -1
++        var pages = 0
++        val identPattern = Regex("""$collection\.pl\?ident=([^"&#]+)""")
++        while (pages++ < properties.maxPagesPerCollection && istart != previous) {
++            val doc = get("/cgi-bin/$collection.pl?search=%25&veld=all&display=list&istart=$istart")
++            val html = doc.outerHtml()
++            identPattern.findAll(html).forEach { idents.add(it.groupValues[1]) }
++            val starts = Regex("""istart=(\d+)""").findAll(html)
++                .map { it.groupValues[1].toInt() }
++                .toSortedSet()
++            val next = starts.firstOrNull { it > istart }
++            previous = istart
++            istart = next ?: istart
++            if (next == null) break
++        }
++        return idents.toList()
++    }
++
++    /** Haalt één recordpagina op en parset die naar velden + beeld/PDF-verwijzingen. */
++    fun fetchRecord(collection: String, ident: String): ScrapedRecord {
++        val path = "/cgi-bin/$collection.pl?ident=$ident"
++        val doc = get(path)
++        val fields = parseFields(doc)
++        val title = firstNonBlank(fields, TITLE_KEYS)
++        val description = firstNonBlank(fields, DESCRIPTION_KEYS)
++        val year = extractYear(fields)
++        val imageUrl = extractImageUrl(doc, collection)
++        val pdfUrl = extractPdfUrl(doc, collection)
++        return ScrapedRecord(
++            collection = collection,
++            ident = ident,
++            title = title,
++            description = description,
++            year = year,
++            imageUrl = imageUrl,
++            pdfUrl = pdfUrl,
++            detailUrl = properties.baseUrl + path,
++            fields = fields,
++        )
++    }
++
++    private fun get(path: String): Document {
++        val bytes = restClient.get().uri(path).retrieve().body(ByteArray::class.java)
++            ?: ByteArray(0)
++        return Jsoup.parse(ByteArrayInputStream(bytes), "ISO-8859-1", properties.baseUrl)
++    }
++
++    /** Leest de detailtabel als label:waarde-paren (patroon: [label] [:] [waarde]). */
++    private fun parseFields(doc: Document): Map<String, String> {
++        val fields = LinkedHashMap<String, String>()
++        for (row in doc.select("tr")) {
++            val cells = row.select("td, th").map { it.text().replace(' ', ' ').trim() }
++            val colon = cells.indexOf(":")
++            if (colon <= 0 || colon + 1 >= cells.size) continue
++            val label = cells[colon - 1]
++            val value = cells.subList(colon + 1, cells.size).joinToString(" ").trim()
++            if (label.length in 1..40 && label.any { it.isLetter() } && !fields.containsKey(label)) {
++                fields[label] = value
++            }
++        }
++        return fields
++    }
++
++    private fun firstNonBlank(fields: Map<String, String>, keys: List<String>): String {
++        for (key in keys) {
++            val v = fields[key]
++            if (!v.isNullOrBlank()) return v
++        }
++        return ""
++    }
++
++    private fun extractYear(fields: Map<String, String>): Int? {
++        for (key in YEAR_KEYS) {
++            val v = fields[key] ?: continue
++            val m = Regex("""\b(1[0-9]{3}|20[0-9]{2})\b""").find(v)
++            if (m != null) return m.groupValues[1].toInt()
++        }
++        return null
++    }
++
++    private fun extractImageUrl(doc: Document, collection: String): String? {
++        val candidates = mutableListOf<String>()
++        doc.select("img[src]").forEach { candidates.add(it.attr("src")) }
++        doc.select("a[href]").forEach { candidates.add(it.attr("href")) }
++        val images = candidates
++            .map { it.substringBefore('#').substringBefore('?') }
++            .filter { it.contains("/$collection/", ignoreCase = true) }
++            .filter { it.substringAfterLast('.').lowercase() in IMAGE_EXTENSIONS }
++            .filterNot { it.contains("/misc/", ignoreCase = true) }
++        val best = images.firstOrNull { url -> LARGE_DIRS.any { url.contains("/$it/", ignoreCase = true) } }
++            ?: images.firstOrNull()
++        return best?.let { absolute(it) }
++    }
++
++    private fun extractPdfUrl(doc: Document, collection: String): String? {
++        val href = doc.select("a[href]").map { it.attr("href") }
++            .map { it.substringBefore('#') }
++            .firstOrNull { it.contains("/$collection/", ignoreCase = true) && it.endsWith(".pdf", ignoreCase = true) }
++        return href?.let { absolute(it) }
++    }
++
++    private fun absolute(url: String): String = when {
++        url.startsWith("http://") || url.startsWith("https://") -> url
++        url.startsWith("//") -> "https:$url"
++        url.startsWith("/") -> properties.baseUrl + url
++        else -> URI(properties.baseUrl + "/").resolve(url).toString()
++    }
++
++    private companion object {
++        val TITLE_KEYS = listOf("Titel", "Titel artikel", "Titel object", "Naam", "Onderwerp", "Omschrijving kort")
++        val DESCRIPTION_KEYS = listOf("Beschrijving", "Omschrijving", "Toelichting", "Inhoud")
++        val YEAR_KEYS = listOf("Verschijningsjaar", "Datering", "Jaar", "Periode", "Datum")
++        val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp")
++        val LARGE_DIRS = listOf("large", "groot", "original", "origineel", "medium", "middel")
++    }
++}
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsProperties.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsProperties.kt
+new file mode 100644
+index 0000000..aef884c
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/ZcbsProperties.kt
+@@ -0,0 +1,20 @@
++package nl.vdzon.hkh.collection
++
++import org.springframework.boot.context.properties.ConfigurationProperties
++
++/**
++ * Instellingen voor het scrapen van de publieke ZCBS-beeldbanken op de HKH-website.
++ * Standaardwaarden werken tegen de productie-site; alles is te overschrijven via env.
++ */
++@ConfigurationProperties(prefix = "hkh.zcbs")
++data class ZcbsProperties(
++    val baseUrl: String = "https://www.historischekringheemskerk.nl",
++    val collections: List<String> = listOf(
++        "artikelen", "archief", "beeldbank", "library", "bidprent", "objecten", "transcripties",
++    ),
++    /** Wachttijd tussen twee record-requests, zodat de HKH-server niet belast wordt. */
++    val requestDelayMs: Long = 300,
++    /** Veiligheidslimiet op het aantal lijstpagina's per collectie. */
++    val maxPagesPerCollection: Int = 5000,
++    val timeoutSeconds: Long = 20,
++)
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/AdminScrapeController.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/AdminScrapeController.kt
+new file mode 100644
+index 0000000..4a68d2c
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/AdminScrapeController.kt
+@@ -0,0 +1,82 @@
++package nl.vdzon.hkh.collection.api
++
++import java.time.Instant
++import nl.vdzon.hkh.auth.AdminAuthenticator
++import nl.vdzon.hkh.auth.PreviewRuntimeConfig
++import nl.vdzon.hkh.collection.CollectionScrapeService
++import nl.vdzon.hkh.collection.ScrapeAlreadyRunningException
++import nl.vdzon.hkh.collection.ScrapeRun
++import org.springframework.http.HttpStatus
++import org.springframework.web.bind.annotation.GetMapping
++import org.springframework.web.bind.annotation.PostMapping
++import org.springframework.web.bind.annotation.RequestHeader
++import org.springframework.web.bind.annotation.RequestMapping
++import org.springframework.web.bind.annotation.RequestParam
++import org.springframework.web.bind.annotation.ResponseStatus
++import org.springframework.web.bind.annotation.RestController
++import org.springframework.web.server.ResponseStatusException
++
++data class ScrapeRunResponse(
++    val id: Long,
++    val status: String,
++    val running: Boolean,
++    val startedBy: String,
++    val force: Boolean,
++    val startedAt: Instant,
++    val finishedAt: Instant?,
++    val total: Int,
++    val processed: Int,
++    val skipped: Int,
++    val failed: Int,
++    val currentCollection: String?,
++    val message: String?,
++    val perCollection: Map<String, Int>,
++)
++
++@RestController
++@RequestMapping("/api/admin/collections/scrape")
++class AdminScrapeController(
++    private val service: CollectionScrapeService,
++    private val authenticator: AdminAuthenticator,
++) {
++    @PostMapping
++    @ResponseStatus(HttpStatus.ACCEPTED)
++    fun start(
++        @RequestParam(name = "force", defaultValue = "false") force: Boolean,
++        @RequestHeader("Authorization", required = false) authorization: String?,
++        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
++    ): ScrapeRunResponse {
++        val admin = authenticator.authenticate(authorization, previewHeader)
++        return try {
++            service.start(admin.email, force).toResponse(running = true)
++        } catch (ex: ScrapeAlreadyRunningException) {
++            throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
++        }
++    }
++
++    @GetMapping("/status")
++    fun status(
++        @RequestHeader("Authorization", required = false) authorization: String?,
++        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
++    ): ScrapeRunResponse? {
++        authenticator.authenticate(authorization, previewHeader)
++        return service.status()?.toResponse(running = service.isRunning())
++    }
++}
++
++private fun ScrapeRun.toResponse(running: Boolean) = ScrapeRunResponse(
++    id = id,
++    status = status.name,
++    running = running,
++    startedBy = startedBy,
++    force = force,
++    startedAt = startedAt,
++    finishedAt = finishedAt,
++    total = total,
++    processed = processed,
++    skipped = skipped,
++    failed = failed,
++    currentCollection = currentCollection,
++    message = message,
++    perCollection = perCollection,
++)
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/CollectionController.kt b/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/CollectionController.kt
+new file mode 100644
+index 0000000..a28f680
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/api/CollectionController.kt
+@@ -0,0 +1,106 @@
++package nl.vdzon.hkh.collection.api
++
++import nl.vdzon.hkh.collection.CollectionItem
++import nl.vdzon.hkh.collection.CollectionSearchService
++import org.springframework.http.HttpStatus
++import org.springframework.web.bind.annotation.GetMapping
++import org.springframework.web.bind.annotation.PathVariable
++import org.springframework.web.bind.annotation.RequestMapping
++import org.springframework.web.bind.annotation.RequestParam
++import org.springframework.web.bind.annotation.ResponseStatus
++import org.springframework.web.bind.annotation.RestController
++import org.springframework.web.server.ResponseStatusException
++
++data class CollectionSummaryResponse(
++    val total: Long,
++    val collections: List<CollectionCountResponse>,
++)
++
++data class CollectionCountResponse(val collection: String, val count: Long)
++
++data class CollectionItemSummary(
++    val collection: String,
++    val ident: String,
++    val title: String,
++    val description: String,
++    val year: Int?,
++    val imageUrl: String?,
++    val hasPdf: Boolean,
++)
++
++data class CollectionItemDetail(
++    val collection: String,
++    val ident: String,
++    val title: String,
++    val description: String,
++    val year: Int?,
++    val imageUrl: String?,
++    val pdfUrl: String?,
++    val detailUrl: String,
++    val fields: Map<String, String>,
++)
++
++data class SearchResponse(
++    val items: List<CollectionItemSummary>,
++    val total: Long,
++    val page: Int,
++    val pageSize: Int,
++)
++
++@RestController
++@RequestMapping("/api/collections")
++class CollectionController(private val service: CollectionSearchService) {
++
++    @GetMapping
++    fun overview(): CollectionSummaryResponse =
++        CollectionSummaryResponse(
++            total = service.total(),
++            collections = service.collections().map { CollectionCountResponse(it.collection, it.count) },
++        )
++
++    @GetMapping("/search")
++    fun search(
++        @RequestParam(name = "q", required = false) query: String?,
++        @RequestParam(name = "collection", required = false) collection: String?,
++        @RequestParam(name = "page", defaultValue = "0") page: Int,
++        @RequestParam(name = "size", defaultValue = "20") size: Int,
++    ): SearchResponse {
++        val result = service.search(query, collection, page, size)
++        return SearchResponse(
++            items = result.items.map(CollectionItem::toSummary),
++            total = result.total,
++            page = result.page,
++            pageSize = result.pageSize,
++        )
++    }
++
++    @GetMapping("/{collection}/{ident}")
++    fun detail(
++        @PathVariable collection: String,
++        @PathVariable ident: String,
++    ): CollectionItemDetail =
++        service.detail(collection, ident)?.toDetail()
++            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Record niet gevonden")
++}
++
++private fun CollectionItem.toSummary() = CollectionItemSummary(
++    collection = collection,
++    ident = ident,
++    title = title,
++    description = description,
++    year = year,
++    imageUrl = imageUrl,
++    hasPdf = pdfUrl != null,
++)
++
++private fun CollectionItem.toDetail() = CollectionItemDetail(
++    collection = collection,
++    ident = ident,
++    title = title,
++    description = description,
++    year = year,
++    imageUrl = imageUrl,
++    pdfUrl = pdfUrl,
++    detailUrl = detailUrl,
++    fields = fields,
++)
+diff --git a/backend/src/main/kotlin/nl/vdzon/hkh/collection/package-info.java b/backend/src/main/kotlin/nl/vdzon/hkh/collection/package-info.java
+new file mode 100644
+index 0000000..68b968a
+--- /dev/null
++++ b/backend/src/main/kotlin/nl/vdzon/hkh/collection/package-info.java
+@@ -0,0 +1,2 @@
++@org.springframework.modulith.ApplicationModule(allowedDependencies = {"auth"})
++package nl.vdzon.hkh.collection;
+diff --git a/backend/src/main/resources/application.properties b/backend/src/main/resources/application.properties
+index 17fcd69..32f35ef 100644
+--- a/backend/src/main/resources/application.properties
++++ b/backend/src/main/resources/application.properties
+@@ -24,3 +24,7 @@ management.endpoints.web.exposure.include=health,info
+ management.endpoint.health.show-details=never
+ 
+ springdoc.swagger-ui.path=/swagger-ui.html
++
++hkh.zcbs.base-url=${HKH_ZCBS_BASE_URL:https://www.historischekringheemskerk.nl}
++hkh.zcbs.request-delay-ms=${HKH_ZCBS_REQUEST_DELAY_MS:300}
++
+diff --git a/backend/src/main/resources/db/migration/V5__collection_items.sql b/backend/src/main/resources/db/migration/V5__collection_items.sql
+new file mode 100644
+index 0000000..e561c10
+--- /dev/null
++++ b/backend/src/main/resources/db/migration/V5__collection_items.sql
+@@ -0,0 +1,42 @@
++-- ZCBS collectie-items, gescrapet uit de publieke beeldbanken van de HKH-website.
++-- Alleen metadata + verwijzingen naar beeld/PDF; de bestanden zelf blijven op de HKH-webserver.
++
++CREATE TABLE collection_item (
++    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
++    collection     VARCHAR(40)  NOT NULL,
++    ident          VARCHAR(64)  NOT NULL,
++    title          TEXT         NOT NULL DEFAULT '',
++    description    TEXT         NOT NULL DEFAULT '',
++    year           INTEGER,
++    image_url      TEXT,
++    pdf_url        TEXT,
++    detail_url     TEXT         NOT NULL,
++    fields         JSONB        NOT NULL DEFAULT '{}'::jsonb,
++    search_text    TEXT         NOT NULL DEFAULT '',
++    search_vector  tsvector GENERATED ALWAYS AS (to_tsvector('dutch'::regconfig, search_text)) STORED,
++    scraped_at     TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    CONSTRAINT collection_item_unique UNIQUE (collection, ident)
++);
++
++CREATE INDEX collection_item_search_idx ON collection_item USING GIN (search_vector);
++CREATE INDEX collection_item_collection_idx ON collection_item (collection);
++CREATE INDEX collection_item_year_idx ON collection_item (year);
++
++-- Eén rij per scrape-run zodat voortgang en historie bewaard blijven, ook na herstart.
++CREATE TABLE scrape_run (
++    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
++    status       VARCHAR(20)  NOT NULL,             -- RUNNING | COMPLETED | FAILED
++    started_by   VARCHAR(320) NOT NULL,
++    force_rescrape BOOLEAN    NOT NULL DEFAULT FALSE,
++    started_at   TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    finished_at  TIMESTAMPTZ,
++    total        INTEGER      NOT NULL DEFAULT 0,   -- totaal aantal te verwerken records
++    processed    INTEGER      NOT NULL DEFAULT 0,   -- opgehaald/opgeslagen
++    skipped      INTEGER      NOT NULL DEFAULT 0,   -- overgeslagen (al aanwezig)
++    failed       INTEGER      NOT NULL DEFAULT 0,   -- mislukte records
++    current_collection VARCHAR(40),
++    message      TEXT,
++    per_collection JSONB      NOT NULL DEFAULT '{}'::jsonb
++);
++
++CREATE INDEX scrape_run_started_at_idx ON scrape_run (started_at DESC, id DESC);
+diff --git a/backend/src/test/kotlin/nl/vdzon/hkh/ModulithArchitectureTest.kt b/backend/src/test/kotlin/nl/vdzon/hkh/ModulithArchitectureTest.kt
+index 899020f..ff77505 100644
+--- a/backend/src/test/kotlin/nl/vdzon/hkh/ModulithArchitectureTest.kt
++++ b/backend/src/test/kotlin/nl/vdzon/hkh/ModulithArchitectureTest.kt
+@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
+ import org.springframework.modulith.core.ApplicationModules
+ 
+ class ModulithArchitectureTest {
+-    private val modules = setOf("auth", "configuration", "news", "previewdata", "system")
++    private val modules = setOf("auth", "collection", "configuration", "news", "previewdata", "system")
+     private val sourceRoot = Path.of("src/main/kotlin/nl/vdzon/hkh")
+ 
+     @Test
+diff --git a/frontend-admin/lib/collection/admin_collection_scrape.dart b/frontend-admin/lib/collection/admin_collection_scrape.dart
+new file mode 100644
+index 0000000..0485b5d
+--- /dev/null
++++ b/frontend-admin/lib/collection/admin_collection_scrape.dart
+@@ -0,0 +1,111 @@
++import 'dart:convert';
++
++import 'package:http/http.dart' as http;
++
++import '../auth/admin_session.dart';
++
++/// Status van een scrape-run zoals de backend die teruggeeft.
++class ScrapeStatus {
++  const ScrapeStatus({
++    required this.status,
++    required this.running,
++    required this.total,
++    required this.processed,
++    required this.skipped,
++    required this.failed,
++    required this.currentCollection,
++    required this.message,
++    required this.perCollection,
++    required this.startedAt,
++    required this.finishedAt,
++  });
++
++  factory ScrapeStatus.fromJson(Map<String, dynamic> json) => ScrapeStatus(
++    status: json['status'] as String? ?? 'UNKNOWN',
++    running: json['running'] as bool? ?? false,
++    total: json['total'] as int? ?? 0,
++    processed: json['processed'] as int? ?? 0,
++    skipped: json['skipped'] as int? ?? 0,
++    failed: json['failed'] as int? ?? 0,
++    currentCollection: json['currentCollection'] as String?,
++    message: json['message'] as String?,
++    perCollection:
++        (json['perCollection'] as Map<String, dynamic>? ?? const {})
++            .map((key, value) => MapEntry(key, (value as num).toInt())),
++    startedAt: json['startedAt'] == null
++        ? null
++        : DateTime.tryParse(json['startedAt'] as String),
++    finishedAt: json['finishedAt'] == null
++        ? null
++        : DateTime.tryParse(json['finishedAt'] as String),
++  );
++
++  final String status;
++  final bool running;
++  final int total;
++  final int processed;
++  final int skipped;
++  final int failed;
++  final String? currentCollection;
++  final String? message;
++  final Map<String, int> perCollection;
++  final DateTime? startedAt;
++  final DateTime? finishedAt;
++}
++
++abstract interface class AdminScrapeSource {
++  Future<ScrapeStatus?> loadStatus(AdminIdentity identity);
++  Future<ScrapeStatus> start({
++    required AdminIdentity identity,
++    required bool force,
++  });
++}
++
++class AdminScrapeClient implements AdminScrapeSource {
++  AdminScrapeClient(this.apiBaseUrl, {http.Client? client})
++    : _client = client ?? http.Client();
++
++  final String apiBaseUrl;
++  final http.Client _client;
++
++  @override
++  Future<ScrapeStatus?> loadStatus(AdminIdentity identity) async {
++    final response = await _client
++        .get(
++          Uri.parse('$apiBaseUrl/api/admin/collections/scrape/status'),
++          headers: identity.requestHeaders,
++        )
++        .timeout(const Duration(seconds: 10));
++    if (response.statusCode != 200) {
++      throw StateError('Status ophalen mislukt (${response.statusCode}).');
++    }
++    if (response.body.isEmpty || response.body == 'null') return null;
++    return ScrapeStatus.fromJson(
++      jsonDecode(response.body) as Map<String, dynamic>,
++    );
++  }
++
++  @override
++  Future<ScrapeStatus> start({
++    required AdminIdentity identity,
++    required bool force,
++  }) async {
++    final response = await _client
++        .post(
++          Uri.parse(
++            '$apiBaseUrl/api/admin/collections/scrape?force=$force',
++          ),
++          headers: identity.requestHeaders,
++        )
++        .timeout(const Duration(seconds: 15));
++    if (response.statusCode == 409) {
++      throw StateError('Er loopt al een scrape.');
++    }
++    if (response.statusCode != 202) {
++      throw StateError('Scrape starten mislukt (${response.statusCode}).');
++    }
++    return ScrapeStatus.fromJson(
++      jsonDecode(response.body) as Map<String, dynamic>,
++    );
++  }
++}
+diff --git a/frontend-admin/lib/main.dart b/frontend-admin/lib/main.dart
+index bc1edc7..be1dd2c 100644
+--- a/frontend-admin/lib/main.dart
++++ b/frontend-admin/lib/main.dart
+@@ -8,6 +8,7 @@ import 'config/app_config.dart';
+ import 'google_signin_button_stub.dart'
+     if (dart.library.html) 'google_signin_button_web.dart'
+     as google_button;
++import 'collection/admin_collection_scrape.dart';
+ import 'news/admin_latest_news.dart';
+ 
+ void main() {
+@@ -23,6 +24,7 @@ void main() {
+     HkhAdminApp(
+       sessionSource: sessionSource,
+       newsSource: AdminLatestNewsClient(AppConfig.apiBaseUrl),
++      scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
+     ),
+   );
+ }
+@@ -31,12 +33,14 @@ class HkhAdminApp extends StatelessWidget {
+   const HkhAdminApp({
+     required this.sessionSource,
+     required this.newsSource,
++    required this.scrapeSource,
+     this.googleButtonBuilder,
+     super.key,
+   });
+ 
+   final AdminSessionSource sessionSource;
+   final AdminLatestNewsSource newsSource;
++  final AdminScrapeSource scrapeSource;
+   final Widget Function()? googleButtonBuilder;
+ 
+   @override
+@@ -51,6 +55,7 @@ class HkhAdminApp extends StatelessWidget {
+       home: AdminGate(
+         sessionSource: sessionSource,
+         newsSource: newsSource,
++        scrapeSource: scrapeSource,
+         googleButtonBuilder:
+             googleButtonBuilder ?? google_button.renderGoogleButton,
+       ),
+@@ -62,12 +67,14 @@ class AdminGate extends StatefulWidget {
+   const AdminGate({
+     required this.sessionSource,
+     required this.newsSource,
++    required this.scrapeSource,
+     required this.googleButtonBuilder,
+     super.key,
+   });
+ 
+   final AdminSessionSource sessionSource;
+   final AdminLatestNewsSource newsSource;
++  final AdminScrapeSource scrapeSource;
+   final Widget Function() googleButtonBuilder;
+ 
+   @override
+@@ -157,6 +164,7 @@ class _AdminGateState extends State<AdminGate> {
+       return _AdminHome(
+         identity: identity,
+         newsSource: widget.newsSource,
++        scrapeSource: widget.scrapeSource,
+         onSignOut: _signOut,
+       );
+     }
+@@ -240,11 +248,13 @@ class _AdminHome extends StatefulWidget {
+   const _AdminHome({
+     required this.identity,
+     required this.newsSource,
++    required this.scrapeSource,
+     required this.onSignOut,
+   });
+ 
+   final AdminIdentity identity;
+   final AdminLatestNewsSource newsSource;
++  final AdminScrapeSource scrapeSource;
+   final VoidCallback onSignOut;
+ 
+   @override
+@@ -324,6 +334,13 @@ class _AdminHomeState extends State<_AdminHome> {
+                   const SizedBox(height: 4),
+                   Text(widget.identity.email, textAlign: TextAlign.center),
+                   const SizedBox(height: 32),
++                  _CollectionScrapeSection(
++                    identity: widget.identity,
++                    source: widget.scrapeSource,
++                  ),
++                  const SizedBox(height: 32),
++                  const Divider(),
++                  const SizedBox(height: 20),
+                   Text(
+                     'Nieuw bericht',
+                     style: Theme.of(context).textTheme.headlineSmall,
+@@ -408,3 +425,192 @@ class _AdminHomeState extends State<_AdminHome> {
+     );
+   }
+ }
++
++class _CollectionScrapeSection extends StatefulWidget {
++  const _CollectionScrapeSection({required this.identity, required this.source});
++
++  final AdminIdentity identity;
++  final AdminScrapeSource source;
++
++  @override
++  State<_CollectionScrapeSection> createState() =>
++      _CollectionScrapeSectionState();
++}
++
++class _CollectionScrapeSectionState extends State<_CollectionScrapeSection> {
++  ScrapeStatus? _status;
++  bool _loading = true;
++  bool _force = false;
++  String? _error;
++  Timer? _poll;
++
++  @override
++  void initState() {
++    super.initState();
++    _refresh();
++  }
++
++  @override
++  void dispose() {
++    _poll?.cancel();
++    super.dispose();
++  }
++
++  Future<void> _refresh() async {
++    try {
++      final status = await widget.source.loadStatus(widget.identity);
++      if (!mounted) return;
++      setState(() {
++        _status = status;
++        _loading = false;
++        _error = null;
++      });
++      _schedulePolling(status);
++    } catch (_) {
++      if (!mounted) return;
++      setState(() {
++        _loading = false;
++        _error = 'Status kon niet worden geladen.';
++      });
++    }
++  }
++
++  void _schedulePolling(ScrapeStatus? status) {
++    _poll?.cancel();
++    if (status != null && status.running) {
++      _poll = Timer(const Duration(seconds: 3), _refresh);
++    }
++  }
++
++  Future<void> _start() async {
++    setState(() {
++      _loading = true;
++      _error = null;
++    });
++    try {
++      final status = await widget.source.start(
++        identity: widget.identity,
++        force: _force,
++      );
++      if (!mounted) return;
++      setState(() {
++        _status = status;
++        _loading = false;
++      });
++      _schedulePolling(status);
++    } catch (error) {
++      if (!mounted) return;
++      setState(() {
++        _loading = false;
++        _error = error is StateError ? error.message : 'Starten mislukt.';
++      });
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final status = _status;
++    final running = status?.running ?? false;
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.all(20),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.stretch,
++          children: [
++            Row(
++              children: [
++                const Icon(Icons.cloud_download_outlined),
++                const SizedBox(width: 8),
++                Text(
++                  'Collectie ophalen (ZCBS)',
++                  style: Theme.of(context).textTheme.titleLarge,
++                ),
++              ],
++            ),
++            const SizedBox(height: 8),
++            const Text(
++              'Haalt alle metadata uit de ZCBS-beeldbanken op en zet die in de '
++              'zoekdatabase. Beelden blijven op de HKH-webserver staan.',
++            ),
++            const SizedBox(height: 16),
++            if (status != null) _StatusView(status: status),
++            if (_error != null) ...[
++              const SizedBox(height: 8),
++              Text(
++                _error!,
++                style: TextStyle(color: Theme.of(context).colorScheme.error),
++              ),
++            ],
++            const SizedBox(height: 12),
++            CheckboxListTile(
++              value: _force,
++              onChanged: running || _loading
++                  ? null
++                  : (value) => setState(() => _force = value ?? false),
++              contentPadding: EdgeInsets.zero,
++              controlAffinity: ListTileControlAffinity.leading,
++              title: const Text('Alles opnieuw ophalen (i.p.v. alleen nieuwe)'),
++            ),
++            const SizedBox(height: 4),
++            FilledButton.icon(
++              onPressed: running || _loading ? null : _start,
++              icon: running || _loading
++                  ? const SizedBox.square(
++                      dimension: 18,
++                      child: CircularProgressIndicator(strokeWidth: 2),
++                    )
++                  : const Icon(Icons.play_arrow),
++              label: Text(running ? 'Bezig met ophalen…' : 'Start scrape'),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
++
++class _StatusView extends StatelessWidget {
++  const _StatusView({required this.status});
++
++  final ScrapeStatus status;
++
++  @override
++  Widget build(BuildContext context) {
++    final total = status.total;
++    final done = status.processed + status.skipped + status.failed;
++    final fraction = total > 0 ? (done / total).clamp(0.0, 1.0) : null;
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        Text('Laatste run: ${_label(status.status)}'),
++        if (status.running && status.currentCollection != null) ...[
++          const SizedBox(height: 4),
++          Text('Bezig met: ${status.currentCollection}'),
++        ],
++        const SizedBox(height: 8),
++        LinearProgressIndicator(value: status.running ? fraction : (fraction == null ? 0 : fraction)),
++        const SizedBox(height: 8),
++        Text(
++          'Opgehaald: ${status.processed}  ·  Overgeslagen: ${status.skipped}'
++          '  ·  Mislukt: ${status.failed}'
++          '${total > 0 ? '  ·  Totaal: $total' : ''}',
++          style: Theme.of(context).textTheme.bodySmall,
++        ),
++        if (status.message != null) ...[
++          const SizedBox(height: 4),
++          Text(
++            status.message!,
++            style: Theme.of(context).textTheme.bodySmall,
++          ),
++        ],
++      ],
++    );
++  }
++
++  String _label(String status) => switch (status) {
++    'RUNNING' => 'bezig',
++    'COMPLETED' => 'voltooid',
++    'FAILED' => 'mislukt',
++    _ => status.toLowerCase(),
++  };
++}
+diff --git a/frontend-admin/test/widget_test.dart b/frontend-admin/test/widget_test.dart
+index 6b55214..6a18e87 100644
+--- a/frontend-admin/test/widget_test.dart
++++ b/frontend-admin/test/widget_test.dart
+@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
+ import 'package:hkh_admin/auth/admin_session.dart';
+ import 'package:hkh_admin/main.dart';
+ import 'package:hkh_admin/news/admin_latest_news.dart';
++import 'package:hkh_admin/collection/admin_collection_scrape.dart';
+ 
+ class _NewsSource implements AdminLatestNewsSource {
+   String? title;
+@@ -19,6 +20,23 @@ class _NewsSource implements AdminLatestNewsSource {
+   }
+ }
+ 
++class _ScrapeSource implements AdminScrapeSource {
++  @override
++  Future<ScrapeStatus?> loadStatus(AdminIdentity identity) async => null;
++  @override
++  Future<ScrapeStatus> start({
++    required AdminIdentity identity,
++    required bool force,
++  }) async => ScrapeStatus.fromJson(const {
++    'status': 'RUNNING',
++    'running': true,
++    'total': 0,
++    'processed': 0,
++    'skipped': 0,
++    'failed': 0,
++  });
++}
++
+ class _AuthenticatedSession implements AdminSessionSource {
+   @override
+   bool get configured => true;
+@@ -43,6 +61,7 @@ void main() {
+       HkhAdminApp(
+         sessionSource: _AuthenticatedSession(),
+         newsSource: newsSource,
++        scrapeSource: _ScrapeSource(),
+       ),
+     );
+     await tester.pumpAndSettle();
+@@ -70,6 +89,7 @@ void main() {
+       HkhAdminApp(
+         sessionSource: const DisabledAdminSessionSource(),
+         newsSource: _NewsSource(),
++        scrapeSource: _ScrapeSource(),
+         googleButtonBuilder: () => const SizedBox.shrink(),
+       ),
+     );
+diff --git a/frontend/lib/backend/backend_client.dart b/frontend/lib/backend/backend_client.dart
+index 6c510e9..d0b4c55 100644
+--- a/frontend/lib/backend/backend_client.dart
++++ b/frontend/lib/backend/backend_client.dart
+@@ -2,9 +2,10 @@ import 'dart:convert';
+ 
+ import 'package:http/http.dart' as http;
+ 
++import '../collection/collection_search.dart';
+ import '../news/latest_news.dart';
+ 
+-class BackendClient implements LatestNewsSource {
++class BackendClient implements LatestNewsSource, CollectionSearchSource {
+   BackendClient(this.apiBaseUrl, {http.Client? client})
+     : _client = client ?? http.Client();
+ 
+@@ -24,4 +25,55 @@ class BackendClient implements LatestNewsSource {
+         .map((item) => LatestNewsItem.fromJson(item as Map<String, dynamic>))
+         .toList(growable: false);
+   }
++
++  @override
++  Future<CollectionOverview> loadOverview() async {
++    final response = await _client
++        .get(Uri.parse('$apiBaseUrl/api/collections'))
++        .timeout(const Duration(seconds: 10));
++    if (response.statusCode != 200) {
++      throw StateError('De collectie kon niet worden geladen.');
++    }
++    return CollectionOverview.fromJson(
++      jsonDecode(response.body) as Map<String, dynamic>,
++    );
++  }
++
++  @override
++  Future<SearchPage> search({
++    String? query,
++    String? collection,
++    int page = 0,
++    int size = 20,
++  }) async {
++    final params = <String, String>{'page': '$page', 'size': '$size'};
++    if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
++    if (collection != null && collection.isNotEmpty) {
++      params['collection'] = collection;
++    }
++    final uri = Uri.parse(
++      '$apiBaseUrl/api/collections/search',
++    ).replace(queryParameters: params);
++    final response = await _client.get(uri).timeout(const Duration(seconds: 15));
++    if (response.statusCode != 200) {
++      throw StateError('Zoeken is mislukt.');
++    }
++    return SearchPage.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
++  }
++
++  @override
++  Future<CollectionItemDetail> loadDetail(
++    String collection,
++    String ident,
++  ) async {
++    final response = await _client
++        .get(Uri.parse('$apiBaseUrl/api/collections/$collection/$ident'))
++        .timeout(const Duration(seconds: 10));
++    if (response.statusCode != 200) {
++      throw StateError('Dit item kon niet worden geladen.');
++    }
++    return CollectionItemDetail.fromJson(
++      jsonDecode(response.body) as Map<String, dynamic>,
++    );
++  }
+ }
+diff --git a/frontend/lib/collection/collection_search.dart b/frontend/lib/collection/collection_search.dart
+new file mode 100644
+index 0000000..3ac8447
+--- /dev/null
++++ b/frontend/lib/collection/collection_search.dart
+@@ -0,0 +1,130 @@
++class CollectionCount {
++  const CollectionCount({required this.collection, required this.count});
++
++  factory CollectionCount.fromJson(Map<String, dynamic> json) =>
++      CollectionCount(
++        collection: json['collection'] as String,
++        count: (json['count'] as num).toInt(),
++      );
++
++  final String collection;
++  final int count;
++}
++
++class CollectionOverview {
++  const CollectionOverview({required this.total, required this.collections});
++
++  factory CollectionOverview.fromJson(Map<String, dynamic> json) =>
++      CollectionOverview(
++        total: (json['total'] as num).toInt(),
++        collections: (json['collections'] as List<dynamic>)
++            .map((e) => CollectionCount.fromJson(e as Map<String, dynamic>))
++            .toList(growable: false),
++      );
++
++  final int total;
++  final List<CollectionCount> collections;
++}
++
++class CollectionItemSummary {
++  const CollectionItemSummary({
++    required this.collection,
++    required this.ident,
++    required this.title,
++    required this.description,
++    required this.year,
++    required this.imageUrl,
++    required this.hasPdf,
++  });
++
++  factory CollectionItemSummary.fromJson(Map<String, dynamic> json) =>
++      CollectionItemSummary(
++        collection: json['collection'] as String,
++        ident: json['ident'] as String,
++        title: json['title'] as String? ?? '',
++        description: json['description'] as String? ?? '',
++        year: json['year'] as int?,
++        imageUrl: json['imageUrl'] as String?,
++        hasPdf: json['hasPdf'] as bool? ?? false,
++      );
++
++  final String collection;
++  final String ident;
++  final String title;
++  final String description;
++  final int? year;
++  final String? imageUrl;
++  final bool hasPdf;
++}
++
++class CollectionItemDetail {
++  const CollectionItemDetail({
++    required this.collection,
++    required this.ident,
++    required this.title,
++    required this.description,
++    required this.year,
++    required this.imageUrl,
++    required this.pdfUrl,
++    required this.detailUrl,
++    required this.fields,
++  });
++
++  factory CollectionItemDetail.fromJson(Map<String, dynamic> json) =>
++      CollectionItemDetail(
++        collection: json['collection'] as String,
++        ident: json['ident'] as String,
++        title: json['title'] as String? ?? '',
++        description: json['description'] as String? ?? '',
++        year: json['year'] as int?,
++        imageUrl: json['imageUrl'] as String?,
++        pdfUrl: json['pdfUrl'] as String?,
++        detailUrl: json['detailUrl'] as String? ?? '',
++        fields: (json['fields'] as Map<String, dynamic>? ?? const {})
++            .map((key, value) => MapEntry(key, value?.toString() ?? '')),
++      );
++
++  final String collection;
++  final String ident;
++  final String title;
++  final String description;
++  final int? year;
++  final String? imageUrl;
++  final String? pdfUrl;
++  final String detailUrl;
++  final Map<String, String> fields;
++}
++
++class SearchPage {
++  const SearchPage({
++    required this.items,
++    required this.total,
++    required this.page,
++    required this.pageSize,
++  });
++
++  factory SearchPage.fromJson(Map<String, dynamic> json) => SearchPage(
++    items: (json['items'] as List<dynamic>)
++        .map((e) => CollectionItemSummary.fromJson(e as Map<String, dynamic>))
++        .toList(growable: false),
++    total: (json['total'] as num).toInt(),
++    page: (json['page'] as num).toInt(),
++    pageSize: (json['pageSize'] as num).toInt(),
++  );
++
++  final List<CollectionItemSummary> items;
++  final int total;
++  final int page;
++  final int pageSize;
++}
++
++abstract interface class CollectionSearchSource {
++  Future<CollectionOverview> loadOverview();
++  Future<SearchPage> search({
++    String? query,
++    String? collection,
++    int page = 0,
++    int size = 20,
++  });
++  Future<CollectionItemDetail> loadDetail(String collection, String ident);
++}
+diff --git a/frontend/lib/collection/collection_search_page.dart b/frontend/lib/collection/collection_search_page.dart
+new file mode 100644
+index 0000000..ba3e54f
+--- /dev/null
++++ b/frontend/lib/collection/collection_search_page.dart
+@@ -0,0 +1,522 @@
++import 'package:flutter/material.dart';
++
++import 'collection_search.dart';
++
++/// Zoekscherm over alle gescrapete ZCBS-collecties.
++class CollectionSearchPage extends StatefulWidget {
++  const CollectionSearchPage({required this.source, super.key});
++
++  final CollectionSearchSource source;
++
++  @override
++  State<CollectionSearchPage> createState() => _CollectionSearchPageState();
++}
++
++class _CollectionSearchPageState extends State<CollectionSearchPage> {
++  final _controller = TextEditingController();
++  final _scrollController = ScrollController();
++
++  CollectionOverview? _overview;
++  String? _collectionFilter;
++  final List<CollectionItemSummary> _results = [];
++  int _page = 0;
++  int _total = 0;
++  bool _loading = false;
++  bool _loadingMore = false;
++  String? _error;
++  bool _searched = false;
++
++  @override
++  void initState() {
++    super.initState();
++    _loadOverview();
++  }
++
++  @override
++  void dispose() {
++    _controller.dispose();
++    _scrollController.dispose();
++    super.dispose();
++  }
++
++  Future<void> _loadOverview() async {
++    try {
++      final overview = await widget.source.loadOverview();
++      if (mounted) setState(() => _overview = overview);
++    } catch (_) {
++      // Overzicht is niet kritiek; het zoeken werkt ook zonder.
++    }
++  }
++
++  Future<void> _runSearch({bool reset = true}) async {
++    if (reset) {
++      setState(() {
++        _loading = true;
++        _error = null;
++        _page = 0;
++        _results.clear();
++        _searched = true;
++      });
++    } else {
++      setState(() => _loadingMore = true);
++    }
++    try {
++      final result = await widget.source.search(
++        query: _controller.text,
++        collection: _collectionFilter,
++        page: _page,
++        size: 20,
++      );
++      if (!mounted) return;
++      setState(() {
++        _results.addAll(result.items);
++        _total = result.total;
++        _loading = false;
++        _loadingMore = false;
++      });
++    } catch (_) {
++      if (!mounted) return;
++      setState(() {
++        _loading = false;
++        _loadingMore = false;
++        _error = 'Zoeken is mislukt. Probeer het opnieuw.';
++      });
++    }
++  }
++
++  Future<void> _loadMore() async {
++    if (_loadingMore || _results.length >= _total) return;
++    _page += 1;
++    await _runSearch(reset: false);
++  }
++
++  void _selectCollection(String? collection) {
++    setState(() => _collectionFilter = collection);
++    if (_searched) _runSearch();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(title: const Text('Doorzoek de collectie')),
++      body: SafeArea(
++        child: Center(
++          child: ConstrainedBox(
++            constraints: const BoxConstraints(maxWidth: 820),
++            child: Padding(
++              padding: const EdgeInsets.all(16),
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.stretch,
++                children: [
++                  _SearchBar(
++                    controller: _controller,
++                    onSubmit: () => _runSearch(),
++                  ),
++                  const SizedBox(height: 12),
++                  _CollectionChips(
++                    overview: _overview,
++                    selected: _collectionFilter,
++                    onSelect: _selectCollection,
++                  ),
++                  const SizedBox(height: 12),
++                  Expanded(child: _buildBody(context)),
++                ],
++              ),
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++
++  Widget _buildBody(BuildContext context) {
++    if (_loading) {
++      return const Center(child: CircularProgressIndicator());
++    }
++    if (_error != null) {
++      return Center(
++        child: Column(
++          mainAxisSize: MainAxisSize.min,
++          children: [
++            Text(_error!),
++            const SizedBox(height: 12),
++            OutlinedButton.icon(
++              onPressed: () => _runSearch(),
++              icon: const Icon(Icons.refresh),
++              label: const Text('Opnieuw proberen'),
++            ),
++          ],
++        ),
++      );
++    }
++    if (!_searched) {
++      final total = _overview?.total;
++      return Center(
++        child: Text(
++          total == null
++              ? 'Typ een zoekterm om de historische collectie te doorzoeken.'
++              : 'Doorzoek $total items uit de collectie van de HKH.',
++          textAlign: TextAlign.center,
++        ),
++      );
++    }
++    if (_results.isEmpty) {
++      return const Center(child: Text('Geen resultaten gevonden.'));
++    }
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        Padding(
++          padding: const EdgeInsets.only(bottom: 8),
++          child: Text(
++            '$_total resultaten',
++            style: Theme.of(context).textTheme.bodySmall,
++          ),
++        ),
++        Expanded(
++          child: ListView.separated(
++            controller: _scrollController,
++            itemCount: _results.length + 1,
++            separatorBuilder: (_, __) => const SizedBox(height: 8),
++            itemBuilder: (context, index) {
++              if (index == _results.length) {
++                if (_results.length >= _total) {
++                  return const SizedBox.shrink();
++                }
++                return Padding(
++                  padding: const EdgeInsets.symmetric(vertical: 12),
++                  child: Center(
++                    child: _loadingMore
++                        ? const CircularProgressIndicator()
++                        : OutlinedButton(
++                            onPressed: _loadMore,
++                            child: const Text('Meer laden'),
++                          ),
++                  ),
++                );
++              }
++              return _ResultCard(
++                item: _results[index],
++                onTap: () => _openDetail(_results[index]),
++              );
++            },
++          ),
++        ),
++      ],
++    );
++  }
++
++  void _openDetail(CollectionItemSummary item) {
++    Navigator.of(context).push(
++      MaterialPageRoute<void>(
++        builder: (_) => CollectionDetailPage(
++          source: widget.source,
++          collection: item.collection,
++          ident: item.ident,
++          title: item.title,
++        ),
++      ),
++    );
++  }
++}
++
++class _SearchBar extends StatelessWidget {
++  const _SearchBar({required this.controller, required this.onSubmit});
++
++  final TextEditingController controller;
++  final VoidCallback onSubmit;
++
++  @override
++  Widget build(BuildContext context) {
++    return TextField(
++      controller: controller,
++      textInputAction: TextInputAction.search,
++      onSubmitted: (_) => onSubmit(),
++      decoration: InputDecoration(
++        hintText: 'Zoek op titel, auteur, plaats, jaar…',
++        prefixIcon: const Icon(Icons.search),
++        border: const OutlineInputBorder(),
++        suffixIcon: IconButton(
++          icon: const Icon(Icons.arrow_forward),
++          onPressed: onSubmit,
++        ),
++      ),
++    );
++  }
++}
++
++class _CollectionChips extends StatelessWidget {
++  const _CollectionChips({
++    required this.overview,
++    required this.selected,
++    required this.onSelect,
++  });
++
++  final CollectionOverview? overview;
++  final String? selected;
++  final ValueChanged<String?> onSelect;
++
++  @override
++  Widget build(BuildContext context) {
++    final overview = this.overview;
++    if (overview == null) return const SizedBox.shrink();
++    return Wrap(
++      spacing: 8,
++      runSpacing: 4,
++      children: [
++        ChoiceChip(
++          label: Text('Alles (${overview.total})'),
++          selected: selected == null,
++          onSelected: (_) => onSelect(null),
++        ),
++        for (final c in overview.collections)
++          ChoiceChip(
++            label: Text('${_label(c.collection)} (${c.count})'),
++            selected: selected == c.collection,
++            onSelected: (_) => onSelect(c.collection),
++          ),
++      ],
++    );
++  }
++
++  String _label(String key) => switch (key) {
++    'artikelen' => 'Artikelen',
++    'archief' => 'Archief',
++    'beeldbank' => "Foto's",
++    'library' => 'Bibliotheek',
++    'bidprent' => 'Bidprentjes',
++    'objecten' => 'Objecten',
++    'transcripties' => 'Transcripties',
++    _ => key,
++  };
++}
++
++class _ResultCard extends StatelessWidget {
++  const _ResultCard({required this.item, required this.onTap});
++
++  final CollectionItemSummary item;
++  final VoidCallback onTap;
++
++  @override
++  Widget build(BuildContext context) {
++    return Card(
++      clipBehavior: Clip.antiAlias,
++      child: InkWell(
++        onTap: onTap,
++        child: Padding(
++          padding: const EdgeInsets.all(12),
++          child: Row(
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              _Thumbnail(url: item.imageUrl, hasPdf: item.hasPdf),
++              const SizedBox(width: 12),
++              Expanded(
++                child: Column(
++                  crossAxisAlignment: CrossAxisAlignment.start,
++                  children: [
++                    Text(
++                      item.title.isEmpty ? '(zonder titel)' : item.title,
++                      style: Theme.of(context).textTheme.titleMedium,
++                      maxLines: 2,
++                      overflow: TextOverflow.ellipsis,
++                    ),
++                    const SizedBox(height: 2),
++                    Text(
++                      [
++                        if (item.year != null) '${item.year}',
++                        item.collection,
++                      ].join(' · '),
++                      style: Theme.of(context).textTheme.bodySmall,
++                    ),
++                    if (item.description.isNotEmpty) ...[
++                      const SizedBox(height: 6),
++                      Text(
++                        item.description,
++                        maxLines: 3,
++                        overflow: TextOverflow.ellipsis,
++                        style: Theme.of(context).textTheme.bodyMedium,
++                      ),
++                    ],
++                  ],
++                ),
++              ),
++            ],
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++class _Thumbnail extends StatelessWidget {
++  const _Thumbnail({required this.url, required this.hasPdf});
++
++  final String? url;
++  final bool hasPdf;
++
++  @override
++  Widget build(BuildContext context) {
++    const size = 72.0;
++    if (url == null) {
++      return Container(
++        width: size,
++        height: size,
++        color: Theme.of(context).colorScheme.surfaceContainerHighest,
++        child: Icon(
++          hasPdf ? Icons.picture_as_pdf_outlined : Icons.image_not_supported_outlined,
++          color: Theme.of(context).colorScheme.outline,
++        ),
++      );
++    }
++    return SizedBox(
++      width: size,
++      height: size,
++      child: Image.network(
++        url!,
++        fit: BoxFit.cover,
++        loadingBuilder: (context, child, progress) =>
++            progress == null ? child : const Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
++        errorBuilder: (context, error, stack) => Container(
++          color: Theme.of(context).colorScheme.surfaceContainerHighest,
++          child: Icon(
++            Icons.broken_image_outlined,
++            color: Theme.of(context).colorScheme.outline,
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++/// Detailpagina die alle metadata + het volledige beeld toont.
++class CollectionDetailPage extends StatefulWidget {
++  const CollectionDetailPage({
++    required this.source,
++    required this.collection,
++    required this.ident,
++    required this.title,
++    super.key,
++  });
++
++  final CollectionSearchSource source;
++  final String collection;
++  final String ident;
++  final String title;
++
++  @override
++  State<CollectionDetailPage> createState() => _CollectionDetailPageState();
++}
++
++class _CollectionDetailPageState extends State<CollectionDetailPage> {
++  late Future<CollectionItemDetail> _detail;
++
++  @override
++  void initState() {
++    super.initState();
++    _detail = widget.source.loadDetail(widget.collection, widget.ident);
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(
++        title: Text(widget.title.isEmpty ? 'Detail' : widget.title),
++      ),
++      body: SafeArea(
++        child: FutureBuilder<CollectionItemDetail>(
++          future: _detail,
++          builder: (context, snapshot) {
++            if (snapshot.connectionState != ConnectionState.done) {
++              return const Center(child: CircularProgressIndicator());
++            }
++            if (snapshot.hasError) {
++              return const Center(child: Text('Dit item kon niet worden geladen.'));
++            }
++            final detail = snapshot.requireData;
++            return Center(
++              child: ConstrainedBox(
++                constraints: const BoxConstraints(maxWidth: 820),
++                child: ListView(
++                  padding: const EdgeInsets.all(16),
++                  children: [
++                    if (detail.imageUrl != null)
++                      ClipRRect(
++                        borderRadius: BorderRadius.circular(8),
++                        child: Image.network(
++                          detail.imageUrl!,
++                          fit: BoxFit.contain,
++                          errorBuilder: (context, error, stack) =>
++                              const SizedBox.shrink(),
++                        ),
++                      ),
++                    const SizedBox(height: 16),
++                    Text(
++                      detail.title.isEmpty ? '(zonder titel)' : detail.title,
++                      style: Theme.of(context).textTheme.headlineSmall,
++                    ),
++                    if (detail.description.isNotEmpty) ...[
++                      const SizedBox(height: 8),
++                      Text(detail.description),
++                    ],
++                    const SizedBox(height: 16),
++                    _FieldsTable(fields: detail.fields),
++                    const SizedBox(height: 16),
++                    if (detail.pdfUrl != null) ...[
++                      Text(
++                        'PDF:',
++                        style: Theme.of(context).textTheme.labelLarge,
++                      ),
++                      SelectableText(detail.pdfUrl!),
++                      const SizedBox(height: 8),
++                    ],
++                    Text(
++                      'Bron op de HKH-website:',
++                      style: Theme.of(context).textTheme.labelLarge,
++                    ),
++                    SelectableText(detail.detailUrl),
++                  ],
++                ),
++              ),
++            );
++          },
++        ),
++      ),
++    );
++  }
++}
++
++class _FieldsTable extends StatelessWidget {
++  const _FieldsTable({required this.fields});
++
++  final Map<String, String> fields;
++
++  @override
++  Widget build(BuildContext context) {
++    final entries = fields.entries
++        .where((e) => e.value.trim().isNotEmpty)
++        .toList(growable: false);
++    if (entries.isEmpty) return const SizedBox.shrink();
++    return Table(
++      columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth()},
++      defaultVerticalAlignment: TableCellVerticalAlignment.top,
++      children: [
++        for (final e in entries)
++          TableRow(
++            children: [
++              Padding(
++                padding: const EdgeInsets.only(right: 16, bottom: 8),
++                child: Text(
++                  e.key,
++                  style: const TextStyle(fontWeight: FontWeight.w600),
++                ),
++              ),
++              Padding(
++                padding: const EdgeInsets.only(bottom: 8),
++                child: Text(e.value),
++              ),
++            ],
++          ),
++      ],
++    );
++  }
++}
+diff --git a/frontend/lib/main.dart b/frontend/lib/main.dart
+index d26f25f..ace60e5 100644
+--- a/frontend/lib/main.dart
++++ b/frontend/lib/main.dart
+@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
+ import 'package:flutter/material.dart';
+ 
+ import 'backend/backend_client.dart';
++import 'collection/collection_search.dart';
++import 'collection/collection_search_page.dart';
+ import 'config/app_config.dart';
+ import 'news/latest_news.dart';
+ import 'product_vision_page.dart';
+@@ -9,13 +11,18 @@ import 'self_update_prompt.dart';
+ 
+ void main() {
+   final backend = BackendClient(AppConfig.apiBaseUrl);
+-  runApp(HkhApp(newsSource: backend));
++  runApp(HkhApp(newsSource: backend, searchSource: backend));
+ }
+ 
+ class HkhApp extends StatelessWidget {
+-  const HkhApp({required this.newsSource, super.key});
++  const HkhApp({
++    required this.newsSource,
++    required this.searchSource,
++    super.key,
++  });
+ 
+   final LatestNewsSource newsSource;
++  final CollectionSearchSource searchSource;
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -29,15 +36,20 @@ class HkhApp extends StatelessWidget {
+         ),
+         useMaterial3: true,
+       ),
+-      home: HomePage(newsSource: newsSource),
++      home: HomePage(newsSource: newsSource, searchSource: searchSource),
+     );
+   }
+ }
+ 
+ class HomePage extends StatefulWidget {
+-  const HomePage({required this.newsSource, super.key});
++  const HomePage({
++    required this.newsSource,
++    required this.searchSource,
++    super.key,
++  });
+ 
+   final LatestNewsSource newsSource;
++  final CollectionSearchSource searchSource;
+ 
+   @override
+   State<HomePage> createState() => _HomePageState();
+@@ -64,7 +76,10 @@ class _HomePageState extends State<HomePage> {
+             constraints: const BoxConstraints(maxWidth: 680),
+             child: Padding(
+               padding: const EdgeInsets.all(24),
+-              child: _HomeContent(newsSource: widget.newsSource),
++              child: _HomeContent(
++                newsSource: widget.newsSource,
++                searchSource: widget.searchSource,
++              ),
+             ),
+           ),
+         ),
+@@ -74,9 +89,10 @@ class _HomePageState extends State<HomePage> {
+ }
+ 
+ class _HomeContent extends StatelessWidget {
+-  const _HomeContent({required this.newsSource});
++  const _HomeContent({required this.newsSource, required this.searchSource});
+ 
+   final LatestNewsSource newsSource;
++  final CollectionSearchSource searchSource;
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -103,6 +119,17 @@ class _HomeContent extends StatelessWidget {
+           icon: const Icon(Icons.auto_stories_outlined),
+           label: const Text('Lees onze productvisie'),
+         ),
++        const SizedBox(height: 12),
++        FilledButton.icon(
++          onPressed: () => Navigator.of(context).push(
++            MaterialPageRoute<void>(
++              builder: (context) =>
++                  CollectionSearchPage(source: searchSource),
++            ),
++          ),
++          icon: const Icon(Icons.search),
++          label: const Text('Doorzoek de collectie'),
++        ),
+         const SizedBox(height: 28),
+         Text(
+           'Laatste nieuws',
+diff --git a/frontend/test/widget_test.dart b/frontend/test/widget_test.dart
+index c8efe91..2654b6a 100644
+--- a/frontend/test/widget_test.dart
++++ b/frontend/test/widget_test.dart
+@@ -1,6 +1,7 @@
+ import 'package:flutter_test/flutter_test.dart';
+ import 'package:hkh_app/main.dart';
+ import 'package:hkh_app/news/latest_news.dart';
++import 'package:hkh_app/collection/collection_search.dart';
+ 
+ class _NewsSource implements LatestNewsSource {
+   _NewsSource(this.items, {this.error = false});
+@@ -15,6 +16,32 @@ class _NewsSource implements LatestNewsSource {
+   }
+ }
+ 
++class _SearchSource implements CollectionSearchSource {
++  @override
++  Future<CollectionOverview> loadOverview() async =>
++      const CollectionOverview(total: 0, collections: []);
++  @override
++  Future<SearchPage> search({
++    String? query,
++    String? collection,
++    int page = 0,
++    int size = 20,
++  }) async => const SearchPage(items: [], total: 0, page: 0, pageSize: 20);
++  @override
++  Future<CollectionItemDetail> loadDetail(String collection, String ident) async =>
++      const CollectionItemDetail(
++        collection: '',
++        ident: '',
++        title: '',
++        description: '',
++        year: null,
++        imageUrl: null,
++        pdfUrl: null,
++        detailUrl: '',
++        fields: {},
++      );
++}
++
+ final _news = LatestNewsItem(
+   id: 1,
+   title: 'Nieuwe historische ontdekking',
+@@ -24,7 +51,7 @@ final _news = LatestNewsItem(
+ 
+ void main() {
+   testWidgets('shows the introduction and the latest news', (tester) async {
+-    await tester.pumpWidget(HkhApp(newsSource: _NewsSource([_news])));
++    await tester.pumpWidget(HkhApp(newsSource: _NewsSource([_news]), searchSource: _SearchSource()));
+     await tester.pumpAndSettle();
+ 
+     expect(
+@@ -49,7 +76,10 @@ void main() {
+     tester,
+   ) async {
+     await tester.pumpWidget(
+-      HkhApp(newsSource: _NewsSource(const [], error: true)),
++      HkhApp(
++        newsSource: _NewsSource(const [], error: true),
++        searchSource: _SearchSource(),
++      ),
+     );
+     await tester.pumpAndSettle();
+ 
+@@ -69,7 +99,7 @@ void main() {
+   });
+ 
+   testWidgets('shows an empty state when there is no news', (tester) async {
+-    await tester.pumpWidget(HkhApp(newsSource: _NewsSource(const [])));
++    await tester.pumpWidget(HkhApp(newsSource: _NewsSource(const []), searchSource: _SearchSource()));
+     await tester.pumpAndSettle();
+ 
+     expect(find.text('Er zijn nog geen nieuwsberichten.'), findsOneWidget);
+-- 
+2.43.0
+

@@ -23,8 +23,8 @@ primaire inhoud in deze toetsenbord- en visuele volgorde:
    en de introductie **Stel een vraag over plekken, personen of gebeurtenissen
    uit de geschiedenis van Heemskerk.**
 2. De lichtgroene (`#DCE9DA`) AI-vraagkaart met de titel **Wat wilt u weten?**
-   en de toelichting **Bijv. wat is er bekend over de Kerklaan? De digitale
-   onderzoeker zoekt bronnen bij elkaar. Dit kan enkele minuten duren.**
+   en de toelichting **Bijv. wat is er bekend over de Kerklaan? De bronnen worden bij elkaar
+   gezocht. Dit kan enkele minuten duren.**
 3. De neutrale, omrande sectie **Zelf zoeken in het archief**.
 
 De AI-vraagkaart bevat het gelabelde vrije-tekstveld **Uw vraag**, het blok
@@ -38,15 +38,26 @@ lege start en de link Eerdere vragen openen het bestaande overzicht. De AI-knop 
 enige gevulde primaire actie in de homepage-inhoud.
 
 **Naamgeving.** Voor bezoekers heet het geheel **Archief** (menu, zoekvelden, kruimels, adres
-`/archief`; het oude adres `/collecties` verwijst door). Het archief heeft zes onderdelen:
+`/archief`; het oude adres `/collecties` bestaat niet meer). Het archief heeft zes onderdelen:
 **Krantenknipsels en documenten** (intern collectie `archief`), **Beeldbank**, **Bibliotheek**,
 **Bidprentjes**, **Artikelen** en **Objecten**. De woorden "collectie" en "ZCBS" komen in teksten
 voor bezoekers niet meer voor; intern blijven `collection`, `/api/collections` en de tabellen
 ongewijzigd. In beheer heet de inleesbron "de oude HKH-site".
 
+**Zoeken is alleen AI.** De pagina Archief › Zoeken (`/archief`) en het zoekscherm (startpagina
+met de schakelaar "Zoekscherm") hebben één vraagveld en één knop, **Vraag stellen**, zonder
+keuzes eronder. Onder het veld staat de uitleg dat er in het hele archief wordt gezocht, dat
+daarop een antwoord met bronnen wordt geschreven en dat dit ongeveer twee minuten duurt, met de
+eerste treffers onderweg. Zonder AI-bron wordt dit veld een gewone zoekknop naar Handmatig
+zoeken. Daaronder staan de links **Eerdere AI-onderzoeken bekijken** en **Liever zelf zoeken?
+Handmatig zoeken in het archief**. Handmatig zoeken (`/zoeken`, eerder "Uitgebreid zoeken")
+bevat geen AI; het zoekvak in de kop gaat daar ook naartoe. Voor bezoekers komt het woord
+"digitale onderzoeker" nergens meer voor. Er mogen maximaal vijf onderzoeken tegelijk lopen;
+daarboven volgt de melding om het later opnieuw te proberen of handmatig te zoeken.
+
 De archiefkaart toont direct de ingangen Krantenknipsels en documenten, Beeldbank, Bibliotheek,
 Bidprentjes, Artikelen en Objecten, het gelabelde veld **Zoekterm**, de omrande actie
-**Zoeken** en de onafhankelijke uitklappers **Zoektips** en **Uitgebreid zoeken**.
+**Zoeken** en de onafhankelijke uitklappers **Zoektips** en **Handmatig zoeken**.
 De uitklappers beginnen gesloten. De algemene zoekterm kan woorden of een frase tussen
 aanhalingstekens bevatten. De homepage biedt bovendien de veldfilters Titel, Beschrijving
 en Jaar met zichtbare, programmatisch gekoppelde labels.

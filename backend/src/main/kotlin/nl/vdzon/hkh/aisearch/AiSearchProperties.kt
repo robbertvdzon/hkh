@@ -14,5 +14,5 @@ data class AiSearchProperties(
     val extractionModel: String = "claude-haiku-4-5-20251001",
     val executionTimeoutSeconds: Int = 900,
     val pollIntervalMs: Long = 2_000,
-    val maxActiveSearches: Int = 3,
+    val maxActiveSearches: Int = 5,
 )
