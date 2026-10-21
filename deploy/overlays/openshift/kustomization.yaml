@@ -12,10 +12,10 @@ images:
   newTag: sha-92f56dd
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-92f56dd
+  newTag: sha-2dafb6a
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-92f56dd
+  newTag: sha-2dafb6a
 patches:
 - path: agent-access-patch.yaml
 - path: central-postgres-patch.yaml

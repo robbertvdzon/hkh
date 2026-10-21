@@ -67,7 +67,7 @@ images:
   newTag: sha-92f56dd-acceptance
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-92f56dd
+  newTag: sha-2dafb6a
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-92f56dd-acceptance
+  newTag: sha-2dafb6a-acceptance
