@@ -14,12 +14,18 @@ class TextRepairTest {
     }
 
     @Test
+    fun `text with both broken and correct accents is repaired per sequence`() {
+        assertEquals("Een café en een Notariële akte, mét é", TextRepair.fixMojibake("Een cafÃ© en een NotariÃ«le akte, mét é"))
+        assertEquals("«aangehaald» en cafÃ-x", TextRepair.fixMojibake("«aangehaald» en cafÃ-x"))
+    }
+
+    @Test
     fun `correct text and text that cannot be restored stays untouched`() {
         assertEquals("Notariële akte", TextRepair.fixMojibake("Notariële akte"))
         assertEquals("gewone tekst", TextRepair.fixMojibake("gewone tekst"))
         assertEquals("", TextRepair.fixMojibake(""))
         // Een echte Ã die geen UTF-8-reeks vormt, en tekens buiten ISO-8859-1.
         assertEquals("Ãx", TextRepair.fixMojibake("Ãx"))
-        assertEquals("NotariÃ«le € akte", TextRepair.fixMojibake("NotariÃ«le € akte"))
+        assertEquals("Notariële € akte", TextRepair.fixMojibake("NotariÃ«le € akte"))
     }
 }

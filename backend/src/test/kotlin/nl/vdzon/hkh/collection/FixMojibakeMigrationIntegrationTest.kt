@@ -57,6 +57,31 @@ class FixMojibakeMigrationIntegrationTest(
         assertEquals("Notariële akte", jdbc.queryForObject("SELECT fields->>'Type publicatie' FROM collection_item WHERE ident = 'mj-1'", String::class.java))
     }
 
+    @Test
+    fun `a record with broken and correct accents is repaired per sequence by the follow-up migration`() {
+        items.upsert(record("mj-3", mapOf("Thema" to "Openbare leven (bioscoop, cafÃ©, horeca)", "Omschrijving" to "Een café met ë")))
+        jdbc.update(
+            "INSERT INTO document_card (collection, ident, summary, has_image, extraction_version, model, source_hash) SELECT collection, ident, 'Samenvatting', false, 'card-v1', 'test', md5(search_text || ' ' || coalesce(document_text, '')) FROM collection_item WHERE ident = 'mj-3'",
+        )
+        val searchText = { jdbc.queryForObject("SELECT search_text FROM collection_item WHERE ident = 'mj-3'", String::class.java)!! }
+        assertTrue("cafÃ©" in searchText())
+
+        // De eerste migratie laat dit record met zijn echte accenten ongemoeid; de tweede herstelt het per reeks.
+        jdbc.execute(javaClass.getResource("/db/migration/V28__fix_mojibake.sql")!!.readText())
+        val second = javaClass.getResource("/db/migration/V29__fix_mojibake_segments.sql")!!.readText()
+        jdbc.execute(second)
+
+        assertTrue("café" in searchText() && "Ã" !in searchText(), searchText())
+        assertTrue("ë" in searchText(), "een echte ë blijft staan")
+        val stale = jdbc.queryForObject(
+            "SELECT count(*) FROM document_card c JOIN collection_item i ON i.collection = c.collection AND i.ident = c.ident WHERE i.ident = 'mj-3' AND c.source_hash <> md5(i.search_text || ' ' || coalesce(i.document_text, ''))",
+            Long::class.java,
+        )
+        assertEquals(0L, stale, "de kaart blijft actueel")
+        jdbc.execute(second)
+        assertTrue("café" in searchText())
+    }
+
     companion object {
         @Container
         @ServiceConnection

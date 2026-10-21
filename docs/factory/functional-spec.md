@@ -364,10 +364,11 @@ runtime-job, model, tokens, seconden), dat ook voor de agent-methode wordt gevul
 De oude HKH-server levert pagina's met een mix van UTF-8 en ISO-8859-1; de client leest ze als
 ISO-8859-1, waardoor sommige waarden met accenten kapot binnenkwamen ("NotariÃ«le akte",
 "cafÃ©"). `TextRepair.fixMojibake` herstelt zulke waarden bij het inlezen van veldlabels en
-veldwaarden, alleen als de hele waarde zich volledig als UTF-8 laat terugzetten. Migratie V28 heeft
-de bestaande gegevens eenmalig hersteld (81 records in het archief: de velden Thema en Type
-publicatie, de bijbehorende zoektekst en één trefwoord); AI-kaarten die actueel waren blijven
-actueel.
+veldwaarden, per kapotte reeks, zodat ook tekst met zowel kapotte als gewone accenten goed komt.
+Migraties V28 en V29 hebben de bestaande gegevens eenmalig hersteld (81 records in het archief:
+de velden Thema en Type publicatie, de bijbehorende zoektekst en één trefwoord; V28 zette waarden
+die zich als geheel lieten terugzetten, V29 herstelde de overige records per reeks); AI-kaarten die
+actueel waren blijven actueel.
 
 ## Beheer: methode en modellen van de AI-onderzoeker
 
