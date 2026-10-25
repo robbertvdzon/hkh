@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../auth/admin_session.dart';
 import '../shell/admin_router.dart';
 import 'capacity_metrics.dart';
+import 'capacity_result_link.dart';
 
 abstract interface class AdminAiCapacitySource {
   Future<Map<String, dynamic>> load(AdminIdentity identity);
@@ -909,16 +910,9 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextButton(
-                onPressed: widget.onNavigate == null
-                    ? null
-                    : () => widget.onNavigate!(
-                        AdminPaths.capacityResult(
-                          _selected!,
-                          r['id'] as String,
-                        ),
-                      ),
-                child: const Text('Resultaat bekijken'),
+              CapacityResultLink(
+                campaignId: _selected!,
+                runId: r['id'] as String,
               ),
               TextButton(
                 onPressed: widget.onNavigate == null

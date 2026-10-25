@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../auth/admin_session.dart';
-import '../shell/admin_router.dart';
 import 'admin_ai_capacity.dart';
 import 'capacity_metrics.dart';
+import 'capacity_result_link.dart';
 
 class AdminAiCapacityExecutionPage extends StatefulWidget {
   const AdminAiCapacityExecutionPage({
@@ -117,12 +117,9 @@ class _State extends State<AdminAiCapacityExecutionPage> {
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => widget.onNavigate(
-                AdminPaths.capacityResult(widget.campaignId, widget.runId),
-              ),
-              icon: const Icon(Icons.article_outlined),
-              label: const Text('Resultaat bekijken'),
+            child: CapacityResultLink(
+              campaignId: widget.campaignId,
+              runId: widget.runId,
             ),
           ),
           const SizedBox(height: 16),

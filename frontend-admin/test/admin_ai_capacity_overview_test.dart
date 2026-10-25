@@ -1,3 +1,4 @@
+import 'package:url_launcher/link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hkh_admin/ai/admin_ai_capacity.dart';
@@ -130,8 +131,10 @@ void main() {
       expect(find.text('Kort venster'), findsWidgets);
       expect(find.textContaining('hkh-capacity-one-direct'), findsNothing);
       expect(find.textContaining('Attempts:'), findsNothing);
-      await tester.tap(find.text('Resultaat bekijken'));
-      expect(paths.single, AdminPaths.capacityResult(c, 'r1'));
+      final link = tester.widget<Link>(find.byType(Link));
+      expect(link.target, LinkTarget.blank);
+      expect(link.uri!.fragment, AdminPaths.capacityResult(c, 'r1'));
+      expect(paths, isEmpty);
       await tester.tap(find.text('Uitvoeringsdetails'));
       expect(paths.last, AdminPaths.capacityExecution(c, 'r1'));
       await tester.pumpWidget(const SizedBox());
@@ -160,6 +163,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final link = tester.widget<Link>(find.byType(Link));
+      expect(link.target, LinkTarget.blank);
+      expect(link.uri!.fragment, AdminPaths.capacityResult(c, 'r1'));
       expect(find.text('Onderzoek richten'), findsOneWidget);
       expect(find.text('Antwoord schrijven'), findsOneWidget);
       expect(find.text('Herpogingen'), findsOneWidget);
