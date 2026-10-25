@@ -9,13 +9,13 @@ resources:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-7c0df61
+  newTag: sha-c351486
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-b844432
+  newTag: sha-c351486
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-2963711
+  newTag: sha-c351486
 patches:
 - path: agent-access-patch.yaml
 - path: central-postgres-patch.yaml
@@ -25,6 +25,6 @@ patches:
 # Public web configuration, separate from the immutable frontend image. The
 # generated hash rolls both deployments when configuration changes.
 configMapGenerator:
-- name: hkh-web-config
-  files:
+- files:
   - config.json=web-config.json
+  name: hkh-web-config

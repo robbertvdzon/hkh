@@ -64,17 +64,17 @@ patches:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-7c0df61-acceptance
+  newTag: sha-c351486
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-b844432
+  newTag: sha-c351486
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-2963711-acceptance
+  newTag: sha-c351486
 
 # Public web configuration, separate from the immutable frontend image. The
 # generated hash rolls both deployments when configuration changes.
 configMapGenerator:
-- name: hkh-web-config
-  files:
+- files:
   - config.json=web-config.json
+  name: hkh-web-config
