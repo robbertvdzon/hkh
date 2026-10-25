@@ -9,7 +9,7 @@ resources:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-77918a8
+  newTag: sha-7c0df61
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
   newTag: sha-b844432
