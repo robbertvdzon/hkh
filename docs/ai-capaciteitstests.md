@@ -19,7 +19,11 @@ De publieke zoek-API krijgt geen modelkeuze.
    als geslaagd wanneer alle gevraagde beurten geslaagd zijn.
 4. Controleer de samenvatting en start bewust. De campagne verandert geen globale modelinstellingen.
    Begin bijvoorbeeld bij één parallel scenario; hogere aantallen garanderen geen gelijke snelheid.
-5. Open een campagne voor scenario's, fasen, runtimejob-ID's, attempts, bronselecties, verbruik,
+5. Open een campagne voor de samenvatting en een tabel per zoekopdracht: AI-runs en herpogingen,
+   duur van de eerste AI-run, totale tijd inclusief wachten, start/einde in lokale tijd,
+   fouten (ook herstelde fouten) en providerlimieten. **Uitvoeringsdetails** opent een aparte
+   pagina met leesbare fasen en pogingen. Tokens, caching, kosten, runtime-ID’s en ruwe gegevens
+   staan daar achter **Technische details**. De campagne bewaart daarnaast
    limietwaarnemingen en tijdlijn. Bij iedere zoekopdracht opent **Resultaat bekijken** een eigen
    beheerpagina met de opgeslagen antwoordtekst, vergrootbare foto’s, bronnen en eventuele
    uitwerkingen/vervolgvragen. Het adres is te bewaren; bekijken start geen nieuwe AI-jobs.

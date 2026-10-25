@@ -7,11 +7,17 @@ import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
 import '../shell/admin_router.dart';
+import 'capacity_metrics.dart';
 
 abstract interface class AdminAiCapacitySource {
   Future<Map<String, dynamic>> load(AdminIdentity identity);
   Future<Map<String, dynamic>> detail(AdminIdentity identity, String id);
   Future<Map<String, dynamic>> result(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  );
+  Future<Map<String, dynamic>> execution(
     AdminIdentity identity,
     String campaignId,
     String runId,
@@ -73,6 +79,38 @@ class AdminAiCapacityClient implements AdminAiCapacitySource {
         )
         .timeout(const Duration(seconds: 30)),
   );
+
+  @override
+  Future<Map<String, dynamic>> execution(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  ) async {
+    final data = await detail(identity, campaignId);
+    final run = CapacityMetrics.rows(
+      data['runs'],
+    ).where((r) => r['id'] == runId).firstOrNull;
+    if (run == null) throw StateError('Testuitvoering niet gevonden.');
+    final campaign = data['campaign'] as Map<String, dynamic>;
+    final phases = CapacityMetrics.rows(
+      data['phases'],
+    ).where((p) => p['run_id'] == runId).toList();
+    final jobs = phases.map((p) => p['job_id']).toSet();
+    return {
+      'run': {
+        ...run,
+        'campaign_name': campaign['name'],
+        'config': campaign['config'],
+      },
+      'phases': phases,
+      'limits': CapacityMetrics.rows(
+        data['limits'],
+      ).where((l) => jobs.contains(l['job_id'])).toList(),
+      'research': CapacityMetrics.rows(
+        data['turns'],
+      ).where((t) => t['run_id'] == runId).toList(),
+    };
+  }
 
   @override
   Future<void> post(
@@ -623,39 +661,17 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
   Widget _details() {
     final detail = _detail!;
     final c = detail['campaign'] as Map<String, dynamic>;
-    final phases = _rows(detail, 'phases');
-    final report = detail['report'] as Map<String, dynamic>? ?? {};
     final runs = _rows(detail, 'runs');
     final config = c['config'] as Map<String, dynamic>;
-    final questions =
-        (_rows(
-                  _state,
-                  'datasets',
-                ).where((d) => d['id'] == c['dataset_id']).firstOrNull?['count']
-                as num?)
-            ?.toInt() ??
-        runs.length;
-    final metrics = <String, double>{};
-    var attempts = 0;
-    var missing = 0;
-    double cost = 0;
-    var knownCosts = 0;
-    for (final p in phases) {
-      final usage = p['usage'] as Map<String, dynamic>?;
-      if (usage == null || usage['usageQuality'] == 'UNAVAILABLE') missing++;
-      attempts += (usage?['attemptCount'] as num?)?.toInt() ?? 0;
-      for (final m in (usage?['metrics'] as List? ?? [])) {
-        final name = m['metric'] as String;
-        metrics[name] =
-            (metrics[name] ?? 0) + (double.tryParse('${m['quantity']}') ?? 0);
-      }
-      for (final v in (usage?['costs'] as List? ?? [])) {
-        if (v['currency'] == 'USD') {
-          knownCosts++;
-          cost += double.tryParse('${v['amount']}') ?? 0;
-        }
-      }
-    }
+    final metrics = CapacityMetrics(
+      _rows(detail, 'phases'),
+      _rows(detail, 'limits'),
+    );
+    final running = ![
+      'COMPLETED',
+      'STOPPED',
+      'LIMIT_REACHED',
+    ].contains(c['status']);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -665,9 +681,6 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
             Text(
               '${c['name']} — ${_status(c['status'])}',
               style: Theme.of(context).textTheme.titleLarge,
-            ),
-            Text(
-              '${config['method']} · ${config['parallelism']} parallel · account ${config['accountAlias']} · collectie ${config['datasetVersion']}',
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -711,92 +724,99 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              '${runs.length} gestart · ${runs.where((r) => r['status'] == 'SUCCEEDED').length} volledig geslaagd · ${runs.where((r) => r['status'] == 'FAILED').length} mislukt · ${runs.where((r) => r['status'] == 'CANCELLED').length} onderbroken',
-            ),
-            Text(
-              'Doorvoer: ${_number(report['succeededPerHour'])} geslaagd/uur · mediaan ${_number(report['medianSeconds'])} sec · p95 ${_number(report['p95Seconds'])} sec',
-            ),
-            Text(
-              '${phases.length} AI-jobs · $attempts attempts · $missing jobs met onbekend verbruik · API-equivalente waarde ${knownCosts == 0 ? 'onbekend' : '\$${cost.toStringAsFixed(2)}'} (geen rekening of resterend quotum)',
-            ),
-            Text(
-              'Eerste doorgang: ${runs.take(questions).where((r) => r['status'] == 'SUCCEEDED').length} geslaagd · herhalingen: ${runs.skip(questions).where((r) => r['status'] == 'SUCCEEDED').length} geslaagd',
-            ),
-            Text(
-              metrics.entries
-                  .map((e) => '${e.key}: ${e.value.toStringAsFixed(0)}')
-                  .join(' · '),
-            ),
-            const Text(
-              'Cachemetingen volgen de runtime-teldefinitie. Ontbrekende cachecijfers zijn onbekend. Overlap kan ook ontstaan binnen één onderzoek.',
-            ),
             const SizedBox(height: 16),
-            Text(
-              'Limietwaarnemingen',
-              style: Theme.of(context).textTheme.titleMedium,
+            Table(
+              columnWidths: const {
+                0: IntrinsicColumnWidth(),
+                1: FlexColumnWidth(),
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                for (final entry in <String, String>{
+                  'Provider / model': _execution(
+                    config['execution'] as Map<String, dynamic>,
+                  ),
+                  'Status':
+                      '${_status(c['status'])}${c['reason'] == null ? '' : ' — ${c['reason']}'}',
+                  'Zoekopdrachten':
+                      '${runs.where((r) => r['status'] == 'SUCCEEDED').length} geslaagd van ${runs.length} gestart · ${runs.where((r) => r['status'] == 'FAILED').length} mislukt · ${runs.where((r) => r['status'] == 'CANCELLED').length} onderbroken',
+                  'AI-runs': metrics.runsLabel,
+                  'Parallelisme':
+                      '${config['parallelism']} zoekopdracht${config['parallelism'] == 1 ? '' : 'en'} tegelijk',
+                  'Start': CapacityMetrics.date(c['created_at']),
+                  'Einde': c['completed_at'] == null
+                      ? (running ? 'Bezig' : '—')
+                      : CapacityMetrics.date(c['completed_at']),
+                  'Totale looptijd': CapacityMetrics.duration(
+                    CapacityMetrics.elapsed(
+                      c['created_at'],
+                      c['completed_at'],
+                      active: running,
+                    ),
+                  ),
+                  'Fouten':
+                      metrics.errors == 0 &&
+                          !runs.any((r) => r['status'] == 'FAILED')
+                      ? 'Geen'
+                      : '${metrics.errors} bij AI-runs · ${runs.where((r) => r['status'] == 'FAILED').length} zoekopdrachten mislukt',
+                  'Providerlimieten': metrics.limitLabel,
+                  if (c['next_dispatch_at'] != null)
+                    'Hervatten vanaf': CapacityMetrics.date(
+                      c['next_dispatch_at'],
+                    ),
+                }.entries)
+                  TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 6, 24, 6),
+                        child: Text(
+                          entry.key,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(entry.value),
+                      ),
+                    ],
+                  ),
+              ],
             ),
-            if (_rows(detail, 'limits').isEmpty)
-              const Text('Nog geen providerlimiet waargenomen.'),
-            for (final l in _rows(detail, 'limits'))
-              SelectableText(
-                '${l['recorded_at']} · ${l['observation']}\nTellerstand bij waarneming: ${l['counts']} · job ${l['job_id']} · attempt ${l['attempt_id'] ?? 'onbekend'}',
-              ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'Zoekopdrachten',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            for (final r in runs.skip(_runPage * 25).take(25))
-              ExpansionTile(
-                title: Text(
-                  '${r['ordinal']}. ${(r['question'] as Map<String, dynamic>)['question']}',
-                ),
-                subtitle: Text(
-                  '${_status(r['status'])}${r['turn_error'] == null ? '' : ' · ${r['turn_error']}'}',
-                ),
-                trailing: widget.onNavigate == null
-                    ? null
-                    : IconButton(
-                        tooltip: 'Resultaat bekijken',
-                        icon: const Icon(Icons.article_outlined),
-                        onPressed: () => widget.onNavigate!(
-                          AdminPaths.capacityResult(
-                            _selected!,
-                            r['id'] as String,
-                          ),
-                        ),
-                      ),
-                children: [
-                  if (widget.onNavigate != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () => widget.onNavigate!(
-                          AdminPaths.capacityResult(
-                            _selected!,
-                            r['id'] as String,
-                          ),
-                        ),
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('Resultaat bekijken'),
-                      ),
-                    ),
-                  for (final p in phases.where((p) => p['run_id'] == r['id']))
-                    ListTile(
-                      title: SelectableText(
-                        '${p['phase_key']} · ${p['status']} · ${p['error_code'] ?? ''}',
-                      ),
-                      subtitle: SelectableText(
-                        'Runtimejob: ${p['job_id'] ?? 'nog niet aangemaakt'}\n${p['error_message'] ?? ''}\nAttempts: ${p['attempts'] ?? 'onbekend'}',
-                      ),
-                    ),
-                  SelectableText(
-                    'Bronselectie en onderzoek: ${r['research_stats'] ?? 'nog niet afgerond'}',
-                  ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tijden in lokale tijd. Totale tijd is inclusief wachten en herpogingen; de duur van de eerste AI-run telt alleen uitvoering.',
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                key: const Key('capacity-runs-table'),
+                columnSpacing: 20,
+                columns: [
+                  for (final label in [
+                    'Zoekvraag',
+                    'Status',
+                    'AI-runs',
+                    'Duur 1e AI-run',
+                    'Totale tijd',
+                    'Start',
+                    'Einde',
+                    'Fouten',
+                    'Limiet',
+                    '',
+                  ])
+                    DataColumn(label: Text(label)),
+                ],
+                rows: [
+                  for (final r in runs.skip(_runPage * 25).take(25))
+                    _runRow(r, metrics.forRun(r['id'] as String)),
                 ],
               ),
+            ),
             Wrap(
               spacing: 8,
               children: [
@@ -816,32 +836,137 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('Tijdlijn', style: Theme.of(context).textTheme.titleMedium),
-            for (final e in _rows(detail, 'events').reversed.take(100))
-              Text('${e['created_at']} · ${e['message']}'),
+            ExpansionTile(
+              title: const Text('Campagnedetails'),
+              children: [
+                ListTile(
+                  title: const Text('Instellingen'),
+                  subtitle: Text(
+                    '${config['method'] == 'PIPELINE' ? 'Pijplijn' : 'Agent'} · account ${config['accountAlias']} · collectie ${config['datasetVersion']}',
+                  ),
+                ),
+                for (final e in _rows(detail, 'events').reversed.take(100))
+                  ListTile(
+                    title: Text('${e['message']}'),
+                    subtitle: Text(CapacityMetrics.date(e['created_at'])),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  static String _number(dynamic value) =>
-      value is num ? value.toStringAsFixed(1) : 'onbekend';
+  DataRow _runRow(Map<String, dynamic> r, CapacityMetrics m) {
+    final active = ['ACTIVE', 'RETRY', 'PENDING'].contains(r['status']);
+    return DataRow(
+      cells: [
+        DataCell(
+          SizedBox(
+            width: 300,
+            child: Tooltip(
+              message: '${(r['question'] as Map)['question']}',
+              child: Text(
+                '${r['ordinal']}. ${(r['question'] as Map)['question']}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+        DataCell(Text(CapacityMetrics.status(r['status']))),
+        DataCell(Text(m.runsLabel)),
+        DataCell(Text(CapacityMetrics.duration(m.firstDuration))),
+        DataCell(
+          Text(
+            CapacityMetrics.duration(
+              CapacityMetrics.elapsed(
+                r['started_at'],
+                r['turn_completed_at'],
+                active: active,
+              ),
+            ),
+          ),
+        ),
+        DataCell(Text(CapacityMetrics.date(r['started_at'], compact: true))),
+        DataCell(
+          Text(
+            r['turn_completed_at'] == null
+                ? (active ? 'Bezig' : '—')
+                : CapacityMetrics.date(r['turn_completed_at'], compact: true),
+          ),
+        ),
+        DataCell(
+          Tooltip(
+            message:
+                r['turn_error']?.toString() ?? m.errorsLabel('${r['status']}'),
+            child: Text(m.errorsLabel('${r['status']}')),
+          ),
+        ),
+        DataCell(Text(m.limitLabel)),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: widget.onNavigate == null
+                    ? null
+                    : () => widget.onNavigate!(
+                        AdminPaths.capacityResult(
+                          _selected!,
+                          r['id'] as String,
+                        ),
+                      ),
+                child: const Text('Resultaat bekijken'),
+              ),
+              TextButton(
+                onPressed: widget.onNavigate == null
+                    ? null
+                    : () => widget.onNavigate!(
+                        AdminPaths.capacityExecution(
+                          _selected!,
+                          r['id'] as String,
+                        ),
+                      ),
+                child: const Text('Uitvoeringsdetails'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   String _csv(List<Map<String, dynamic>> runs) {
     String quote(dynamic v) => '"${'$v'.replaceAll('"', '""')}"';
+    final all = CapacityMetrics(
+      _rows(_detail, 'phases'),
+      _rows(_detail, 'limits'),
+    );
     return [
-      'ordinal,question,status,error,started,completed',
-      ...runs.map(
-        (r) => [
+      'ordinal,question,status,ai_runs,retries,first_ai_run_seconds,total_seconds,started,completed,errors,limit',
+      ...runs.map((r) {
+        final m = all.forRun(r['id'] as String);
+        return [
           r['ordinal'],
-          (r['question'] as Map<String, dynamic>)['question'],
+          (r['question'] as Map)['question'],
           r['status'],
-          r['turn_error'] ?? '',
+          m.runs,
+          m.retries,
+          m.firstDuration?.inSeconds ?? '',
+          CapacityMetrics.elapsed(
+                r['started_at'],
+                r['turn_completed_at'],
+                active: ['ACTIVE', 'RETRY', 'PENDING'].contains(r['status']),
+              )?.inSeconds ??
+              '',
           r['started_at'],
           r['turn_completed_at'] ?? '',
-        ].map(quote).join(','),
-      ),
+          m.errorsLabel('${r['status']}'),
+          m.limitLabel,
+        ].map(quote).join(',');
+      }),
     ].join('\r\n');
   }
 

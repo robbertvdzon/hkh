@@ -67,6 +67,12 @@ class _Results implements AdminAiCapacitySource {
     String id,
   ) async => {};
   @override
+  Future<Map<String, dynamic>> execution(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  ) async => {};
+  @override
   Future<void> post(
     AdminIdentity identity,
     String path, [

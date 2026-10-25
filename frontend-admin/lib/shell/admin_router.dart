@@ -23,6 +23,11 @@ class AdminPaths {
 
   static String capacityResult(String campaignId, String runId) =>
       '$aiCapacity/$campaignId/$runId';
+  static String capacityExecution(String campaignId, String runId) =>
+      '${capacityResult(campaignId, runId)}/uitvoering';
+  static List<String>? executionIds(String path) => path.endsWith('/uitvoering')
+      ? resultIds(path.substring(0, path.length - '/uitvoering'.length))
+      : null;
   static List<String>? resultIds(String path) {
     final segments = Uri.parse(path).pathSegments;
     final uuid = RegExp(
@@ -41,10 +46,16 @@ class AdminPaths {
     final clean = path.length > 1 && path.endsWith('/')
         ? path.substring(0, path.length - 1)
         : path;
-    return all.contains(clean) || resultIds(clean) != null ? clean : start;
+    return all.contains(clean) ||
+            resultIds(clean) != null ||
+            executionIds(clean) != null
+        ? clean
+        : start;
   }
 
-  static String title(String path) => resultIds(path) != null
+  static String title(String path) => executionIds(path) != null
+      ? 'Uitvoeringsdetails'
+      : resultIds(path) != null
       ? 'Testresultaat'
       : switch (path) {
           collection => 'Archief',

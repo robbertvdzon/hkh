@@ -12,6 +12,7 @@ import 'ai/admin_ai_model.dart';
 import 'ai/admin_ai_research.dart';
 import 'ai/admin_ai_capacity.dart';
 import 'ai/admin_ai_capacity_result.dart';
+import 'ai/admin_ai_capacity_execution.dart';
 import 'requests/admin_request_log.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'dashboard/admin_dashboard.dart';
@@ -343,15 +344,31 @@ class _AdminShell extends StatelessWidget {
   final VoidCallback onSignOut;
 
   /// Brede tabellen gebruiken de hele breedte; formulieren blijven smal.
-  double? get _maxWidth => switch (path) {
-    AdminPaths.requestLog ||
-    AdminPaths.aiCompare ||
-    AdminPaths.aiCapacity => null,
-    AdminPaths.start => 1000,
-    _ => 720,
-  };
+  double? get _maxWidth => AdminPaths.executionIds(path) != null
+      ? null
+      : switch (path) {
+          AdminPaths.requestLog ||
+          AdminPaths.aiCompare ||
+          AdminPaths.aiCapacity => null,
+          AdminPaths.start => 1000,
+          _ => 720,
+        };
 
   Widget _content() {
+    final executionIds = AdminPaths.executionIds(path);
+    if (executionIds != null) {
+      final source = aiCapacitySource;
+      return source == null
+          ? const Text('Capaciteitstests zijn niet beschikbaar.')
+          : AdminAiCapacityExecutionPage(
+              key: ValueKey(path),
+              identity: identity,
+              source: source,
+              campaignId: executionIds[0],
+              runId: executionIds[1],
+              onNavigate: onNavigate,
+            );
+    }
     final resultIds = AdminPaths.resultIds(path);
     if (resultIds != null) {
       final source = aiCapacitySource;
@@ -421,7 +438,8 @@ class _AdminShell extends StatelessWidget {
                 tooltip: 'Terug naar het overzicht',
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => onNavigate(
-                  AdminPaths.resultIds(path) == null
+                  AdminPaths.resultIds(path) == null &&
+                          AdminPaths.executionIds(path) == null
                       ? AdminPaths.start
                       : AdminPaths.aiCapacity,
                 ),
