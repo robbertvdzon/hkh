@@ -21,6 +21,9 @@ data class ResearchInput(
     val writeBudgetChars: Int = ResearchPipelineService.DEFAULT_WRITE_BUDGET_CHARS,
 )
 
+data class ResearchCardSnapshot(val cards: List<CandidateCard>)
+data class ResearchDocumentSnapshot(val documents: List<ResearchDocument>)
+
 data class ResearchRoundReport(val round: Int, val chosen: Int, val conclusion: String, val nextLeads: List<String>, val reportedAt: Instant = Instant.now())
 
 /** De eerste treffers na de snelle zoekstap, nog voordat het model ze heeft beoordeeld. */
@@ -45,6 +48,8 @@ interface ResearchListener {
     fun round(report: ResearchRoundReport): Boolean
 
     fun cancelled(): Boolean = false
+
+    fun <T : Any> checkpoint(name: String, type: Class<T>, compute: () -> T): T = compute()
 }
 
 data class ResearchJobStat(
@@ -90,14 +95,14 @@ class ResearchPipelineService(
         // Stap 0 en 1: termen uit de vraag, breed zoeken. Zonder termen of treffers bepaalt het model de termen alsnog.
         listener.progress(3, "De zoektermen worden bepaald")
         var queries = listOf(QuestionTerms.extract(input.question)).filter { !it.isEmpty }
-        var found = if (queries.isEmpty()) SearchResult(emptyList(), emptyList(), 0) else searchAll(queries, listener)
+        var found = if (queries.isEmpty()) SearchResult(emptyList(), emptyList(), 0) else listener.checkpoint("initial-search", SearchResult::class.java) { searchAll(queries, listener) }
         if (found.candidates.isEmpty()) {
             if (listener.cancelled()) throw ResearchCancelledException()
             val plan = job(stats, AiRole.RESEARCH, "plan", "${input.idempotencyPrefix}-plan", planPrompt(input), PLAN_SCHEMA, 420, listener)
             queries = parseQueries(plan.path("queries"))
-            if (queries.isNotEmpty()) found = searchAll(queries, listener)
+            if (queries.isNotEmpty()) found = listener.checkpoint("planned-search", SearchResult::class.java) { searchAll(queries, listener) }
         }
-        val prior = if (input.priorSources.isNotEmpty()) search.cards(input.priorSources) else emptyList()
+        val prior = listener.checkpoint("prior-cards", ResearchCardSnapshot::class.java) { ResearchCardSnapshot(if (input.priorSources.isNotEmpty()) search.cards(input.priorSources) else emptyList()) }.cards
         val candidates = (prior + found.candidates).distinctBy { it.ref }
         if (found.candidates.isNotEmpty()) listener.preview(buildPreview(found, queries))
 
@@ -116,11 +121,11 @@ class ResearchPipelineService(
         }
 
         // Stap 3: de definitieve selectie. Zonder bruikbare zoekopdracht gaan de gevonden kaarten in rangorde mee.
-        val selection = when {
+        val selection = listener.checkpoint("selection", ResearchCardSnapshot::class.java) { ResearchCardSnapshot(when {
             candidates.isEmpty() -> emptyList()
             query.isEmpty -> candidates.take(SELECTION_CAP)
             else -> search.select(query, SELECTION_CAP).candidates.ifEmpty { candidates.take(SELECTION_CAP) }
-        }
+        }) }.cards
         val report = ResearchRoundReport(1, selection.size, conclusion.ifBlank { if (selection.isEmpty()) "Geen archiefstukken gevonden bij deze zoektermen." else "${selection.size} archiefstukken geselecteerd." }, emptyList())
         listener.round(report)
         logger.info("Onderzoek {}: {} kaarten gezien ({} geraakt), zoekopdracht {} met {} vaste records, {} geselecteerd", input.idempotencyPrefix, candidates.size, found.totalFound, query.terms, query.includeRecords.size, selection.size)
@@ -128,7 +133,7 @@ class ResearchPipelineService(
         // Stap 4: schrijven uit de volledige teksten, binnen het tekstbudget.
         if (listener.cancelled()) throw ResearchCancelledException()
         listener.progress(45, "De archiefstukken worden opgehaald")
-        val loaded = documents.load(selection.map { it.ref })
+        val loaded = listener.checkpoint("documents", ResearchDocumentSnapshot::class.java) { ResearchDocumentSnapshot(documents.load(selection.map { it.ref })) }.documents
         val byRef = selection.associateBy { it.ref }
         val packed = pack(loaded, input.writeBudgetChars)
         val alsoFound = candidates.filter { it.ref !in byRef }.take(ALSO_FOUND_MAX)
@@ -150,8 +155,8 @@ class ResearchPipelineService(
         val stats = mutableListOf<ResearchJobStat>()
         if (listener.cancelled()) throw ResearchCancelledException()
         listener.progress(10, "De archiefstukken van het eerdere antwoord worden opgehaald")
-        val cards = search.cards(selection).associateBy { it.ref }
-        val loaded = documents.load(selection)
+        val cards = listener.checkpoint("expand-cards", ResearchCardSnapshot::class.java) { ResearchCardSnapshot(search.cards(selection)) }.cards.associateBy { it.ref }
+        val loaded = listener.checkpoint("expand-documents", ResearchDocumentSnapshot::class.java) { ResearchDocumentSnapshot(documents.load(selection)) }.documents
         val packed = pack(loaded, input.writeBudgetChars)
         val numbered = (packed.full + packed.brief).mapIndexed { index, document -> index + 1 to document }
         val report = ResearchRoundReport(1, numbered.size, "Uitwerking van het eerdere antwoord uit ${numbered.size} archiefstukken.", emptyList())

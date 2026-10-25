@@ -34,6 +34,8 @@ class AiSearchService(
     private val modelSettings: AiModelSettings,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
     private val requestLog: RequestLogService,
+    private val capacity: AiCapacityStore,
+    private val capacityPhases: AiCapacityPhases,
     @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
     private val publicOrigin: String = "https://hkh.vdzonsoftware.nl",
 ) {
@@ -42,7 +44,7 @@ class AiSearchService(
 
     @PostConstruct
     fun resumeIncompleteTurns() {
-        if (runtime.isConfigured()) repository.activeTurns().forEach(::schedule)
+        if (runtime.isConfigured()) repository.activeTurns().filterNot { capacity.isCapacity(it.id) }.forEach(::schedule)
     }
 
     @PreDestroy
@@ -259,6 +261,7 @@ class AiSearchService(
 
     /** Sluit de logboekregel van een beurt af met status, modellen, kosten en de tijd tot het antwoord. */
     private fun logFinished(turnId: String) {
+        if (capacity.isCapacity(turnId)) return
         val turn = repository.findTurn(turnId) ?: return
         if (turn.status in ACTIVE_STATUSES) return
         var models = listOf<String>()
@@ -289,6 +292,8 @@ class AiSearchService(
         if (turns.isEmpty()) null else turns.toSummary(sessionId)
     }
 
+    fun scheduleCapacity(turnId: String) { repository.findTurn(turnId)?.let(::schedule) }
+
     private fun schedule(turn: AiSearchTurn) {
         if (!processing.add(turn.id)) return
         executor.submit {
@@ -310,13 +315,15 @@ class AiSearchService(
             }
             val jobId = turn.runtimeJobId ?: run {
                 val createdJobId = runtime.createJob(
-                    idempotencyKey = "hkh-ai-${turn.id}",
+                    idempotencyKey = capacity.prefix(turn.id),
                     instruction = buildPrompt(turn),
                     executionTimeoutSeconds = maxOf(turn.depth.executionTimeoutSeconds, properties.executionTimeoutSeconds),
                 ).id
                 if (!repository.attachJob(turn.id, createdJobId)) {
-                    runCatching { runtime.cancel(createdJobId) }
-                    return
+                    if (!capacity.isCapacity(turn.id) || repository.findTurn(turn.id)?.runtimeJobId != createdJobId) {
+                        runCatching { runtime.cancel(createdJobId) }
+                        return
+                    }
                 }
                 createdJobId
             }
@@ -347,9 +354,10 @@ class AiSearchService(
                     )
                     "SUCCEEDED" -> {
                         val envelope = runtime.getResultEnvelope(jobId)
+                        capacityPhases.finished(jobId, "SUCCEEDED", envelope)
                         val rendered = renderer.render(envelope.path("result"))
                         runCatching {
-                            val execution = modelSettings.execution(nl.vdzon.hkh.research.AiRole.AGENT)
+                            val execution = capacity.config(turn.id)?.execution ?: modelSettings.execution(nl.vdzon.hkh.research.AiRole.AGENT)
                             repository.saveStats(turnId, agentStatsJson(jobId, "${execution.vendorId}/${execution.model}", runtime.usage(envelope), Duration.between(turn.createdAt, Instant.now()).seconds, turn.researchLog.size, rendered.sources.size))
                         }
                         repository.succeed(turnId, rendered)
@@ -372,6 +380,10 @@ class AiSearchService(
                 }
                 Thread.sleep(runtime.pollIntervalMs)
             }
+        } catch (_: CapacitySuspended) {
+            // Durable turn stays active; the campaign scheduler resumes it after pause/reset.
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         } catch (error: Exception) {
             repository.fail(turnId, friendlyError(error))
             logFinished(turnId)
@@ -380,16 +392,16 @@ class AiSearchService(
 
     /**
      * De pijplijn: rondes in code, model per stap. De beurt krijgt een pseudo-job-id zodat de
-     * bestaande statusovergangen gelden; na een herstart is een lopend pijplijnonderzoek niet te
-     * hervatten en wordt het als mislukt gemeld.
+     * bestaande statusovergangen gelden. Campagnes bewaren checkpoints en hervatten na een
+     * herstart; gewone pijplijnbeurten worden dan als onderbroken gemeld.
      */
     private fun processPipeline(turn: AiSearchTurn) {
-        if (turn.runtimeJobId != null) {
+        if (turn.runtimeJobId != null && !capacity.isCapacity(turn.id)) {
             repository.fail(turn.id, "Het onderzoek is onderbroken door een herstart van de dienst. Stel de vraag opnieuw.")
             logFinished(turn.id)
             return
         }
-        if (!repository.attachJob(turn.id, "$PIPELINE_JOB_PREFIX${turn.id}")) return
+        if (turn.runtimeJobId == null && !repository.attachJob(turn.id, "$PIPELINE_JOB_PREFIX${turn.id}")) return
         val previousSources = repository.turns(turn.sessionId)
             .filter { it.turnNumber < turn.turnNumber && it.status == AiTurnStatus.SUCCEEDED }
             .lastOrNull()?.sources.orEmpty().map { ResearchRef(it.collection, it.ident) }
@@ -430,16 +442,20 @@ class AiSearchService(
                 return current.steering.stop
             }
 
-            override fun cancelled(): Boolean = repository.findTurn(turn.id)?.status !in ACTIVE_STATUSES
+            override fun cancelled(): Boolean = repository.findTurn(turn.id)?.status !in ACTIVE_STATUSES || capacity.stopped(turn.id)
+
+            override fun <T : Any> checkpoint(name: String, type: Class<T>, compute: () -> T): T =
+                if (capacity.isCapacity(turn.id)) capacity.checkpoint(turn.id, name, type, compute) else compute()
         }
         val expands = turn.expandsTurnId?.let { repository.findTurn(it) }
-        val input = ResearchInput(
+        val proposedInput = ResearchInput(
             question = expands?.question ?: turn.question,
             context = if (expands != null) "" else contextBlock(turn),
             priorSources = previousSources,
-            idempotencyPrefix = "hkh-ai-${turn.id}",
-            writeBudgetChars = modelSettings.writeBudget().chars,
+            idempotencyPrefix = capacity.prefix(turn.id),
+            writeBudgetChars = capacity.config(turn.id)?.writeBudgetChars ?: modelSettings.writeBudget().chars,
         )
+        val input = if (capacity.isCapacity(turn.id)) capacity.checkpoint(turn.id, "input", ResearchInput::class.java) { proposedInput } else proposedInput
         try {
             val outcome = if (expands != null) {
                 val selection = selectionOf(expands)
@@ -565,9 +581,9 @@ class AiSearchService(
             Beantwoord uitsluitend in het Nederlands en uitsluitend op basis van gegevens die je via de onderstaande HKH REST-API zelf ophaalt.
 
             Beschikbare API:
-            - Zoek: GET https://hkh.vdzonsoftware.nl/api/collections/search?q={URL_ENCODED_QUERY}&page=0&size=100
+            - Zoek: GET ${publicOrigin.trimEnd('/')}/api/collections/search?q={URL_ENCODED_QUERY}&page=0&size=100
               Per treffer: collection, ident, title, description, year, imageUrl, fields en, bij een treffer in de tekst van een document, documentSnippet.
-            - Detail: GET https://hkh.vdzonsoftware.nl/api/collections/{collection}/{ident}
+            - Detail: GET ${publicOrigin.trimEnd('/')}/api/collections/{collection}/{ident}
               Alle velden en, voor archiefstukken en artikelen met een PDF, documentText: de volledige (automatisch herkende) tekst van het document.
 
             Onderzoeksdiepte: ${depth.label}, ${if (depth.maxRounds == 1) "precies 1 zoekronde" else "maximaal ${depth.maxRounds} zoekrondes"}.

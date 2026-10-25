@@ -8,10 +8,18 @@ class AdminPaths {
   static const start = '/';
   static const collection = '/archief';
   static const aiSettings = '/ai-instellingen';
+  static const aiCapacity = '/ai-capaciteit';
   static const aiCompare = '/ai-vergelijken';
   static const requestLog = '/logboek';
 
-  static const all = [start, collection, aiSettings, aiCompare, requestLog];
+  static const all = [
+    start,
+    collection,
+    aiSettings,
+    aiCompare,
+    aiCapacity,
+    requestLog,
+  ];
 
   /// Onbekende adressen vallen terug op de startpagina.
   static String normalise(String path) {
@@ -24,6 +32,7 @@ class AdminPaths {
   static String title(String path) => switch (path) {
     collection => 'Archief',
     aiSettings => 'AI-instellingen',
+    aiCapacity => 'Capaciteitstests',
     aiCompare => 'AI vergelijken',
     requestLog => 'Logboek van verzoeken',
     _ => 'Overzicht',

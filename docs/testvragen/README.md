@@ -9,7 +9,7 @@ Deze set bevat **1.000 vragen** om AI-zoeken met uiteenlopende collectieonderwer
 - [vragen.json](vragen.json): dezelfde vragen en volgorde, met vaste ID's, categorie, geadviseerde diepte, onderwerp en één bronobject als vertrekpunt.
 - [controle.json](controle.json): aantallen, controles en SHA-256 van de vragenbestanden.
 
-De JSON is een zelfstandig uitwisselformaat, geen reeds geïmplementeerd HKH-importcontract. `depth` gebruikt de leesbare namen `snel`, `doorzoeken` en `uitgebreid`; vertaal die zo nodig naar de waarden die de gebruikte API verwacht.
+De JSON kan rechtstreeks in HKH-admin bij **Capaciteitstests** worden geïmporteerd. De import ondersteunt de leesbare diepten `snel`, `doorzoeken` en `uitgebreid`. Met **1.000 HKH-vragen importeren** wordt dezelfde vastgezette versie geladen; dit start geen AI-jobs.
 
 ## Samenstelling
 

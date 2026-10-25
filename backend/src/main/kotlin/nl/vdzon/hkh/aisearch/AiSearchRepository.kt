@@ -201,7 +201,7 @@ class AiSearchRepository(
     )
 
     fun activeTurnCount(): Int = jdbc.queryForObject(
-        "SELECT COUNT(*) FROM ai_search_turn WHERE status IN ('SUBMITTING', 'QUEUED', 'RUNNING')",
+        "SELECT COUNT(*) FROM ai_search_turn t WHERE status IN ('SUBMITTING', 'QUEUED', 'RUNNING') AND NOT EXISTS(SELECT 1 FROM ai_capacity_turn r WHERE r.turn_id=t.id)",
         Int::class.java,
     ) ?: 0
 
@@ -287,7 +287,7 @@ class AiSearchRepository(
 
     fun updateProgress(id: String, status: AiTurnStatus, percent: Int?, message: String?) {
         jdbc.update(
-            "UPDATE ai_search_turn SET status = ?, progress_percent = ?, progress_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid",
+            "UPDATE ai_search_turn SET status = ?, progress_percent = ?, progress_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?::uuid AND status IN ('SUBMITTING','QUEUED','RUNNING')",
             status.name, percent, message?.take(500), id,
         )
     }
@@ -300,7 +300,7 @@ class AiSearchRepository(
                 sources = ?::jsonb, suggested_follow_ups = ?::jsonb, error_message = NULL,
                 more_available = ?, more_summary = ?,
                 updated_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP
-            WHERE id = ?::uuid
+            WHERE id = ?::uuid AND status IN ('SUBMITTING','QUEUED','RUNNING')
             """.trimIndent(),
             rendered.title.take(500),
             rendered.html,
@@ -318,7 +318,7 @@ class AiSearchRepository(
             """
             UPDATE ai_search_turn SET status = ?, progress_message = ?, error_message = ?,
                 updated_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP
-            WHERE id = ?::uuid
+            WHERE id = ?::uuid AND status IN ('SUBMITTING','QUEUED','RUNNING')
             """.trimIndent(),
             if (cancelled) "CANCELLED" else "FAILED",
             if (cancelled) "Onderzoek gestopt" else "Onderzoek kon niet worden afgerond",

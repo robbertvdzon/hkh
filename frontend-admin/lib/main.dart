@@ -10,6 +10,7 @@ import 'google_signin_button_stub.dart'
     as google_button;
 import 'ai/admin_ai_model.dart';
 import 'ai/admin_ai_research.dart';
+import 'ai/admin_ai_capacity.dart';
 import 'requests/admin_request_log.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'dashboard/admin_dashboard.dart';
@@ -31,6 +32,7 @@ void main() {
       scrapeSource: AdminScrapeClient(AppConfig.apiBaseUrl),
       aiModelSource: AdminAiModelClient(AppConfig.apiBaseUrl),
       aiResearchSource: AdminAiResearchClient(AppConfig.apiBaseUrl),
+      aiCapacitySource: AdminAiCapacityClient(AppConfig.apiBaseUrl),
       requestLogSource: AdminRequestLogClient(AppConfig.apiBaseUrl),
     ),
   );
@@ -42,6 +44,7 @@ class HkhAdminApp extends StatefulWidget {
     required this.scrapeSource,
     this.aiModelSource,
     this.aiResearchSource,
+    this.aiCapacitySource,
     this.requestLogSource,
     this.dashboardSource,
     this.googleButtonBuilder,
@@ -56,6 +59,7 @@ class HkhAdminApp extends StatefulWidget {
 
   /// Vergelijkingsoverzicht en testset; zonder bron ontbreekt dat onderdeel.
   final AdminAiResearchSource? aiResearchSource;
+  final AdminAiCapacitySource? aiCapacitySource;
 
   /// Logboek van verzoeken; zonder bron ontbreekt dat onderdeel.
   final AdminRequestLogSource? requestLogSource;
@@ -78,6 +82,7 @@ class _HkhAdminAppState extends State<HkhAdminApp> {
         scrapeSource: widget.scrapeSource,
         aiModelSource: widget.aiModelSource,
         aiResearchSource: widget.aiResearchSource,
+        aiCapacitySource: widget.aiCapacitySource,
         requestLogSource: widget.requestLogSource,
         dashboardSource: widget.dashboardSource,
         path: path,
@@ -116,6 +121,7 @@ class AdminGate extends StatefulWidget {
     required this.onNavigate,
     this.aiModelSource,
     this.aiResearchSource,
+    this.aiCapacitySource,
     this.requestLogSource,
     this.dashboardSource,
     super.key,
@@ -125,6 +131,7 @@ class AdminGate extends StatefulWidget {
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
   final AdminAiResearchSource? aiResearchSource;
+  final AdminAiCapacitySource? aiCapacitySource;
   final AdminRequestLogSource? requestLogSource;
   final AdminDashboardSource? dashboardSource;
   final Widget Function() googleButtonBuilder;
@@ -226,6 +233,7 @@ class _AdminGateState extends State<AdminGate> {
         scrapeSource: widget.scrapeSource,
         aiModelSource: widget.aiModelSource,
         aiResearchSource: widget.aiResearchSource,
+        aiCapacitySource: widget.aiCapacitySource,
         requestLogSource: widget.requestLogSource,
         dashboardSource: widget.dashboardSource,
         onSignOut: _signOut,
@@ -317,6 +325,7 @@ class _AdminShell extends StatelessWidget {
     required this.onSignOut,
     this.aiModelSource,
     this.aiResearchSource,
+    this.aiCapacitySource,
     this.requestLogSource,
     this.dashboardSource,
   });
@@ -327,13 +336,16 @@ class _AdminShell extends StatelessWidget {
   final AdminScrapeSource scrapeSource;
   final AdminAiModelSource? aiModelSource;
   final AdminAiResearchSource? aiResearchSource;
+  final AdminAiCapacitySource? aiCapacitySource;
   final AdminRequestLogSource? requestLogSource;
   final AdminDashboardSource? dashboardSource;
   final VoidCallback onSignOut;
 
   /// Brede tabellen gebruiken de hele breedte; formulieren blijven smal.
   double? get _maxWidth => switch (path) {
-    AdminPaths.requestLog || AdminPaths.aiCompare => null,
+    AdminPaths.requestLog ||
+    AdminPaths.aiCompare ||
+    AdminPaths.aiCapacity => null,
     AdminPaths.start => 1000,
     _ => 720,
   };
@@ -350,6 +362,11 @@ class _AdminShell extends StatelessWidget {
         return source == null
             ? const Text('AI-instellingen zijn niet beschikbaar.')
             : _AiModelSection(identity: identity, source: source);
+      case AdminPaths.aiCapacity:
+        final source = aiCapacitySource;
+        return source == null
+            ? const Text('Capaciteitstests zijn niet beschikbaar.')
+            : AdminAiCapacityPage(identity: identity, source: source);
       case AdminPaths.aiCompare:
         final source = aiResearchSource;
         return source == null
@@ -367,6 +384,7 @@ class _AdminShell extends StatelessWidget {
           onOpen: onNavigate,
           showAiSettings: aiModelSource != null,
           showAiCompare: aiResearchSource != null,
+          showAiCapacity: aiCapacitySource != null,
           showRequestLog: requestLogSource != null,
         );
     }

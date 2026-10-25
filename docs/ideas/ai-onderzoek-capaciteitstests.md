@@ -1,6 +1,6 @@
 # Voorstel voor capaciteitstests van HKH zoekopdrachten
 
-Status: voorstel, 25 oktober 2026. Nog geen implementatie of gestarte duurtest.
+Status: ontwerp, 25 oktober 2026. De kern is geïmplementeerd; zie [gebruik, herstel en afbakening](../ai-capaciteitstests.md). Er is bij implementatie geen echte duurtest gestart.
 
 ## Doel en plaats in de applicatie
 

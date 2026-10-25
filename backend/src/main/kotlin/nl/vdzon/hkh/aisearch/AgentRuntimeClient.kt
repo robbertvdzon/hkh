@@ -23,6 +23,7 @@ data class RuntimeJob(
     val progressPercent: Int?,
     val progressMessage: String?,
     val errorMessage: String?,
+    val errorCode: String? = null,
 )
 
 data class RuntimeActivity(val nextSequence: Long, val message: String?)
@@ -36,6 +37,8 @@ class AgentRuntimeClient(
     private val fixtures: PreviewAiRuntimeFixtures,
     private val objectMapper: ObjectMapper,
     private val modelSettings: AiModelSettings,
+    private val capacity: AiCapacityStore,
+    private val phases: AiCapacityPhases,
 ) : StructuredJobRunner {
     private val client: RestClient by lazy {
         val requestFactory = JdkClientHttpRequestFactory(
@@ -59,15 +62,47 @@ class AgentRuntimeClient(
         executionTimeoutSeconds: Int = properties.executionTimeoutSeconds,
         role: AiRole = AiRole.AGENT,
         attachments: List<JobAttachment> = emptyList(),
+    ): RuntimeJob = createJobInternal(idempotencyKey, instruction, resultSchema, executionTimeoutSeconds, role, attachments, false)
+
+    fun recoverCapacityJob(key: String): RuntimeJob = createJobInternal(key, "", SEARCH_RESULT_SCHEMA, properties.executionTimeoutSeconds, AiRole.AGENT, emptyList(), true)
+
+    private fun createJobInternal(
+        idempotencyKey: String, instruction: String, resultSchema: JsonNode, executionTimeoutSeconds: Int,
+        role: AiRole, attachments: List<JobAttachment>, recoverOnly: Boolean,
     ): RuntimeJob {
-        if (fixtures.enabled) return fixtures.create(idempotencyKey, resultSchema)
-        val execution = modelSettings.execution(role)
-        require(instruction.length <= MAX_INSTRUCTION_LENGTH) { "De instructie is te lang voor de runtime (${instruction.length} tekens); zet grote inhoud in een bijlage." }
-        val objects = attachments.map { attachment ->
+        val turnId = capacity.turnId(idempotencyKey)
+        val execution = turnId?.let { capacity.config(it)?.execution } ?: modelSettings.execution(role)
+        var key = idempotencyKey
+        var generation = 0
+        var actualInstruction = instruction
+        var actualSchema = resultSchema
+        var actualTimeout = executionTimeoutSeconds
+        var actualAttachments = attachments
+        if (turnId != null) {
+            val saved = phases.request(turnId, idempotencyKey, mapOf("instruction" to instruction, "schema" to resultSchema,
+                "timeout" to executionTimeoutSeconds, "attachments" to attachments, "execution" to execution))
+            generation = saved.first
+            val request = saved.second
+            phases.job(turnId, idempotencyKey, generation)?.let { return getJob(it) }
+            if (!capacity.canDispatch(turnId) && !(recoverOnly && phases.dispatchBody(turnId, idempotencyKey, generation) != null)) throw CapacitySuspended()
+            actualInstruction = request.path("instruction").asText()
+            actualSchema = request.path("schema")
+            actualTimeout = request.path("timeout").asInt()
+            actualAttachments = request.path("attachments").asSequence().map { JobAttachment(it.path("name").asText(), it.path("text").asText(), it.path("mimeType").asText()) }.toList()
+            key = "$idempotencyKey-retry-$generation"
+        }
+        if (fixtures.enabled) {
+            val job = fixtures.create(key, actualSchema)
+            if (turnId != null) phases.attach(turnId, idempotencyKey, generation, job.id)
+            return job
+        }
+        require(actualInstruction.length <= MAX_INSTRUCTION_LENGTH) { "De instructie is te lang voor de runtime (${instruction.length} tekens); zet grote inhoud in een bijlage." }
+        val savedBody = turnId?.let { phases.dispatchBody(it, idempotencyKey, generation) }
+        val objects = if (savedBody != null) emptyList() else actualAttachments.map { attachment ->
             mapOf("objectId" to upload(attachment), "name" to attachment.name, "role" to "DOCUMENT")
         }
         val body = mapOf(
-            "idempotencyKey" to idempotencyKey,
+            "idempotencyKey" to key,
             "jobKind" to "APPLICATION_WORK",
             "taskType" to "STRUCTURED_GENERATION",
             "execution" to mapOf(
@@ -75,13 +110,16 @@ class AgentRuntimeClient(
                 "model" to execution.model,
                 "mode" to execution.mode,
             ),
-            "input" to mapOf("instruction" to instruction, "objects" to objects),
-            "output" to mapOf("resultSchema" to resultSchema, "artifacts" to emptyList<Any>()),
-            "executionTimeoutSeconds" to executionTimeoutSeconds,
+            "input" to mapOf("instruction" to actualInstruction, "objects" to objects),
+            "output" to mapOf("resultSchema" to actualSchema, "artifacts" to emptyList<Any>()),
+            "executionTimeoutSeconds" to actualTimeout,
         )
-        val json = client.post().uri("/v2/jobs").body(body).retrieve().body(String::class.java)
+        val stableBody: Any = savedBody ?: if (turnId != null) phases.saveBody(turnId, idempotencyKey, generation, body) else body
+        val json = client.post().uri("/v2/jobs").body(stableBody).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen job terug")
-        return parseJob(objectMapper.readTree(json))
+        val job = parseJob(objectMapper.readTree(json))
+        if (turnId != null) phases.attach(turnId, idempotencyKey, generation, job.id)
+        return job
     }
 
     /** Zet een tekstbijlage als invoerobject bij de runtime: reserveren, bytes sturen, afronden. */
@@ -104,6 +142,7 @@ class AgentRuntimeClient(
     }
 
     fun getJob(jobId: String): RuntimeJob {
+        if (phases.result(jobId) != null) return RuntimeJob(jobId, "SUCCEEDED", "COMPLETED", 100, null, null)
         if (fixtures.enabled) return fixtures.job(jobId)
         val json = client.get().uri("/v2/jobs/{jobId}", jobId).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen jobstatus terug")
@@ -114,6 +153,7 @@ class AgentRuntimeClient(
 
     /** Het volledige resultaat, inclusief het verbruik (usageSummary) van de job. */
     fun getResultEnvelope(jobId: String): JsonNode {
+        phases.result(jobId)?.let { return it }
         if (fixtures.enabled) return objectMapper.createObjectNode().set("result", fixtures.result(jobId))
         val json = client.get().uri("/v2/jobs/{jobId}/result", jobId).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen resultaat terug")
@@ -125,7 +165,7 @@ class AgentRuntimeClient(
      * verbruik teruggeven. Blokkeert de aanroepende thread (virtuele threads in de services).
      */
     override fun run(request: StructuredJobRequest): StructuredJobOutcome {
-        val execution = modelSettings.execution(request.role)
+        val execution = capacity.turnId(request.idempotencyKey)?.let { capacity.config(it)?.execution } ?: modelSettings.execution(request.role)
         val job = createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments)
         val deadline = System.currentTimeMillis() + (request.executionTimeoutSeconds + 600) * 1000L
         while (true) {
@@ -133,11 +173,12 @@ class AgentRuntimeClient(
             when (current.status) {
                 "SUCCEEDED" -> {
                     val envelope = getResultEnvelope(job.id)
+                    phases.finished(job.id, "SUCCEEDED", envelope)
                     val used = usage(envelope)
                     return StructuredJobOutcome(job.id, envelope.path("result"), used.inputTokens, used.outputTokens, "${execution.vendorId}/${execution.model}", used.costUsd)
                 }
-                "FAILED" -> throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.")
-                "CANCELLED" -> throw StructuredJobFailedException(job.id, "De opdracht is gestopt.")
+                "FAILED" -> { phases.finished(job.id, "FAILED"); throw StructuredJobFailedException(job.id, current.errorMessage ?: "De AI-dienst kon de opdracht niet afronden.") }
+                "CANCELLED" -> { phases.finished(job.id, "CANCELLED"); throw StructuredJobFailedException(job.id, "De opdracht is gestopt.") }
             }
             if (request.cancelled()) {
                 runCatching { cancel(job.id) }
@@ -211,6 +252,21 @@ class AgentRuntimeClient(
         return options.sortedWith(compareBy({ it.execution.vendorId }, { it.execution.model }))
     }
 
+    fun jobEvents(jobId: String, after: Long): JsonNode {
+        if (fixtures.enabled) return objectMapper.readTree("{\"items\":[]}")
+        return objectMapper.readTree(client.get().uri("/v2/jobs/{id}/events?afterSequence={after}&limit=100", jobId, after).retrieve().body(String::class.java) ?: "{}")
+    }
+
+    fun jobUsage(jobId: String): JsonNode {
+        if (fixtures.enabled) return objectMapper.readTree("{\"attemptCount\":1,\"usageQuality\":\"UNAVAILABLE\",\"metrics\":[],\"costs\":[]}")
+        return objectMapper.readTree(client.get().uri("/v2/jobs/{id}/usage", jobId).retrieve().body(String::class.java) ?: "{}")
+    }
+
+    fun jobAttempts(jobId: String): JsonNode {
+        if (fixtures.enabled) return objectMapper.readTree("[]")
+        return objectMapper.readTree(client.get().uri("/v2/jobs/{id}/attempts", jobId).retrieve().body(String::class.java) ?: "[]")
+    }
+
     /** Maakt een JSON-schema-node uit een letterlijke schema-tekst; handig voor andere modules. */
     fun schema(json: String): JsonNode = objectMapper.readTree(json)
 
@@ -223,6 +279,7 @@ class AgentRuntimeClient(
         progressPercent = node.path("progressPercent").takeUnless(JsonNode::isMissingNode)?.takeUnless(JsonNode::isNull)?.asInt(),
         progressMessage = node.path("progressMessage").takeUnless(JsonNode::isMissingNode)?.takeUnless(JsonNode::isNull)?.asText(),
         errorMessage = node.path("errorMessage").takeUnless(JsonNode::isMissingNode)?.takeUnless(JsonNode::isNull)?.asText(),
+        errorCode = node.path("errorCode").takeUnless(JsonNode::isMissingNode)?.takeUnless(JsonNode::isNull)?.asText(),
     )
 
     private val SEARCH_RESULT_SCHEMA: JsonNode by lazy {

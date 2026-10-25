@@ -255,6 +255,7 @@ class AdminDashboardPage extends StatefulWidget {
     this.showCollection = true,
     this.showAiSettings = true,
     this.showAiCompare = true,
+    this.showAiCapacity = false,
     this.showRequestLog = true,
     super.key,
   });
@@ -265,6 +266,7 @@ class AdminDashboardPage extends StatefulWidget {
   final bool showCollection;
   final bool showAiSettings;
   final bool showAiCompare;
+  final bool showAiCapacity;
   final bool showRequestLog;
 
   @override
@@ -425,6 +427,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 path: '/ai-instellingen',
                 lines: data == null ? const [] : _aiLines(data),
                 fallback: 'Methode, modellen per rol en tekstbudget.',
+              ),
+            if (widget.showAiCapacity)
+              _tile(
+                key: const Key('admin-tile-ai-capaciteit'),
+                icon: Icons.speed,
+                title: 'Capaciteitstests',
+                path: '/ai-capaciteit',
+                lines: const [],
+                fallback:
+                    'Duurtests per provider en model, met parallelle zoekopdrachten.',
               ),
             if (widget.showAiCompare)
               _tile(
