@@ -82,6 +82,21 @@ class AiCapacityService(
             "events" to store.rows("SELECT created_at,message FROM ai_capacity_event WHERE campaign_id=?::uuid ORDER BY id", id))
     }
 
+    /** Returns only stored, already sanitized answers; reading never creates runtime jobs. */
+    fun result(campaignId: String, runId: String): Map<String, Any?> {
+        val run = store.rows("""SELECT r.id,r.status,r.ordinal,r.question,c.id AS campaign_id,c.name AS campaign_name,c.config,
+            t.session_id FROM ai_capacity_run r JOIN ai_capacity_campaign c ON c.id=r.campaign_id
+            JOIN ai_search_turn t ON t.id=r.turn_id WHERE r.campaign_id=?::uuid AND r.id=?::uuid""", campaignId, runId).singleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Testresultaat niet gevonden")
+        val answers = turns.turns(run["session_id"].toString()).map { turn -> mapOf(
+            "id" to turn.id, "turnNumber" to turn.turnNumber, "question" to turn.question, "status" to turn.status,
+            "title" to turn.title, "answerHtml" to turn.answerHtml, "sourcesHtml" to turn.sourcesHtml,
+            "errorMessage" to turn.errorMessage, "expandsTurnId" to turn.expandsTurnId,
+            "method" to turn.method, "depth" to turn.depth, "createdAt" to turn.createdAt, "completedAt" to turn.completedAt,
+        ) }
+        return mapOf("run" to (run - "session_id"), "turns" to answers)
+    }
+
     fun report(id: String): Map<String, Any?> {
         val durations = store.jdbc.queryForList("""SELECT EXTRACT(EPOCH FROM (completed_at-created_at))::double precision
             FROM ai_capacity_run WHERE campaign_id=?::uuid AND status='SUCCEEDED' ORDER BY 1""", Double::class.java, id)

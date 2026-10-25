@@ -59,6 +59,13 @@ class AdminAiCapacityController(
     fun detail(@RequestHeader("Authorization", required=false) authorization: String?, @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required=false) preview: String?,
                @PathVariable id: String): Map<String,Any?> { user(authorization, preview); return service.detail(validId(id)) }
 
+    @GetMapping("/campaigns/{id}/runs/{runId}/result")
+    fun result(@RequestHeader("Authorization", required=false) authorization: String?, @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required=false) preview: String?,
+               @PathVariable id: String, @PathVariable runId: String): org.springframework.http.ResponseEntity<Map<String,Any?>> {
+        user(authorization, preview)
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(service.result(validId(id), validId(runId)))
+    }
+
     @PostMapping("/campaigns/{id}/{action}")
     fun control(@RequestHeader("Authorization", required=false) authorization: String?, @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required=false) preview: String?,
                 @PathVariable id: String, @PathVariable action: String): Map<String,Any?> {

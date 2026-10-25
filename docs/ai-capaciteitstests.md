@@ -20,7 +20,10 @@ De publieke zoek-API krijgt geen modelkeuze.
 4. Controleer de samenvatting en start bewust. De campagne verandert geen globale modelinstellingen.
    Begin bijvoorbeeld bij één parallel scenario; hogere aantallen garanderen geen gelijke snelheid.
 5. Open een campagne voor scenario's, fasen, runtimejob-ID's, attempts, bronselecties, verbruik,
-   limietwaarnemingen en tijdlijn. JSON/CSV-export is beschikbaar als kopieerbare tekst.
+   limietwaarnemingen en tijdlijn. Bij iedere zoekopdracht opent **Resultaat bekijken** een eigen
+   beheerpagina met de opgeslagen antwoordtekst, vergrootbare foto’s, bronnen en eventuele
+   uitwerkingen/vervolgvragen. Het adres is te bewaren; bekijken start geen nieuwe AI-jobs.
+   JSON/CSV-export is beschikbaar als kopieerbare tekst.
 
 Per provider kan één campagne actief zijn, ook bij verschillende modellen/accountaliassen en
 wachten op een providerreset. PostgreSQL dwingt dit af met een unieke partiële index.

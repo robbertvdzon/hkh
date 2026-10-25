@@ -98,6 +98,27 @@ class AiCapacityIntegrationTest(
         assertEquals(1,store.jdbc.queryForObject("SELECT count(*) FROM ai_capacity_run WHERE campaign_id=?::uuid",Int::class.java,id))
     }
 
+    @Test fun `stored scenario answers have an admin only result route without exposing control tokens`() {
+        val id = campaign(max=1)
+        waitFor { status(id) == "COMPLETED" }
+        val run = store.jdbc.queryForObject("SELECT id::text FROM ai_capacity_run WHERE campaign_id=?::uuid",String::class.java,id)!!
+        val jobs = fake.jobs.size
+        val path = "/api/admin/ai-search/capacity/campaigns/$id/runs/$run/result"
+        mvc.get(path).andExpect { status { isServiceUnavailable() } }
+        val response = mvc.get(path) { header(admin.first,admin.second) }.andExpect {
+            status { isOk() }
+            header { string("Cache-Control","no-store") }
+            jsonPath("$.run.id") { value(run) }
+            jsonPath("$.turns[0].status") { value("SUCCEEDED") }
+            jsonPath("$.turns[0].answerHtml") { value("<p>Testantwoord</p>") }
+            jsonPath("$.turns[0].controlToken") { doesNotExist() }
+            jsonPath("$.turns[0].runtimeJobId") { doesNotExist() }
+        }.andReturn().response.contentAsString
+        assertFalse(response.contains("control_token"))
+        assertEquals(jobs,fake.jobs.size)
+        mvc.get("/api/admin/ai-search/capacity/campaigns/${UUID.randomUUID()}/runs/$run/result") { header(admin.first,admin.second) }.andExpect { status { isNotFound() } }
+    }
+
     @Test fun `database serializes provider starts while other providers run independently`() {
         fake.hold = true
         val executor = Executors.newVirtualThreadPerTaskExecutor()

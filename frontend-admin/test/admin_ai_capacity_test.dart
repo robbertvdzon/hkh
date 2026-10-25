@@ -82,6 +82,12 @@ class _Source implements AdminAiCapacitySource {
     'events': [],
   };
   @override
+  Future<Map<String, dynamic>> result(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  ) async => {};
+  @override
   Future<void> post(
     AdminIdentity identity,
     String path, [

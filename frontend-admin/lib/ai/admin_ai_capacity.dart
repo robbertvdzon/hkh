@@ -6,10 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/admin_session.dart';
+import '../shell/admin_router.dart';
 
 abstract interface class AdminAiCapacitySource {
   Future<Map<String, dynamic>> load(AdminIdentity identity);
   Future<Map<String, dynamic>> detail(AdminIdentity identity, String id);
+  Future<Map<String, dynamic>> result(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  );
   Future<void> post(
     AdminIdentity identity,
     String path, [
@@ -55,6 +61,20 @@ class AdminAiCapacityClient implements AdminAiCapacitySource {
         .timeout(const Duration(seconds: 30)),
   );
   @override
+  Future<Map<String, dynamic>> result(
+    AdminIdentity identity,
+    String campaignId,
+    String runId,
+  ) async => _read(
+    await _client
+        .get(
+          _uri('/campaigns/$campaignId/runs/$runId/result'),
+          headers: identity.requestHeaders,
+        )
+        .timeout(const Duration(seconds: 30)),
+  );
+
+  @override
   Future<void> post(
     AdminIdentity identity,
     String path, [
@@ -79,10 +99,12 @@ class AdminAiCapacityPage extends StatefulWidget {
   const AdminAiCapacityPage({
     required this.identity,
     required this.source,
+    this.onNavigate,
     super.key,
   });
   final AdminIdentity identity;
   final AdminAiCapacitySource source;
+  final void Function(String path)? onNavigate;
   @override
   State<AdminAiCapacityPage> createState() => _AdminAiCapacityPageState();
 }
@@ -734,7 +756,33 @@ class _AdminAiCapacityPageState extends State<AdminAiCapacityPage> {
                 subtitle: Text(
                   '${_status(r['status'])}${r['turn_error'] == null ? '' : ' · ${r['turn_error']}'}',
                 ),
+                trailing: widget.onNavigate == null
+                    ? null
+                    : IconButton(
+                        tooltip: 'Resultaat bekijken',
+                        icon: const Icon(Icons.article_outlined),
+                        onPressed: () => widget.onNavigate!(
+                          AdminPaths.capacityResult(
+                            _selected!,
+                            r['id'] as String,
+                          ),
+                        ),
+                      ),
                 children: [
+                  if (widget.onNavigate != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => widget.onNavigate!(
+                          AdminPaths.capacityResult(
+                            _selected!,
+                            r['id'] as String,
+                          ),
+                        ),
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Resultaat bekijken'),
+                      ),
+                    ),
                   for (final p in phases.where((p) => p['run_id'] == r['id']))
                     ListTile(
                       title: SelectableText(

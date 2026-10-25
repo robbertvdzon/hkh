@@ -11,6 +11,7 @@ import 'google_signin_button_stub.dart'
 import 'ai/admin_ai_model.dart';
 import 'ai/admin_ai_research.dart';
 import 'ai/admin_ai_capacity.dart';
+import 'ai/admin_ai_capacity_result.dart';
 import 'requests/admin_request_log.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'dashboard/admin_dashboard.dart';
@@ -351,6 +352,19 @@ class _AdminShell extends StatelessWidget {
   };
 
   Widget _content() {
+    final resultIds = AdminPaths.resultIds(path);
+    if (resultIds != null) {
+      final source = aiCapacitySource;
+      return source == null
+          ? const Text('Capaciteitstests zijn niet beschikbaar.')
+          : AdminAiCapacityResultPage(
+              key: ValueKey(path),
+              identity: identity,
+              source: source,
+              campaignId: resultIds[0],
+              runId: resultIds[1],
+            );
+    }
     switch (path) {
       case AdminPaths.collection:
         return _CollectionScrapeSection(
@@ -366,7 +380,11 @@ class _AdminShell extends StatelessWidget {
         final source = aiCapacitySource;
         return source == null
             ? const Text('Capaciteitstests zijn niet beschikbaar.')
-            : AdminAiCapacityPage(identity: identity, source: source);
+            : AdminAiCapacityPage(
+                identity: identity,
+                source: source,
+                onNavigate: onNavigate,
+              );
       case AdminPaths.aiCompare:
         final source = aiResearchSource;
         return source == null
@@ -402,7 +420,11 @@ class _AdminShell extends StatelessWidget {
                 key: const Key('admin-back'),
                 tooltip: 'Terug naar het overzicht',
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => onNavigate(AdminPaths.start),
+                onPressed: () => onNavigate(
+                  AdminPaths.resultIds(path) == null
+                      ? AdminPaths.start
+                      : AdminPaths.aiCapacity,
+                ),
               ),
         title: Text(
           onStart ? 'HKH Beheer' : 'HKH Beheer · ${AdminPaths.title(path)}',

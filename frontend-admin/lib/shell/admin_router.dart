@@ -21,22 +21,39 @@ class AdminPaths {
     requestLog,
   ];
 
+  static String capacityResult(String campaignId, String runId) =>
+      '$aiCapacity/$campaignId/$runId';
+  static List<String>? resultIds(String path) {
+    final segments = Uri.parse(path).pathSegments;
+    final uuid = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    return segments.length == 3 &&
+            segments[0] == 'ai-capaciteit' &&
+            uuid.hasMatch(segments[1]) &&
+            uuid.hasMatch(segments[2])
+        ? segments.sublist(1)
+        : null;
+  }
+
   /// Onbekende adressen vallen terug op de startpagina.
   static String normalise(String path) {
     final clean = path.length > 1 && path.endsWith('/')
         ? path.substring(0, path.length - 1)
         : path;
-    return all.contains(clean) ? clean : start;
+    return all.contains(clean) || resultIds(clean) != null ? clean : start;
   }
 
-  static String title(String path) => switch (path) {
-    collection => 'Archief',
-    aiSettings => 'AI-instellingen',
-    aiCapacity => 'Capaciteitstests',
-    aiCompare => 'AI vergelijken',
-    requestLog => 'Logboek van verzoeken',
-    _ => 'Overzicht',
-  };
+  static String title(String path) => resultIds(path) != null
+      ? 'Testresultaat'
+      : switch (path) {
+          collection => 'Archief',
+          aiSettings => 'AI-instellingen',
+          aiCapacity => 'Capaciteitstests',
+          aiCompare => 'AI vergelijken',
+          requestLog => 'Logboek van verzoeken',
+          _ => 'Overzicht',
+        };
 }
 
 class AdminRouteParser extends RouteInformationParser<String> {
