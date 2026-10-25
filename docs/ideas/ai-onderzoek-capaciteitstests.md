@@ -30,11 +30,21 @@ treffers kan daar `plan` aan voorafgaan. Zonder kandidaten wordt `direct` overge
 De code doet de SQL-zoekstappen en het ophalen van bronnen. `expand` is één aparte job bij
 **Volledig uitwerken**. De alternatieve agentmethode gebruikt één runtimejob voor het onderzoek.
 
-De nieuwe campagnes beginnen met de pijplijnmethode. Een scenario is een volledige eerste
+Campagnes gebruiken dezelfde zoekroute en ingestelde onderzoeksmethode als een gewone gebruiker:
+agent of pijplijn. Een scenario is een volledige eerste
 zoekvraag, eventueel gevolgd door een vooraf vastgelegde uitwerking of vervolgvraag. Zo'n
 vervolg krijgt de nieuw geproduceerde context; we plakken geen historische antwoorden in een
-nieuwe uitvoering. Rollen ONDERZOEK en SCHRIJVEN gebruiken in de eerste versie hetzelfde
-gekozen provider/model, zodat het verbruik aan één campagne is toe te schrijven.
+nieuwe uitvoering. De methode beïnvloedt het aantal AI-jobs en het verbruik; vergelijk campagnes
+met dezelfde methode en leg die methode bij iedere uitvoering vast.
+
+Voeg intern een optionele uitvoeringskeuze per zoekbeurt toe. Zonder override worden de gewone
+modelinstellingen gebruikt. De publieke HKH-interface krijgt geen modelkeuze en de publieke API
+accepteert geen testoverride. Alleen de geauthenticeerde beheertest kan provider, model en
+uitvoeringswijze kiezen. Deze keuze gaat mee naar alle AI-jobs van de beurt: de AGENT-rol bij
+de agentmethode en zowel ONDERZOEK als SCHRIJVEN bij de pijplijn. Ook een eventuele planjob
+gebruikt deze keuze. Een vervolg of uitwerking binnen het testscenario behoudt de campagnekeuze.
+Valideer de override tegen de runtimecatalogus en toegestane capabilities; een niet ondersteunde
+keuze levert een expliciete fout op.
 
 ## Vragenlijst en representativiteit
 
@@ -90,12 +100,19 @@ venstercondities; achtereenvolgens draaien op hetzelfde account is geen gecontro
 
 Een campagne legt bij aanmaak vast: vragenlijstversie, scenario, provider, model,
 uitvoeringswijze, accountalias zonder credentials, parallelisme, maximum aantal scenario's,
-eindtijd, eventuele token- of kostenbegroting en gedrag bij limieten. Modelinstellingen zijn
-een onveranderlijke momentopname per campagne en worden per job doorgegeven. De campagne
+eindtijd, eventuele token- of kostenbegroting en gedrag bij limieten. Neem methode en overige
+zoekinstellingen bij de start over uit de gewone settings en bewaar ze als onveranderlijke
+momentopname, zodat een settingswijziging een lopende vergelijking niet verandert. Zonder
+modeloverride blijven de ingestelde modellen per rol behouden. Met een override gebruikt iedere
+AI-job van de testbeurt het gekozen model. De effectieve instellingen worden per job vastgelegd. De campagne
 wijzigt geen globale HKH-modelinstellingen.
 
-Per provider is hoogstens één campagne actief of wachtend op limietherstel. Verschillende
-providers mogen tegelijk draaien. Deelquota over accountaliassen moeten herkenbaar zijn;
+Per provider mag maximaal één campagne tegelijk actief zijn, ook wanneer die op limietherstel
+wacht. Verschillende modellen van dezelfde provider worden na elkaar getest. De backend dwingt
+dit ook bij gelijktijdige startverzoeken en meerdere replica's atomair af. Een gepauzeerde campagne
+geeft de provider pas vrij wanneer haar lopende jobs zijn afgerond; hervatten vereist opnieuw
+een vrije provider. Campagnes voor verschillende providers mogen tegelijk draaien, ieder met
+eigen instellingen en parallelisme. Deelquota over accountaliassen moeten herkenbaar zijn;
 een andere alias is geen bewijs van een onafhankelijk abonnement. Leg ander gebruik van
 hetzelfde account vast als mogelijke beïnvloeding van de meting.
 
@@ -218,18 +235,24 @@ niet als omweg gebruikt om automatische testers productietoegang te geven.
 
 1. Maak een kleine, gevarieerde lijst en implementeer campagnes met vaste instellingen,
    duurzame fasevoortgang en parallelisme 1. Gebruik mocks voor limiet- en herstelgevallen.
-2. Voeg onafhankelijke providercampagnes en instelbaar parallelisme toe. Controleer dat
+2. Voeg gelijktijdige campagnes voor verschillende providers en instelbaar parallelisme toe.
+   Dwing maximaal één actieve campagne per provider af. Controleer dat
    globale modellen en bezoekersverkeer niet worden gewijzigd door testinstellingen.
 3. Lever runtime-events voor limieten en usage, herstelgedrag en de adminrapportage.
 4. Voeg generatie/import en versiebeheer voor de grote vragenlijst toe. Voer een resourceproef
    uit en kies daarna de concurrency voor de eerste echte duurtest.
 
-De eerste versie is gereed wanneer twee providers tegelijk onafhankelijk kunnen draaien,
+De eerste versie is gereed wanneer campagnes voor verschillende providers tegelijk kunnen draaien,
 dezelfde vragenlijst gebruiken en na een backendherstart zonder dubbele jobs verdergaan.
 Tests moeten korte limiet met herstel, bevestigde lange limiet, onbekende limiet, schemafout,
 workergebrek, pauzeren, annuleren en uitgeputte vragenlijst onderscheiden. Controleer dat
 één scenario met twee of drie AI-jobs precies één keer telt en retries geen extra geslaagde
-zoekopdrachten opleveren. Beproef concurrency en herstel met begrensde mocks; voer de
+zoekopdrachten opleveren. Controleer beide methoden, de normale settings zonder override en
+de doorgifte van een testoverride naar alle fasen, inclusief planjobs, vervolgen en uitwerkingen.
+Controleer dat publieke requests geen override kunnen afdwingen en campagnes elkaars instellingen
+niet overschrijven. Test dat een tweede campagne voor dezelfde provider wordt geweigerd,
+ook bij verschillende modellen, accountaliassen, gelijktijdige startverzoeken en wachten op
+limietherstel. Beproef concurrency en herstel met begrensde mocks; voer de
 standaard backend- en frontendchecks uit bij implementatie.
 
 De eerste echte meting rapporteert beschikbare beginquota, dataset- en vragenlijstversie,

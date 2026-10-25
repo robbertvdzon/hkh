@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "created_date": "2026-10-25",
+  "timezone": "Europe/Amsterdam",
+  "total": 1000,
+  "categories": {
+    "adressen": 70,
+    "gebeurtenissen": 20,
+    "historische_themas": 200,
+    "organisaties_en_gebouwen": 200,
+    "personen": 310,
+    "straten": 100,
+    "voorwerpen": 100
+  },
+  "depths": {
+    "doorzoeken": 477,
+    "snel": 332,
+    "uitgebreid": 191
+  },
+  "seed_collections": {
+    "archief": 104,
+    "artikelen": 232,
+    "beeldbank": 292,
+    "bidprent": 28,
+    "library": 33,
+    "objecten": 108,
+    "transcripties": 203
+  },
+  "checks": {
+    "exactly_1000": true,
+    "unique_ids": true,
+    "unique_question_texts": true,
+    "unique_topics": true,
+    "unique_seed_objects": true,
+    "all_seeds_in_readonly_selection": true,
+    "no_exact_historical_questions": true,
+    "txt_matches_json": true,
+    "markdown_matches_json": true,
+    "valid_question_lengths": true,
+    "no_control_characters": true
+  },
+  "sha256": {
+    "vragen.json": "98b58055cd2e03a7133970f3eb334d237a440c09f6498762438130cb0eea2c9e",
+    "vragen.txt": "044f467a8b3e0fd747fe5e060a018ec0e2fd310f4768ec1a6ec099ad731e3b13",
+    "vragen.md": "944ed1f70f6aecdb104e301a26debb03a4cc68da42a7a54724cea203e0d06342"
+  }
+}
