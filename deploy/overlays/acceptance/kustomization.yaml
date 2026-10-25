@@ -71,3 +71,10 @@ images:
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-2963711-acceptance
+
+# Public web configuration, separate from the immutable frontend image. The
+# generated hash rolls both deployments when configuration changes.
+configMapGenerator:
+- name: hkh-web-config
+  files:
+  - config.json=web-config.json

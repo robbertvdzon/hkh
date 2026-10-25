@@ -12,10 +12,18 @@ spec:
       labels:
         app.kubernetes.io/name: frontend
     spec:
+      volumes:
+        - name: web-config
+          configMap:
+            name: hkh-web-config
       containers:
         - name: frontend
           image: frontend-image
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: web-config
+              mountPath: /usr/share/nginx/html/runtime-config
+              readOnly: true
           ports:
             - name: http
               containerPort: 8080

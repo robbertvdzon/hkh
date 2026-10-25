@@ -38,3 +38,10 @@ patches:
   patch: "$patch: delete\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n\
     \  name: database-data\n"
 - path: central-postgres-patch.yaml
+
+# Public web configuration, separate from the immutable frontend image. The
+# generated hash rolls both deployments when configuration changes.
+configMapGenerator:
+- name: hkh-web-config
+  files:
+  - config.json=web-config.json

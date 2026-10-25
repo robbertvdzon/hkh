@@ -18,7 +18,9 @@ import 'collection/admin_collection_scrape.dart';
 import 'dashboard/admin_dashboard.dart';
 import 'shell/admin_router.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.initialize();
   final sessionSource = AppConfig.previewMode
       ? PreviewAdminSessionSource(apiBaseUrl: AppConfig.apiBaseUrl)
       : AppConfig.googleClientId.isEmpty

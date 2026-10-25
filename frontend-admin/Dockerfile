@@ -1,25 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
 FROM ghcr.io/cirruslabs/flutter:3.35.2 AS build
+RUN FLUTTER_SDK="$(dirname "$(dirname "$(command -v flutter)")")" \
+ && git -C "$FLUTTER_SDK" fetch --depth 1 origin tag 3.44.7 \
+ && git -C "$FLUTTER_SDK" checkout --force 3.44.7 \
+ && flutter precache --web
 WORKDIR /src
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
-ARG API_BASE_URL=
-ARG GOOGLE_CLIENT_ID=
-ARG PREVIEW_MODE=false
-RUN flutter build web --release --pwa-strategy=none \
-    --dart-define=API_BASE_URL=${API_BASE_URL} \
-    --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
-    --dart-define=PREVIEW_MODE=${PREVIEW_MODE}
+RUN flutter build web --release --pwa-strategy=none --dart-define=RUNTIME_CONFIG=true
 
 # Flutter gebruikt standaard een vaste main.dart.js-naam. Geef iedere inhoud een eigen URL,
 # zodat browsers en Cloudflare nooit een oude app-bundle onder dezelfde naam kunnen serveren.
-RUN cd build/web \
- && HASH=$(sha256sum main.dart.js | cut -c1-12) \
- && mv main.dart.js "main.${HASH}.js" \
- && sed -i "s/main\.dart\.js/main.${HASH}.js/g" flutter_bootstrap.js flutter.js \
- && test -z "$(grep -rl 'main\.dart\.js' . || true)"
+RUN bash tool/hash-web-bundle.sh
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 USER 0

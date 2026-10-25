@@ -1,228 +1,135 @@
 name: Build container images
-
 on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
-      - "frontend/**"
-      - "frontend-admin/**"
-      - ".github/workflows/build-images.yml"
+      - 'backend/**'
+      - 'frontend/**'
+      - 'frontend-admin/**'
+      - '.github/workflows/build-images.yml'
+      - '.github/scripts/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
-  pull-requests: read
-
+permissions: {contents: read}
 concurrency:
   group: build-images-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  build:
+  changes:
     runs-on: ubuntu-latest
+    permissions: {contents: read, actions: read}
+    outputs:
+      matrix: ${{ steps.changes.outputs.matrix }}
+      any: ${{ steps.changes.outputs.any }}
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      admin: ${{ steps.changes.outputs.admin }}
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # PR's moeten de branch-head bouwen; main moet als branch uitgecheckt
-          # blijven zodat de latere GitOps image-pin commit kan pushen.
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref_name }}
-
-      - name: Detect changed components
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            backend:
-              - 'backend/**'
-              - '.github/workflows/build-images.yml'
-            frontend:
-              - 'frontend/**'
-              - '.github/workflows/build-images.yml'
-            admin:
-              - 'frontend-admin/**'
-              - '.github/workflows/build-images.yml'
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build metadata
-        id: metadata
-        shell: bash
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - id: changes
+        name: Select components, including changes from failed or cancelled builds
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          python3 .github/scripts/test-image-matrix.py
+          base=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-images.yml/runs?branch=main&status=success&event=push&per_page=1" --jq '.workflow_runs[0].head_sha // empty')
+          if [[ -z "$base" ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git hash-object -t tree /dev/null)
+          fi
+          git diff --name-only "$base" HEAD | python3 .github/scripts/image-matrix.py
+      - id: tag
         run: echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Select runtime build configuration
-        id: runtime
-        shell: bash
-        env:
-          PRODUCTION_API_BASE_URL: ${{ vars.API_BASE_URL }}
-          PRODUCTION_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+  build:
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    permissions: {contents: read, packages: write}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ github.event.pull_request.head.sha || github.sha }}'}
+      # Build Flutter directly with the cached SDK/pub cache. The container only
+      # packages static files: no multi-GB Flutter image/cache transfer per build.
+      - uses: subosito/flutter-action@v2
+        if: matrix.image != 'backend'
+        with:
+          flutter-version: '3.44.7'
+          channel: stable
+          cache: true
+          pub-cache-path: ${{ runner.tool_cache }}/pub-${{ matrix.image }}
+          pub-cache-key: pub-${{ runner.os }}-${{ matrix.image }}-${{ hashFiles(format('{0}/pubspec.lock', matrix.context)) }}
+      - name: Build one environment-independent frontend
+        if: matrix.image != 'backend'
+        working-directory: ${{ matrix.context }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "api_base_url=" >> "$GITHUB_OUTPUT"
-            echo "google_client_id=" >> "$GITHUB_OUTPUT"
-            echo "preview_mode=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "api_base_url=$PRODUCTION_API_BASE_URL" >> "$GITHUB_OUTPUT"
-            echo "google_client_id=$PRODUCTION_GOOGLE_CLIENT_ID" >> "$GITHUB_OUTPUT"
-            echo "preview_mode=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build and push backend
-        if: github.event_name == 'pull_request' || steps.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+          flutter pub get --enforce-lockfile
+          flutter build web --release --pwa-strategy=none --dart-define=RUNTIME_CONFIG=true
+          bash tool/hash-web-bundle.sh
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and publish component
         uses: docker/build-push-action@v6
         with:
-          context: backend
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.image == 'backend' && 'Dockerfile' || 'Dockerfile.runtime' }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ steps.metadata.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.event_name == 'push' && 'main' || steps.metadata.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.image }}:${{ needs.changes.outputs.tag }}
           build-args: |
             BUILD_SHA=${{ github.event.pull_request.head.sha || github.sha }}
-            BUILD_VERSION=${{ steps.metadata.outputs.tag }}
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
+            BUILD_VERSION=${{ needs.changes.outputs.tag }}
+          cache-from: type=gha,scope=hkh-${{ matrix.image }}-v2
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,mode=max,scope=hkh-{0}-v2', matrix.image) || '' }}
 
-      - name: Build and push user frontend
-        if: github.event_name == 'pull_request' || steps.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ steps.metadata.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.event_name == 'push' && 'main' || steps.metadata.outputs.tag }}
-          build-args: |
-            API_BASE_URL=${{ steps.runtime.outputs.api_base_url }}
-            GOOGLE_CLIENT_ID=${{ steps.runtime.outputs.google_client_id }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
-      - name: Build and push admin frontend
-        if: github.event_name == 'pull_request' || steps.changes.outputs.admin == 'true' || github.event_name == 'workflow_dispatch'
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend-admin
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${{ steps.metadata.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${{ github.event_name == 'push' && 'main' || steps.metadata.outputs.tag }}
-          build-args: |
-            API_BASE_URL=${{ steps.runtime.outputs.api_base_url }}
-            GOOGLE_CLIENT_ID=${{ steps.runtime.outputs.google_client_id }}
-            PREVIEW_MODE=${{ steps.runtime.outputs.preview_mode }}
-          cache-from: type=gha,scope=admin
-          cache-to: type=gha,mode=max,scope=admin
-
-      # AppConfig.apiBaseUrl and GOOGLE_CLIENT_ID (frontend & frontend-admin) and PREVIEW_MODE (admin)
-      # are compile-time Dart constants (see lib/config/app_config.dart), not runtime env vars.
-      # The regular push build above bakes in the real production API_BASE_URL and requires Google
-      # login (PREVIEW_MODE=false) — reused as-is by the standing acceptance environment, that would
-      # make it silently call the production backend directly (bypassing its own same-origin nginx
-      # proxy) and still show a Google sign-in wall for admin. Build the same preview-flavored
-      # variant PR-previews already get (blank API_BASE_URL so requests stay same-origin, preview
-      # mode on) so the acceptance overlay can pin to it instead.
-      - name: Build and push acceptance user frontend
-        if: github.event_name == 'push' && steps.changes.outputs.frontend == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ steps.metadata.outputs.tag }}-acceptance
-          build-args: |
-            API_BASE_URL=
-            GOOGLE_CLIENT_ID=
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
-      - name: Build and push acceptance admin frontend
-        if: github.event_name == 'push' && steps.changes.outputs.admin == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend-admin
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${{ steps.metadata.outputs.tag }}-acceptance
-          build-args: |
-            API_BASE_URL=
-            GOOGLE_CLIENT_ID=
-            PREVIEW_MODE=true
-          cache-from: type=gha,scope=admin
-          cache-to: type=gha,mode=max,scope=admin
-
-      - name: Set up Kustomize
-        if: github.event_name == 'push'
-        uses: imranismail/setup-kustomize@v2
-        with:
-          kustomize-version: "5.8.0"
-
-      - name: Pin built images in the OpenShift overlay
-        if: github.event_name == 'push'
-        shell: bash
-        working-directory: deploy/overlays/openshift
+  pin-release:
+    needs: [changes, build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions: {contents: write, packages: write}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
+      - uses: imranismail/setup-kustomize@v2
+        with: {kustomize-version: '5.8.0'}
+      - name: Pin the same images for production and acceptance
         env:
-          BACKEND_CHANGED: ${{ steps.changes.outputs.backend }}
-          FRONTEND_CHANGED: ${{ steps.changes.outputs.frontend }}
-          ADMIN_CHANGED: ${{ steps.changes.outputs.admin }}
-          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+          BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
+          ADMIN_CHANGED: ${{ needs.changes.outputs.admin }}
+          IMAGE_TAG: ${{ needs.changes.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
-          # Een deploy-only commit kan tijdens de lange imagebuild op main landen. Werk eerst bij,
-          # anders zou de latere GitOps-commit non-fast-forward falen en nooit bij ArgoCD komen.
-          git pull --rebase origin main
-          if [[ "$BACKEND_CHANGED" == "true" ]]; then
-            kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
-          fi
-          if [[ "$FRONTEND_CHANGED" == "true" ]]; then
-            kustomize edit set image frontend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${IMAGE_TAG}
-          fi
-          if [[ "$ADMIN_CHANGED" == "true" ]]; then
-            kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}
-          fi
-
-      - name: Pin built images in the acceptance overlay
-        if: github.event_name == 'push'
-        shell: bash
-        working-directory: deploy/overlays/acceptance
-        env:
-          BACKEND_CHANGED: ${{ steps.changes.outputs.backend }}
-          FRONTEND_CHANGED: ${{ steps.changes.outputs.frontend }}
-          ADMIN_CHANGED: ${{ steps.changes.outputs.admin }}
-          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
-        run: |
-          # Geen eigen "git pull --rebase" hier: de OpenShift-overlaystap hierboven heeft de
-          # working tree al bijgewerkt en laat bewust ongecommitte wijzigingen staan tot de
-          # gezamenlijke commit-stap verderop; een tweede rebase-poging zou daardoor stuklopen op
-          # "unstaged changes". Backend heeft geen compile-time gebakken configuratie en gebruikt
-          # daarom gewoon de productie-tag; frontend en admin krijgen de losse -acceptance-variant
-          # (zie de "Build and push acceptance ..." stappen hierboven) omdat hun
-          # API_BASE_URL/PREVIEW_MODE/GOOGLE_CLIENT_ID compile-time vastliggen.
-          if [[ "$BACKEND_CHANGED" == "true" ]]; then
-            kustomize edit set image backend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${IMAGE_TAG}
-          fi
-          if [[ "$FRONTEND_CHANGED" == "true" ]]; then
-            kustomize edit set image frontend-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${IMAGE_TAG}-acceptance
-          fi
-          if [[ "$ADMIN_CHANGED" == "true" ]]; then
-            kustomize edit set image admin-image=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-admin:${IMAGE_TAG}-acceptance
-          fi
-
-      - name: Commit GitOps image pins
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if git diff --quiet -- deploy/overlays/openshift/kustomization.yaml deploy/overlays/acceptance/kustomization.yaml; then
+          # Don't let a slow old run overwrite a newer release.
+          if ! git diff --quiet "$RELEASE_SHA" HEAD -- backend frontend frontend-admin .github; then
+            echo 'A newer source change exists; its run will pin the release.'
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for component in backend frontend admin; do
+            case "$component" in
+              backend) changed="$BACKEND_CHANGED" ;;
+              frontend) changed="$FRONTEND_CHANGED" ;;
+              admin) changed="$ADMIN_CHANGED" ;;
+            esac
+            if [[ "$changed" != true ]]; then continue; fi
+            image="ghcr.io/$GITHUB_REPOSITORY-$component"
+            docker buildx imagetools create -t "$image:main" "$image:$IMAGE_TAG"
+            for overlay in openshift acceptance; do
+              (cd "deploy/overlays/$overlay" && kustomize edit set image "$component-image=$image:$IMAGE_TAG")
+            done
+          done
+          if git diff --quiet -- deploy/overlays; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add deploy/overlays/openshift/kustomization.yaml deploy/overlays/acceptance/kustomization.yaml
-          git commit -m "deploy: pin images to ${{ steps.metadata.outputs.tag }} [skip ci]"
-          git push
+          git commit -m "deploy: pin images to $IMAGE_TAG [skip ci]"
+          git push origin HEAD:main

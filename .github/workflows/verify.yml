@@ -1,70 +1,76 @@
 name: Repository verification
-
 on:
   pull_request:
-  push:
-    branches: [main]
+  push: {branches: [main]}
   workflow_dispatch:
-
-permissions:
-  contents: read
-
+permissions: {contents: read, actions: read}
+concurrency:
+  group: hkh-verification-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  repository-verification:
-    name: Repository verification
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.changes.outputs.matrix }}
+      any: ${{ steps.changes.outputs.any }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - id: changes
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          python3 .github/scripts/test-image-matrix.py
+          base=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?branch=main&status=success&event=push&per_page=1" --jq '.workflow_runs[0].head_sha // empty')
+          if [[ -z "$base" ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git hash-object -t tree /dev/null)
+          fi
+          git diff --name-only "$base" HEAD | python3 .github/scripts/image-matrix.py
 
-      - name: Detect changed components
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            backend:
-              - 'backend/**'
-              - '.github/workflows/verify.yml'
-            frontend:
-              - 'frontend/**'
-              - '.github/workflows/verify.yml'
-            admin:
-              - 'frontend-admin/**'
-              - '.github/workflows/verify.yml'
-
-      - name: Set up JDK 21
-        if: steps.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/setup-java@v4
+  verify:
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        if: matrix.image == 'backend'
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
-
       - name: Verify backend
-        if: steps.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+        if: matrix.image == 'backend'
         run: mvn -B --no-transfer-progress -f backend/pom.xml clean verify
-
-      - name: Set up Flutter
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.admin == 'true' || github.event_name == 'workflow_dispatch'
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
+        if: matrix.image != 'backend'
         with:
-          flutter-version: "3.35.2"
+          flutter-version: '3.44.7'
           channel: stable
           cache: true
-
-      - name: Verify user frontend
-        if: steps.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: frontend
+          pub-cache-path: ${{ runner.tool_cache }}/pub-${{ matrix.image }}
+          pub-cache-key: pub-${{ runner.os }}-${{ matrix.image }}-${{ hashFiles(format('{0}/pubspec.lock', matrix.context)) }}
+      - name: Verify frontend
+        if: matrix.image != 'backend'
+        working-directory: ${{ matrix.context }}
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           flutter analyze
           flutter test
 
-      - name: Verify admin frontend
-        if: steps.changes.outputs.admin == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: frontend-admin
+  repository-verification:
+    name: Repository verification
+    needs: [changes, verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all selected component checks to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
         run: |
-          flutter pub get
-          flutter analyze
-          flutter test
+          [[ "$CHANGES_RESULT" == success ]]
+          [[ "$VERIFY_RESULT" == success || "$VERIFY_RESULT" == skipped ]]

@@ -20,8 +20,9 @@ import 'theme/app_style.dart';
 
 export 'site/home_page.dart' show HomePage;
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.initialize();
   final UserSessionController session = GoogleUserSession(
     apiBaseUrl: AppConfig.apiBaseUrl,
     googleClientId: AppConfig.googleClientId,
