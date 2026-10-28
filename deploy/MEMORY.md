@@ -1,12 +1,12 @@
 # Geheugenprofielen
 
-Profielen vanaf 15 september 2026, gebaseerd op metingen van de draaiende JVM's.
+Profielen vanaf 15 september 2026 (productie verhoogd op 28 oktober 2026 na een OOMKill van de backend: werkset piekte op 408 MiB bij een limiet van 512 MiB), gebaseerd op metingen van de draaiende JVM's.
 `requests.memory` bepaalt plaatsing; `limits.memory` begrenst de volledige container.
 `-Xmx` begrenst alleen de heap. Er blijft ruimte nodig voor metaspace, threads en native buffers.
 
 | Omgeving | Request | Containerlimiet | Max. heap | Configuratie |
 |---|---:|---:|---:|---|
-| Productie (standaard) | 384 MiB | 512 MiB | 256 MiB | `deploy/base/backend-memory.yaml` |
+| Productie (standaard) | 512 MiB | 1 GiB | 512 MiB | `deploy/base/backend-memory.yaml` |
 | Acceptatie | 288 MiB | 384 MiB | 128 MiB | `deploy/overlays/acceptance/backend-memory.yaml` |
 | Preview | 288 MiB | 384 MiB | 128 MiB | `deploy/overlays/preview/backend-memory.yaml` |
 

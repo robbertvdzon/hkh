@@ -10,9 +10,9 @@ spec:
       - name: backend
         resources:
           requests:
-            memory: 384Mi
-          limits:
             memory: 512Mi
+          limits:
+            memory: 1Gi
         env:
         - name: JAVA_TOOL_OPTIONS
-          value: -Xmx256m -XX:+UseSerialGC
+          value: -Xmx512m -XX:+UseSerialGC
