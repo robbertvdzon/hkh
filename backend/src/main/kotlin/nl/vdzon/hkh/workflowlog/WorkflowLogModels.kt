@@ -66,3 +66,23 @@ data class WorkflowSessionSummary(
 data class WorkflowEventEntry(val id: Long, val createdAt: Instant, val phase: Int, val phaseLabel: String?, val status: String, val message: String)
 
 data class WorkflowSessionDetail(val summary: WorkflowSessionSummary, val snapshot: JsonNode, val events: List<WorkflowEventEntry>)
+
+/** Eén logregel van de workflow-app (INFO, WARN of ERROR). */
+data class AppLogLine(val time: Instant, val level: String, val logger: String, val message: String)
+
+/** Een pakketje logregels; [chunkId] is uniek per bron en computer, zodat een herhaling na een time-out niet dubbel wordt bewaard. */
+data class AppLogChunk(val source: String, val computer: String, val appVersion: String?, val chunkId: String, val lines: List<AppLogLine>)
+
+data class AppLogEntry(
+    val id: Long, val time: Instant, val level: String, val logger: String, val message: String,
+    val source: String, val computer: String, val appVersion: String?,
+)
+
+/** Een pagina logregels, nieuwste eerst; [next] is de ondoorzichtige cursor voor de volgende (oudere) pagina, of null. */
+data class AppLogPage(val items: List<AppLogEntry>, val next: String?)
+
+/** De stand van één computer in het app-log. */
+data class AppLogOverviewRow(
+    val source: String, val computer: String, val appVersion: String?, val lastSeen: Instant,
+    val lines24h: Int, val warnings24h: Int, val errors24h: Int,
+)

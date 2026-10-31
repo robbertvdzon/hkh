@@ -59,4 +59,15 @@ object IngestLimits {
     /** Zoveel sessies bewaart het logboek hooguit; daarna worden nieuwe sessies geweigerd tot er ruimte is gemaakt. */
     const val MAX_SESSIONS = 20_000
     const val MAX_BODY_BYTES = 1_000_000
+
+    /** App-logpakketjes: de app stuurt er hooguit eens per kwartier één; een inhaalslag na een storing mag in een keer, daarna 30 per uur. */
+    const val APP_LOGS_PER_IP_BURST = 10
+    const val APP_LOGS_PER_IP_PER_HOUR = 30
+
+    /** Alle app-logpakketjes samen, ook als iemand per verzoek een ander adres verzint. */
+    const val APP_LOGS_GLOBAL_BURST = 100
+    const val APP_LOGS_GLOBAL_PER_HOUR = 200
+
+    /** Zoveel regels per pakketje; de grootte van het hele bericht is begrensd door [MAX_BODY_BYTES]. */
+    const val MAX_APP_LOG_LINES = 5000
 }

@@ -174,7 +174,116 @@ class WorkflowSessionDetail {
   final List<WorkflowEvent> events;
 }
 
+/// Eén logregel van de workflow-app (INFO, WARN of ERROR).
+class AppLogEntry {
+  const AppLogEntry({
+    required this.id,
+    required this.time,
+    required this.level,
+    required this.logger,
+    required this.message,
+    required this.source,
+    required this.computer,
+    this.appVersion,
+  });
+
+  factory AppLogEntry.fromJson(Map<String, dynamic> json) => AppLogEntry(
+    id: (json['id'] as num).toInt(),
+    time: DateTime.parse(json['time'] as String).toLocal(),
+    level: json['level'] as String? ?? 'INFO',
+    logger: json['logger'] as String? ?? '',
+    message: json['message'] as String? ?? '',
+    source: json['source'] as String? ?? '',
+    computer: json['computer'] as String? ?? '',
+    appVersion: json['appVersion'] as String?,
+  );
+
+  final int id;
+  final DateTime time;
+  final String level;
+  final String logger;
+  final String message;
+  final String source;
+  final String computer;
+  final String? appVersion;
+}
+
+/// Een pagina logregels, nieuwste eerst; [next] is de cursor voor de oudere regels.
+class AppLogPage {
+  const AppLogPage({required this.items, this.next});
+
+  factory AppLogPage.fromJson(Map<String, dynamic> json) => AppLogPage(
+    items: [
+      for (final item in (json['items'] as List<dynamic>? ?? const []))
+        AppLogEntry.fromJson(item as Map<String, dynamic>),
+    ],
+    next: json['next'] as String?,
+  );
+
+  final List<AppLogEntry> items;
+  final String? next;
+}
+
+/// De stand van één computer in het app-log.
+class AppLogOverviewRow {
+  const AppLogOverviewRow({
+    required this.source,
+    required this.computer,
+    required this.lastSeen,
+    required this.lines24h,
+    required this.warnings24h,
+    required this.errors24h,
+    this.appVersion,
+  });
+
+  factory AppLogOverviewRow.fromJson(Map<String, dynamic> json) =>
+      AppLogOverviewRow(
+        source: json['source'] as String? ?? '',
+        computer: json['computer'] as String? ?? '',
+        appVersion: json['appVersion'] as String?,
+        lastSeen: DateTime.parse(json['lastSeen'] as String).toLocal(),
+        lines24h: (json['lines24h'] as num?)?.toInt() ?? 0,
+        warnings24h: (json['warnings24h'] as num?)?.toInt() ?? 0,
+        errors24h: (json['errors24h'] as num?)?.toInt() ?? 0,
+      );
+
+  final String source;
+  final String computer;
+  final String? appVersion;
+  final DateTime lastSeen;
+  final int lines24h;
+  final int warnings24h;
+  final int errors24h;
+}
+
+/// De filters van de lijst met logregels; wat null is, filtert niet.
+class AppLogFilter {
+  const AppLogFilter({
+    this.source,
+    this.computer,
+    this.level,
+    this.version,
+    this.query,
+  });
+
+  final String? source;
+  final String? computer;
+
+  /// Minimumniveau: WARN (waarschuwingen en fouten) of ERROR; null = alles.
+  final String? level;
+  final String? version;
+  final String? query;
+}
+
 abstract interface class AdminWorkflowLogSource {
+  Future<List<AppLogOverviewRow>> appLogOverview(AdminIdentity identity);
+  Future<List<String>> appLogVersions(AdminIdentity identity);
+  Future<AppLogPage> appLogs(
+    AdminIdentity identity,
+    AppLogFilter filter, {
+    String? before,
+  });
+
   Future<List<String>> sources(AdminIdentity identity);
   Future<List<WorkflowLoginEntry>> logins(
     AdminIdentity identity, {
@@ -253,6 +362,38 @@ class AdminWorkflowLogClient implements AdminWorkflowLogSource {
           .toList(growable: false);
 
   @override
+  Future<List<AppLogOverviewRow>> appLogOverview(
+    AdminIdentity identity,
+  ) async => ((await _get(identity, '/app-logs/overview')) as List<dynamic>)
+      .map((e) => AppLogOverviewRow.fromJson(e as Map<String, dynamic>))
+      .toList(growable: false);
+
+  @override
+  Future<List<String>> appLogVersions(AdminIdentity identity) async =>
+      ((await _get(identity, '/app-logs/versions')) as List<dynamic>)
+          .map((e) => e as String)
+          .toList(growable: false);
+
+  @override
+  Future<AppLogPage> appLogs(
+    AdminIdentity identity,
+    AppLogFilter filter, {
+    String? before,
+  }) async => AppLogPage.fromJson(
+    (await _get(identity, '/app-logs', {
+          'limit': '200',
+          if (filter.source != null) 'source': filter.source!,
+          if (filter.computer != null) 'computer': filter.computer!,
+          if (filter.level != null) 'level': filter.level!,
+          if (filter.version != null) 'version': filter.version!,
+          if (filter.query != null && filter.query!.trim().isNotEmpty)
+            'q': filter.query!.trim(),
+          if (before != null) 'before': before,
+        }))
+        as Map<String, dynamic>,
+  );
+
+  @override
   Future<WorkflowSessionDetail> session(
     AdminIdentity identity,
     String id,
@@ -281,11 +422,28 @@ Color? _statusColor(BuildContext context, String status) => switch (status) {
   _ => null,
 };
 
+/// `nl.vdzon.hkhworkflow.testrun.TestRunService` wordt `n.v.h.t.TestRunService`.
+String _shortLogger(String logger) {
+  final parts = logger.split('.');
+  if (parts.length < 2) return logger;
+  return [
+    for (var i = 0; i < parts.length - 1; i++)
+      parts[i].isEmpty ? '' : parts[i][0],
+    parts.last,
+  ].join('.');
+}
+
+Color _levelColor(BuildContext context, String level) => switch (level) {
+  'ERROR' => Theme.of(context).colorScheme.error,
+  'WARN' => Colors.orange.shade800,
+  _ => Colors.black54,
+};
+
 String _describeError(Object error) => error is StateError
     ? error.message
     : 'Het logboek kon niet worden geladen.';
 
-enum _Tab { logins, created, edited }
+enum _Tab { logins, created, edited, appLog }
 
 /// De laatst gekozen tab, zodat je na een sessie weer op dezelfde lijst terugkomt.
 _Tab _lastTab = _Tab.created;
@@ -320,6 +478,17 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   String? _error;
   final _horizontal = ScrollController();
 
+  // Tabblad App-log.
+  List<AppLogOverviewRow> _overview = const [];
+  List<String> _versions = const [];
+  List<AppLogEntry> _appLogs = const [];
+  String? _appLogNext;
+  bool _loadingMore = false;
+  String? _computer;
+  String? _level;
+  String? _version;
+  final _query = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -329,6 +498,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   @override
   void dispose() {
     _horizontal.dispose();
+    _query.dispose();
     super.dispose();
   }
 
@@ -337,7 +507,33 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
     try {
       final sources = await widget.source.sources(widget.identity);
       if (_source != null && !sources.contains(_source)) _source = null;
-      if (_tab == _Tab.logins) {
+      if (_tab == _Tab.appLog) {
+        final overview = await widget.source.appLogOverview(widget.identity);
+        final versions = await widget.source.appLogVersions(widget.identity);
+        if (_computer != null &&
+            !overview.any(
+              (row) =>
+                  row.computer == _computer &&
+                  (_source == null || row.source == _source),
+            )) {
+          _computer = null;
+        }
+        if (_version != null && !versions.contains(_version)) _version = null;
+        final page = await widget.source.appLogs(
+          widget.identity,
+          _appLogFilter,
+        );
+        if (!mounted) return;
+        setState(() {
+          _sources = sources;
+          _overview = overview;
+          _versions = versions;
+          _appLogs = page.items;
+          _appLogNext = page.next;
+          _error = null;
+          _loading = false;
+        });
+      } else if (_tab == _Tab.logins) {
         final logins = await widget.source.logins(
           widget.identity,
           source: _source,
@@ -370,6 +566,256 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
         _loading = false;
       });
     }
+  }
+
+  AppLogFilter get _appLogFilter => AppLogFilter(
+    source: _source,
+    computer: _computer,
+    level: _level,
+    version: _version,
+    query: _query.text,
+  );
+
+  Future<void> _loadMore() async {
+    final before = _appLogNext;
+    if (before == null || _loadingMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await widget.source.appLogs(
+        widget.identity,
+        _appLogFilter,
+        before: before,
+      );
+      if (!mounted) return;
+      setState(() {
+        _appLogs = [..._appLogs, ...page.items];
+        _appLogNext = page.next;
+        _error = null;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = _describeError(error);
+        _loadingMore = false;
+      });
+    }
+  }
+
+  void _filter(void Function() change) {
+    setState(change);
+    _load();
+  }
+
+  /// Een computer zonder melding in de laatste 24 uur is grijs.
+  Widget _overviewTable() {
+    final now = DateTime.now();
+    return DataTable(
+      key: const Key('app-log-overview'),
+      showCheckboxColumn: false,
+      columnSpacing: 20,
+      headingTextStyle: _headingStyle,
+      dataTextStyle: _dataStyle,
+      columns: const [
+        DataColumn(label: Text('Bron')),
+        DataColumn(label: Text('Computer')),
+        DataColumn(label: Text('Versie')),
+        DataColumn(label: Text('Laatst gezien')),
+        DataColumn(label: Text('Regels 24 uur'), numeric: true),
+        DataColumn(label: Text('Waarschuwingen'), numeric: true),
+        DataColumn(label: Text('Fouten'), numeric: true),
+      ],
+      rows: [
+        for (final row in _overview)
+          () {
+            final stale =
+                now.difference(row.lastSeen) > const Duration(hours: 24);
+            final grey = stale ? const TextStyle(color: Colors.black38) : null;
+            return DataRow(
+              key: ValueKey('${row.source}/${row.computer}'),
+              onSelectChanged: (_) => _filter(() {
+                _source = row.source;
+                _lastSource = row.source;
+                _computer = row.computer;
+              }),
+              cells: [
+                DataCell(Text(row.source, style: grey)),
+                DataCell(Text(row.computer, style: grey)),
+                DataCell(Text(row.appVersion ?? '', style: grey)),
+                DataCell(Text(_when(row.lastSeen), style: grey)),
+                DataCell(Text('${row.lines24h}', style: grey)),
+                DataCell(
+                  Text(
+                    '${row.warnings24h}',
+                    style: stale
+                        ? grey
+                        : TextStyle(
+                            color: row.warnings24h > 0
+                                ? Colors.orange.shade800
+                                : null,
+                          ),
+                  ),
+                ),
+                DataCell(
+                  Text(
+                    '${row.errors24h}',
+                    style: stale
+                        ? grey
+                        : TextStyle(
+                            color: row.errors24h > 0
+                                ? Theme.of(context).colorScheme.error
+                                : null,
+                            fontWeight: row.errors24h > 0
+                                ? FontWeight.w600
+                                : null,
+                          ),
+                  ),
+                ),
+              ],
+            );
+          }(),
+      ],
+    );
+  }
+
+  Widget _appLogFilters() {
+    final computers = {
+      for (final row in _overview)
+        if (_source == null || row.source == _source) row.computer,
+    }.toList()..sort();
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        DropdownButton<String?>(
+          key: const Key('app-log-computer'),
+          value: computers.contains(_computer) ? _computer : null,
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Alle computers'),
+            ),
+            for (final computer in computers)
+              DropdownMenuItem<String?>(value: computer, child: Text(computer)),
+          ],
+          onChanged: _loading
+              ? null
+              : (value) => _filter(() => _computer = value),
+        ),
+        DropdownButton<String?>(
+          key: const Key('app-log-level'),
+          value: _level,
+          items: const [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Alle niveaus (INFO en hoger)'),
+            ),
+            DropdownMenuItem<String?>(
+              value: 'WARN',
+              child: Text('Waarschuwingen en fouten'),
+            ),
+            DropdownMenuItem<String?>(
+              value: 'ERROR',
+              child: Text('Alleen fouten'),
+            ),
+          ],
+          onChanged: _loading ? null : (value) => _filter(() => _level = value),
+        ),
+        DropdownButton<String?>(
+          key: const Key('app-log-version'),
+          value: _versions.contains(_version) ? _version : null,
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Alle versies'),
+            ),
+            for (final version in _versions)
+              DropdownMenuItem<String?>(value: version, child: Text(version)),
+          ],
+          onChanged: _loading
+              ? null
+              : (value) => _filter(() => _version = value),
+        ),
+        SizedBox(
+          width: 260,
+          child: TextField(
+            key: const Key('app-log-query'),
+            controller: _query,
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Zoek in bericht of logger',
+              suffixIcon: IconButton(
+                key: const Key('app-log-search'),
+                tooltip: 'Zoeken',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.search),
+              ),
+            ),
+            onSubmitted: (_) => _load(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _appLogView() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_overview.isEmpty)
+          const Text('Nog geen app-log ontvangen.')
+        else
+          Scrollbar(
+            controller: _horizontal,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _horizontal,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _overviewTable(),
+            ),
+          ),
+        const SizedBox(height: 8),
+        _appLogFilters(),
+        const SizedBox(height: 12),
+        if (_appLogs.isEmpty)
+          const Text('Geen regels voor deze keuze.')
+        else
+          SelectionArea(
+            child: Column(
+              key: const Key('app-log-lines'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final entry in _appLogs)
+                  _AppLogRow(
+                    key: ValueKey('app-log-${entry.id}'),
+                    entry: entry,
+                  ),
+              ],
+            ),
+          ),
+        if (_appLogNext != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton(
+                key: const Key('app-log-more'),
+                onPressed: _loadingMore ? null : _loadMore,
+                child: Text(_loadingMore ? 'Laden…' : 'Meer laden'),
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          'Het app-log bevat de regels van INFO en hoger en wordt na 30 dagen '
+          'opgeruimd.',
+          style: theme.textTheme.bodySmall,
+        ),
+      ],
+    );
   }
 
   static const _headingStyle = TextStyle(
@@ -485,7 +931,11 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final count = _tab == _Tab.logins ? _logins.length : _sessions.length;
+    final count = switch (_tab) {
+      _Tab.logins => _logins.length,
+      _Tab.appLog => _appLogs.length,
+      _ => _sessions.length,
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -493,7 +943,8 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
           'Wat de workflow-app van de vrijwilligers meldt: elke inlogpoging, '
           'elke doorloop om nieuwe bestanden in ZCBS te zetten en elke '
           'doorloop om records aan te passen. Klik op een doorloop voor de '
-          'volledige log. De gegevens komen ongecontroleerd binnen via een '
+          'volledige log. Het tabblad App-log toont de logregels van de app '
+          'zelf. De gegevens komen ongecontroleerd binnen via een '
           'open meldpunt en zijn dus indicatief.',
           style: theme.textTheme.bodyMedium,
         ),
@@ -510,6 +961,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
                 ButtonSegment(value: _Tab.created, label: Text('Aangemaakt')),
                 ButtonSegment(value: _Tab.edited, label: Text('Aangepast')),
                 ButtonSegment(value: _Tab.logins, label: Text('Inloggen')),
+                ButtonSegment(value: _Tab.appLog, label: Text('App-log')),
               ],
               selected: {_tab},
               onSelectionChanged: (value) {
@@ -563,6 +1015,8 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
           )
+        else if (_tab == _Tab.appLog)
+          _appLogView()
         else if (count == 0)
           const Text('Nog niets gemeld.')
         else
@@ -577,6 +1031,74 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Eén logregel: tijd, niveau, versie, ingekorte logger en het bericht; een bericht met meer regels (een stacktrace) klapt uit.
+class _AppLogRow extends StatefulWidget {
+  const _AppLogRow({required this.entry, super.key});
+
+  final AppLogEntry entry;
+
+  @override
+  State<_AppLogRow> createState() => _AppLogRowState();
+}
+
+class _AppLogRowState extends State<_AppLogRow> {
+  static const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12);
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final lines = entry.message.split('\n');
+    final more = lines.length - 1;
+    final shown = _expanded ? entry.message : lines.first;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              style: _mono,
+              children: [
+                TextSpan(text: '${_when(entry.time)}  '),
+                TextSpan(
+                  text: entry.level.padRight(5),
+                  style: TextStyle(
+                    color: _levelColor(context, entry.level),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (entry.appVersion != null)
+                  TextSpan(
+                    text: '  ${entry.appVersion}',
+                    style: const TextStyle(fontSize: 10, color: Colors.black45),
+                  ),
+                TextSpan(
+                  text: '  ${_shortLogger(entry.logger)}  ',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                TextSpan(text: shown),
+              ],
+            ),
+          ),
+          if (more > 0)
+            InkWell(
+              key: Key('app-log-expand-${entry.id}'),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  _expanded ? '▾ inklappen' : '▸ $more regels meer',
+                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
