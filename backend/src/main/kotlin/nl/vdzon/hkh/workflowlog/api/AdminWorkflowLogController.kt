@@ -26,9 +26,20 @@ class AdminWorkflowLogController(private val service: WorkflowLogService, privat
         @RequestHeader("Authorization", required = false) authorization: String?,
         @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
         @RequestParam(required = false) limit: Int?,
+        @RequestParam(required = false) source: String?,
     ): List<WorkflowLoginEntry> {
         authenticator.authenticate(authorization, previewHeader)
-        return service.logins(limit ?: 200)
+        return service.logins(limit ?: 200, source?.takeIf { it.isNotBlank() })
+    }
+
+    /** De bronnen (macbook, windows-laptop, hkh, ...) die iets hebben gemeld, om op te filteren. */
+    @GetMapping("/sources")
+    fun sources(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+    ): List<String> {
+        authenticator.authenticate(authorization, previewHeader)
+        return service.sources()
     }
 
     @GetMapping("/sessions")
@@ -37,9 +48,10 @@ class AdminWorkflowLogController(private val service: WorkflowLogService, privat
         @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
         @RequestParam kind: WorkflowKind,
         @RequestParam(required = false) limit: Int?,
+        @RequestParam(required = false) source: String?,
     ): List<WorkflowSessionSummary> {
         authenticator.authenticate(authorization, previewHeader)
-        return service.sessions(kind, limit ?: 200)
+        return service.sessions(kind, limit ?: 200, source?.takeIf { it.isNotBlank() })
     }
 
     @GetMapping("/sessions/{id}")

@@ -14,16 +14,18 @@ Beide endpoints vragen geen inlog, maar wel de kop `X-HKH-Workflow-Key` met een 
 
 | Verzoek | Doel |
 |---|---|
-| `POST /api/workflow-log/logins` | Een inlogpoging: `{user, success, method: PASSWORD\|COOKIE, detail?, appVersion?, computer?}` |
+| `POST /api/workflow-log/logins` | Een inlogpoging: `{user, success, method: PASSWORD\|COOKIE, detail?, appVersion?, computer?, source?}` |
 | `PUT /api/workflow-log/sessions/{uuid}` | Maakt de sessie aan of vervangt haar momentopname |
 
 Een sessiebericht: `{kind: NEW_FILES\|EDIT, secret, user, collection, appVersion, computer, phase, phaseCount, phaseLabel,
-status: RUNNING\|FINISHED\|FAILED, fileCount, event?, snapshot}`.
+status: RUNNING\|FINISHED\|FAILED, fileCount, event?, snapshot, source?}`.
 
 - `snapshot` is een vrij JSON-object met alles wat de app weet; elk bericht **vervangt** de vorige (de app stuurt dus telkens
   alles opnieuw, een gemist bericht herstelt zich vanzelf). Het beheerscherm toont elke sleutel van het object als uitklapbaar blok.
 - `secret` is een willekeurig geheim (minimaal 16 tekens) dat de app bij de start van de sessie verzint. Alleen een bericht met
   hetzelfde geheim mag een bestaande sessie bijwerken; de backend bewaart alleen de hash.
+- `source` is de bron die de beheerder in de workflow-app heeft ingesteld (bijvoorbeeld `macbook`, `windows-laptop` of `hkh`); het
+  beheerscherm toont hem als kolom en kan erop filteren (`?source=` op de lijsten, `GET /api/admin/workflow-log/sources` voor de keuzelijst).
 - `event` is een korte regel voor de tijdlijn. Zonder `event` komt er alleen een regel bij als fase of status verandert.
 - Een sessie die `RUNNING` is en 30 minuten niets meer meldt, toont het beheerscherm als **verlaten**.
 

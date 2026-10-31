@@ -119,6 +119,33 @@ class WorkflowLogApiIntegrationTest(
     }
 
     @Test
+    fun `de bron van een melding wordt bewaard en daarop is te filteren`() {
+        val mac = UUID.randomUUID()
+        val win = UUID.randomUUID()
+        put(mac, body().replace(""""kind":"NEW_FILES",""", """"kind":"NEW_FILES","source":"macbook","""), ip = "192.0.2.31").andExpect { status { isNoContent() } }
+        put(win, body().replace(""""kind":"NEW_FILES",""", """"kind":"NEW_FILES","source":"windows-laptop","""), ip = "192.0.2.32").andExpect { status { isNoContent() } }
+        mockMvc.post("/api/workflow-log/logins") {
+            contentType = MediaType.APPLICATION_JSON; content = """{"user":"bron-gebruiker","success":true,"method":"PASSWORD","source":"windows-laptop"}"""
+            header(WorkflowLogIngestController.INGEST_KEY_HEADER, key); header("X-Forwarded-For", "192.0.2.33, 10.0.0.1")
+        }.andExpect { status { isNoContent() } }
+
+        admin("/api/admin/workflow-log/sources").andExpect { status { isOk() }; jsonPath("$") { value(org.hamcrest.Matchers.hasItems("macbook", "windows-laptop")) } }
+        admin("/api/admin/workflow-log/sessions?kind=NEW_FILES&source=macbook").andExpect {
+            status { isOk() }
+            jsonPath("$[?(@.id == '$mac')].source") { value("macbook") }
+            jsonPath("$[?(@.id == '$win')]") { isEmpty() }
+        }
+        admin("/api/admin/workflow-log/sessions?kind=NEW_FILES&source=windows-laptop").andExpect {
+            jsonPath("$[?(@.id == '$win')].source") { value("windows-laptop") }
+            jsonPath("$[?(@.id == '$mac')]") { isEmpty() }
+        }
+        admin("/api/admin/workflow-log/logins?source=windows-laptop").andExpect { jsonPath("$[0].source") { value("windows-laptop") } }
+        admin("/api/admin/workflow-log/logins?source=macbook").andExpect { jsonPath("$[?(@.source != 'macbook')]") { isEmpty() } }
+        // Zonder filter komen ze allemaal.
+        admin("/api/admin/workflow-log/sessions?kind=NEW_FILES&limit=500").andExpect { jsonPath("$[?(@.id == '$mac')]") { isNotEmpty() } }
+    }
+
+    @Test
     fun `inlogpogingen worden vastgelegd, ook mislukte, en nooit met een wachtwoord`() {
         fun login(json: String, ip: String) = mockMvc.post("/api/workflow-log/logins") {
             contentType = MediaType.APPLICATION_JSON; content = json

@@ -41,29 +41,44 @@ class _ScrapeSource implements AdminScrapeSource {
 
 class _WorkflowSource implements AdminWorkflowLogSource {
   final List<WorkflowKind> kinds = [];
+  final List<String?> asked = [];
   final List<String> opened = [];
 
-  WorkflowSessionSummary _summary(String id, String kind, String status) =>
-      WorkflowSessionSummary(
-        id: id,
-        kind: kind,
-        createdAt: DateTime(2026, 10, 31, 9, 15, 0),
-        updatedAt: DateTime(2026, 10, 31, 9, 40, 30),
-        phase: 5,
-        phaseCount: 7,
-        phaseLabel: 'images.exe',
-        status: status,
-        fileCount: 12,
-        updates: 14,
-        user: 'carla',
-        collection: 'archief',
-        computer: 'PC-CARLA',
-        appVersion: '1.2.3',
-        ip: '203.0.113.7',
-      );
+  WorkflowSessionSummary _summary(
+    String id,
+    String kind,
+    String status, {
+    String source = 'macbook',
+  }) => WorkflowSessionSummary(
+    id: id,
+    kind: kind,
+    createdAt: DateTime(2026, 10, 31, 9, 15, 0),
+    updatedAt: DateTime(2026, 10, 31, 9, 40, 30),
+    phase: 5,
+    phaseCount: 7,
+    phaseLabel: 'images.exe',
+    status: status,
+    fileCount: 12,
+    updates: 14,
+    user: 'carla',
+    collection: 'archief',
+    computer: 'PC-CARLA',
+    appVersion: '1.2.3',
+    ip: '203.0.113.7',
+    source: source,
+  );
 
   @override
-  Future<List<WorkflowLoginEntry>> logins(AdminIdentity identity) async => [
+  Future<List<String>> sources(AdminIdentity identity) async => [
+    'macbook',
+    'windows-laptop',
+  ];
+
+  @override
+  Future<List<WorkflowLoginEntry>> logins(
+    AdminIdentity identity, {
+    String? source,
+  }) async => [
     WorkflowLoginEntry(
       id: 2,
       createdAt: DateTime(2026, 10, 31, 9, 0, 1),
@@ -72,6 +87,7 @@ class _WorkflowSource implements AdminWorkflowLogSource {
       user: 'onbekend',
       detail: 'Wachtwoord klopt niet',
       ip: '198.51.100.4',
+      source: 'windows-laptop',
     ),
     WorkflowLoginEntry(
       id: 1,
@@ -86,9 +102,11 @@ class _WorkflowSource implements AdminWorkflowLogSource {
   @override
   Future<List<WorkflowSessionSummary>> sessions(
     AdminIdentity identity,
-    WorkflowKind kind,
-  ) async {
+    WorkflowKind kind, {
+    String? source,
+  }) async {
     kinds.add(kind);
+    asked.add(source);
     return kind == WorkflowKind.newFiles
         ? [_summary(_sessionId, 'NEW_FILES', 'ABANDONED')]
         : [_summary('11111111-2222-3333-4444-555555555555', 'EDIT', 'RUNNING')];
@@ -153,6 +171,19 @@ void main() {
     expect(find.text('verlaten'), findsOneWidget);
     expect(find.text('carla'), findsOneWidget);
     expect(find.text('12'), findsOneWidget);
+    expect(find.text('macbook'), findsOneWidget);
+
+    // Filteren op bron: de lijst wordt opnieuw gevraagd met de gekozen bron.
+    await tester.tap(find.byKey(const Key('workflow-log-source')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('windows-laptop').last);
+    await tester.pumpAndSettle();
+    expect(source.asked, [null, 'windows-laptop']);
+    await tester.tap(find.byKey(const Key('workflow-log-source')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alle bronnen').last);
+    await tester.pumpAndSettle();
+    expect(source.asked, [null, 'windows-laptop', null]);
 
     await tester.tap(
       find.descendant(
@@ -161,7 +192,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(source.kinds, [WorkflowKind.newFiles, WorkflowKind.edit]);
+    expect(source.kinds, [
+      WorkflowKind.newFiles,
+      WorkflowKind.newFiles,
+      WorkflowKind.newFiles,
+      WorkflowKind.edit,
+    ]);
     expect(find.text('bezig'), findsOneWidget);
 
     await tester.tap(

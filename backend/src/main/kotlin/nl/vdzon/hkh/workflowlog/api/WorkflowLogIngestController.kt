@@ -57,7 +57,7 @@ class WorkflowLogIngestController(
         val method = text(root, "method", 20)?.uppercase()?.takeIf { it in setOf("PASSWORD", "COOKIE") }
             ?: return reject(HttpStatus.BAD_REQUEST, "method moet PASSWORD of COOKIE zijn")
         service.recordLogin(
-            WorkflowLoginReport(text(root, "user", 200), success, method, text(root, "detail", 300), text(root, "appVersion", 80), text(root, "computer", 120)),
+            WorkflowLoginReport(text(root, "user", 200), success, method, text(root, "detail", 300), text(root, "appVersion", 80), text(root, "computer", 120), text(root, "source", 80)),
             RequestLogService.clientAddress(request),
         )
         return ResponseEntity.noContent().build()
@@ -91,7 +91,7 @@ class WorkflowLogIngestController(
         val report = WorkflowSessionReport(
             id = sessionId, kind = kind, secret = secret,
             user = text(root, "user", 200), collection = text(root, "collection", 80),
-            appVersion = text(root, "appVersion", 80), computer = text(root, "computer", 120),
+            appVersion = text(root, "appVersion", 80), computer = text(root, "computer", 120), source = text(root, "source", 80),
             phase = number(root, "phase", 99), phaseCount = number(root, "phaseCount", 99), phaseLabel = text(root, "phaseLabel", 120),
             status = status, fileCount = number(root, "fileCount", 1_000_000), event = text(root, "event", 500),
             snapshot = null,

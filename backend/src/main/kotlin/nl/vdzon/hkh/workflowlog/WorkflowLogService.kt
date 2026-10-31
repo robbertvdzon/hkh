@@ -23,8 +23,8 @@ class WorkflowLogService(private val jdbc: JdbcTemplate, private val objectMappe
 
     fun recordLogin(report: WorkflowLoginReport, ip: String?) {
         jdbc.update(
-            "INSERT INTO workflow_login (user_name, success, method, detail, app_version, computer, ip) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            report.user, report.success, report.method, report.detail, report.appVersion, report.computer, ip?.take(64),
+            "INSERT INTO workflow_login (user_name, success, method, detail, app_version, computer, ip, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            report.user, report.success, report.method, report.detail, report.appVersion, report.computer, ip?.take(64), report.source,
         )
     }
 
@@ -44,22 +44,22 @@ class WorkflowLogService(private val jdbc: JdbcTemplate, private val objectMappe
         if (previous == null) {
             jdbc.update(
                 """
-                INSERT INTO workflow_session (id, kind, secret_hash, user_name, collection, phase, phase_count, phase_label, status, file_count, app_version, computer, ip, snapshot)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?::jsonb, '{}'::jsonb))
+                INSERT INTO workflow_session (id, kind, secret_hash, user_name, collection, phase, phase_count, phase_label, status, file_count, app_version, computer, ip, source, snapshot)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?::jsonb, '{}'::jsonb))
                 """.trimIndent(),
                 report.id, report.kind.name, hash, report.user, report.collection, report.phase, report.phaseCount, report.phaseLabel,
-                report.status.name, report.fileCount, report.appVersion, report.computer, ip?.take(64), json,
+                report.status.name, report.fileCount, report.appVersion, report.computer, ip?.take(64), report.source, json,
             )
         } else {
             jdbc.update(
                 """
                 UPDATE workflow_session SET updated_at = CURRENT_TIMESTAMP, updates = updates + 1, user_name = COALESCE(?, user_name),
                     collection = COALESCE(?, collection), phase = ?, phase_count = ?, phase_label = ?, status = ?, file_count = ?,
-                    app_version = COALESCE(?, app_version), computer = COALESCE(?, computer), snapshot = COALESCE(?::jsonb, snapshot)
+                    app_version = COALESCE(?, app_version), computer = COALESCE(?, computer), source = COALESCE(?, source), snapshot = COALESCE(?::jsonb, snapshot)
                 WHERE id = ?
                 """.trimIndent(),
                 report.user, report.collection, report.phase, report.phaseCount, report.phaseLabel, report.status.name, report.fileCount,
-                report.appVersion, report.computer, json, report.id,
+                report.appVersion, report.computer, report.source, json, report.id,
             )
         }
         val changed = previous == null || previous.first != report.phase || previous.second != report.status.name
@@ -79,27 +79,34 @@ class WorkflowLogService(private val jdbc: JdbcTemplate, private val objectMappe
         else -> "Fase ${report.phase}${report.phaseLabel?.let { ": $it" } ?: ""}"
     }
 
-    fun logins(limit: Int): List<WorkflowLoginEntry> = jdbc.query(
-        "SELECT * FROM workflow_login ORDER BY created_at DESC, id DESC LIMIT ?",
+    /** De bronnen die ooit iets hebben gemeld, alfabetisch. */
+    fun sources(): List<String> = jdbc.queryForList(
+        "SELECT source FROM (SELECT source FROM workflow_login UNION SELECT source FROM workflow_session) s WHERE source IS NOT NULL ORDER BY source",
+        String::class.java,
+    )
+
+    fun logins(limit: Int, source: String? = null): List<WorkflowLoginEntry> = jdbc.query(
+        "SELECT * FROM workflow_login WHERE (?::text IS NULL OR source = ?) ORDER BY created_at DESC, id DESC LIMIT ?",
         { rs, _ ->
             WorkflowLoginEntry(
                 id = rs.getLong("id"), createdAt = rs.getTimestamp("created_at").toInstant(), user = rs.getString("user_name"),
                 success = rs.getBoolean("success"), method = rs.getString("method"), detail = rs.getString("detail"),
                 appVersion = rs.getString("app_version"), computer = rs.getString("computer"), ip = rs.getString("ip"),
+                source = rs.getString("source"),
             )
         },
-        limit.coerceIn(1, 1000),
+        source, source, limit.coerceIn(1, 1000),
     )
 
-    fun sessions(kind: WorkflowKind, limit: Int, now: Instant = Instant.now()): List<WorkflowSessionSummary> = jdbc.query(
-        "SELECT id, kind, created_at, updated_at, user_name, collection, phase, phase_count, phase_label, status, file_count, updates, app_version, computer, ip " +
-            "FROM workflow_session WHERE kind = ? ORDER BY created_at DESC LIMIT ?",
-        { rs, _ -> summary(rs, now) }, kind.name, limit.coerceIn(1, 1000),
+    fun sessions(kind: WorkflowKind, limit: Int, source: String? = null, now: Instant = Instant.now()): List<WorkflowSessionSummary> = jdbc.query(
+        "SELECT id, kind, created_at, updated_at, user_name, collection, phase, phase_count, phase_label, status, file_count, updates, app_version, computer, ip, source " +
+            "FROM workflow_session WHERE kind = ? AND (?::text IS NULL OR source = ?) ORDER BY created_at DESC LIMIT ?",
+        { rs, _ -> summary(rs, now) }, kind.name, source, source, limit.coerceIn(1, 1000),
     )
 
     fun session(id: UUID, now: Instant = Instant.now()): WorkflowSessionDetail? {
         val row = jdbc.query(
-            "SELECT id, kind, created_at, updated_at, user_name, collection, phase, phase_count, phase_label, status, file_count, updates, app_version, computer, ip, snapshot::text AS snapshot " +
+            "SELECT id, kind, created_at, updated_at, user_name, collection, phase, phase_count, phase_label, status, file_count, updates, app_version, computer, ip, source, snapshot::text AS snapshot " +
                 "FROM workflow_session WHERE id = ?",
             { rs, _ -> summary(rs, now) to rs.getString("snapshot") }, id,
         ).firstOrNull() ?: return null
@@ -122,7 +129,7 @@ class WorkflowLogService(private val jdbc: JdbcTemplate, private val objectMappe
             phaseLabel = rs.getString("phase_label"),
             status = if (status == WorkflowStatus.RUNNING.name && Duration.between(updated, now) > ABANDONED_AFTER) "ABANDONED" else status,
             fileCount = rs.getInt("file_count"), updates = rs.getInt("updates"), appVersion = rs.getString("app_version"),
-            computer = rs.getString("computer"), ip = rs.getString("ip"),
+            computer = rs.getString("computer"), ip = rs.getString("ip"), source = rs.getString("source"),
         )
     }
 

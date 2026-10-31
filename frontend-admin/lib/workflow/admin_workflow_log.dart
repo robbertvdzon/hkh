@@ -17,6 +17,7 @@ class WorkflowLoginEntry {
     this.appVersion,
     this.computer,
     this.ip,
+    this.source,
   });
 
   factory WorkflowLoginEntry.fromJson(Map<String, dynamic> json) =>
@@ -30,6 +31,7 @@ class WorkflowLoginEntry {
         appVersion: json['appVersion'] as String?,
         computer: json['computer'] as String?,
         ip: json['ip'] as String?,
+        source: json['source'] as String?,
       );
 
   final int id;
@@ -41,6 +43,9 @@ class WorkflowLoginEntry {
   final String? appVersion;
   final String? computer;
   final String? ip;
+
+  /// De bron die de beheerder in de workflow-app heeft ingesteld (macbook, windows-laptop, hkh, ...).
+  final String? source;
 }
 
 /// De twee soorten doorlopen in de workflow-app.
@@ -70,6 +75,7 @@ class WorkflowSessionSummary {
     this.appVersion,
     this.computer,
     this.ip,
+    this.source,
   });
 
   factory WorkflowSessionSummary.fromJson(Map<String, dynamic> json) =>
@@ -89,6 +95,7 @@ class WorkflowSessionSummary {
         appVersion: json['appVersion'] as String?,
         computer: json['computer'] as String?,
         ip: json['ip'] as String?,
+        source: json['source'] as String?,
       );
 
   final String id;
@@ -106,6 +113,7 @@ class WorkflowSessionSummary {
   final String? appVersion;
   final String? computer;
   final String? ip;
+  final String? source;
 
   /// "5 van 7: images.exe", of alleen de naam als het aantal fasen onbekend is.
   String get phaseText {
@@ -167,11 +175,16 @@ class WorkflowSessionDetail {
 }
 
 abstract interface class AdminWorkflowLogSource {
-  Future<List<WorkflowLoginEntry>> logins(AdminIdentity identity);
+  Future<List<String>> sources(AdminIdentity identity);
+  Future<List<WorkflowLoginEntry>> logins(
+    AdminIdentity identity, {
+    String? source,
+  });
   Future<List<WorkflowSessionSummary>> sessions(
     AdminIdentity identity,
-    WorkflowKind kind,
-  );
+    WorkflowKind kind, {
+    String? source,
+  });
   Future<WorkflowSessionDetail> session(AdminIdentity identity, String id);
 }
 
@@ -204,17 +217,35 @@ class AdminWorkflowLogClient implements AdminWorkflowLogSource {
   }
 
   @override
-  Future<List<WorkflowLoginEntry>> logins(AdminIdentity identity) async =>
-      ((await _get(identity, '/logins', {'limit': '500'})) as List<dynamic>)
+  Future<List<String>> sources(AdminIdentity identity) async =>
+      ((await _get(identity, '/sources')) as List<dynamic>)
+          .map((e) => e as String)
+          .toList(growable: false);
+
+  @override
+  Future<List<WorkflowLoginEntry>> logins(
+    AdminIdentity identity, {
+    String? source,
+  }) async =>
+      ((await _get(identity, '/logins', {
+                'limit': '500',
+                if (source != null) 'source': source,
+              }))
+              as List<dynamic>)
           .map((e) => WorkflowLoginEntry.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
 
   @override
   Future<List<WorkflowSessionSummary>> sessions(
     AdminIdentity identity,
-    WorkflowKind kind,
-  ) async =>
-      ((await _get(identity, '/sessions', {'kind': kind.api, 'limit': '500'}))
+    WorkflowKind kind, {
+    String? source,
+  }) async =>
+      ((await _get(identity, '/sessions', {
+                'kind': kind.api,
+                'limit': '500',
+                if (source != null) 'source': source,
+              }))
               as List<dynamic>)
           .map(
             (e) => WorkflowSessionSummary.fromJson(e as Map<String, dynamic>),
@@ -258,6 +289,7 @@ enum _Tab { logins, created, edited }
 
 /// De laatst gekozen tab, zodat je na een sessie weer op dezelfde lijst terugkomt.
 _Tab _lastTab = _Tab.created;
+String? _lastSource;
 
 /// Overzicht van het workflow-logboek: inlogpogingen en de sessies van de workflow-app.
 class AdminWorkflowLogPage extends StatefulWidget {
@@ -280,6 +312,10 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   _Tab _tab = _lastTab;
   List<WorkflowLoginEntry> _logins = const [];
   List<WorkflowSessionSummary> _sessions = const [];
+  List<String> _sources = const [];
+
+  /// De gekozen bron; null = alle bronnen.
+  String? _source = _lastSource;
   bool _loading = true;
   String? _error;
   final _horizontal = ScrollController();
@@ -299,10 +335,16 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      final sources = await widget.source.sources(widget.identity);
+      if (_source != null && !sources.contains(_source)) _source = null;
       if (_tab == _Tab.logins) {
-        final logins = await widget.source.logins(widget.identity);
+        final logins = await widget.source.logins(
+          widget.identity,
+          source: _source,
+        );
         if (!mounted) return;
         setState(() {
+          _sources = sources;
           _logins = logins;
           _error = null;
           _loading = false;
@@ -311,9 +353,11 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
         final sessions = await widget.source.sessions(
           widget.identity,
           _tab == _Tab.created ? WorkflowKind.newFiles : WorkflowKind.edit,
+          source: _source,
         );
         if (!mounted) return;
         setState(() {
+          _sources = sources;
           _sessions = sessions;
           _error = null;
           _loading = false;
@@ -341,6 +385,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
     dataTextStyle: _dataStyle,
     columns: const [
       DataColumn(label: Text('Wanneer')),
+      DataColumn(label: Text('Bron')),
       DataColumn(label: Text('Gebruiker')),
       DataColumn(label: Text('Resultaat')),
       DataColumn(label: Text('Via')),
@@ -354,6 +399,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
         DataRow(
           cells: [
             DataCell(Text(_when(entry.createdAt))),
+            DataCell(Text(entry.source ?? '')),
             DataCell(Text(entry.user ?? '')),
             DataCell(
               Text(
@@ -395,6 +441,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
       columns: [
         const DataColumn(label: Text('Gestart')),
         const DataColumn(label: Text('Laatste bericht')),
+        const DataColumn(label: Text('Bron')),
         const DataColumn(label: Text('Gebruiker')),
         const DataColumn(label: Text('Collectie')),
         DataColumn(label: Text(edit ? 'Records' : 'Bestanden'), numeric: true),
@@ -412,6 +459,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
             cells: [
               DataCell(Text(_when(s.createdAt))),
               DataCell(Text(_when(s.updatedAt))),
+              DataCell(Text(s.source ?? '')),
               DataCell(Text(s.user ?? '')),
               DataCell(Text(s.collection ?? '')),
               DataCell(Text('${s.fileCount}')),
@@ -471,6 +519,28 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
                 });
                 _load();
               },
+            ),
+            DropdownButton<String?>(
+              key: const Key('workflow-log-source'),
+              value: _source,
+              hint: const Text('Alle bronnen'),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Alle bronnen'),
+                ),
+                for (final source in _sources)
+                  DropdownMenuItem<String?>(value: source, child: Text(source)),
+              ],
+              onChanged: _loading
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _source = value;
+                        _lastSource = value;
+                      });
+                      _load();
+                    },
             ),
             IconButton(
               key: const Key('workflow-log-refresh'),
@@ -599,6 +669,7 @@ class _AdminWorkflowSessionPageState extends State<AdminWorkflowSessionPage> {
               ? 'Records aanpassen'
               : 'Nieuwe bestanden in ZCBS zetten',
         ),
+        line('Bron', s.source ?? ''),
         line('Gebruiker', s.user ?? ''),
         line('Collectie', s.collection ?? ''),
         line(s.kind == 'EDIT' ? 'Records' : 'Bestanden', '${s.fileCount}'),

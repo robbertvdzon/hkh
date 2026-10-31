@@ -13,6 +13,8 @@ enum class WorkflowStatus { RUNNING, FINISHED, FAILED }
 /** Een geslaagde of mislukte inlogpoging in de workflow-app. */
 data class WorkflowLoginReport(
     val user: String?, val success: Boolean, val method: String, val detail: String?, val appVersion: String?, val computer: String?,
+    /** Van welke bron de melding komt, zoals de beheerder die in de workflow-app heeft ingesteld (bijvoorbeeld macbook of hkh). */
+    val source: String? = null,
 )
 
 /** Eén melding over een sessie: de samenvatting plus de volledige momentopname van de doorloop. */
@@ -24,6 +26,7 @@ data class WorkflowSessionReport(
     val collection: String?,
     val appVersion: String?,
     val computer: String?,
+    val source: String? = null,
     val phase: Int,
     val phaseCount: Int,
     val phaseLabel: String?,
@@ -37,7 +40,7 @@ data class WorkflowSessionReport(
 
 data class WorkflowLoginEntry(
     val id: Long, val createdAt: Instant, val user: String?, val success: Boolean, val method: String, val detail: String?,
-    val appVersion: String?, val computer: String?, val ip: String?,
+    val appVersion: String?, val computer: String?, val ip: String?, val source: String? = null,
 )
 
 data class WorkflowSessionSummary(
@@ -57,6 +60,7 @@ data class WorkflowSessionSummary(
     val appVersion: String?,
     val computer: String?,
     val ip: String?,
+    val source: String? = null,
 )
 
 data class WorkflowEventEntry(val id: Long, val createdAt: Instant, val phase: Int, val phaseLabel: String?, val status: String, val message: String)
