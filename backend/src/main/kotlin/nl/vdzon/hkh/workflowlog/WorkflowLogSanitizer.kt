@@ -21,7 +21,7 @@ class WorkflowLogSanitizer(private val mapper: ObjectMapper) {
             val out: ObjectNode = mapper.createObjectNode()
             node.properties().forEach { (name, value) ->
                 val key = name.replace("\u0000", "")
-                out.set(key, if (isSecretName(key) && !value.isNull) mapper.nodeFactory.stringNode(REDACTED) else copy(value, depth + 1))
+                out.set(key, if (isSecretName(key) && (value.isString || value.isNumber)) mapper.nodeFactory.stringNode(REDACTED) else copy(value, depth + 1))
             }
             out
         }

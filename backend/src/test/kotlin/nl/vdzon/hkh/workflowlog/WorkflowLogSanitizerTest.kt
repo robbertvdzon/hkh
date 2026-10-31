@@ -15,7 +15,7 @@ class WorkflowLogSanitizerTest {
     fun `velden die op een geheim lijken worden vervangen, ook diep in de structuur`() {
         val input = mapper.readTree(
             """{"settings":{"ftpHost":"h","ftpPassword":"geheim","adminPassword":"x","ingestKey":"k","sourceFolders":"a=b"},
-               "stappen":[{"naam":"x","token":"t"}],"leeg":{"wachtwoord":null}}""",
+               "stappen":[{"naam":"x","token":"t"}],"leeg":{"wachtwoord":null},"regel":{"pattern":"x","answer":"j","secret":true}}""",
         )
         val out = sanitizer.clean(input)
         assertEquals("h", out.path("settings").path("ftpHost").asString())
@@ -25,6 +25,8 @@ class WorkflowLogSanitizerTest {
         assertEquals(WorkflowLogSanitizer.REDACTED, out.path("settings").path("ingestKey").asString())
         assertEquals(WorkflowLogSanitizer.REDACTED, out.path("stappen").path(0).path("token").asString())
         assertTrue(out.path("leeg").path("wachtwoord").isNull)
+        // Een vlag die "secret" heet is zelf geen geheim.
+        assertTrue(out.path("regel").path("secret").isBoolean)
         assertFalse(out.toString().contains("geheim"))
     }
 
