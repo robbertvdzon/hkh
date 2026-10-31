@@ -67,7 +67,7 @@ images:
   newTag: sha-95b81cd
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-95b81cd
+  newTag: sha-08e8928
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-c351486
