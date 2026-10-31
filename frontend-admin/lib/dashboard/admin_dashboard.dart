@@ -257,6 +257,7 @@ class AdminDashboardPage extends StatefulWidget {
     this.showAiCompare = true,
     this.showAiCapacity = false,
     this.showRequestLog = true,
+    this.showWorkflowLog = true,
     super.key,
   });
 
@@ -268,6 +269,7 @@ class AdminDashboardPage extends StatefulWidget {
   final bool showAiCompare;
   final bool showAiCapacity;
   final bool showRequestLog;
+  final bool showWorkflowLog;
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -461,6 +463,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       ],
                 fallback:
                     'Alle AI-vragen en zoekopdrachten met adres en tijden.',
+              ),
+            if (widget.showWorkflowLog)
+              _tile(
+                key: const Key('admin-tile-workflow-logboek'),
+                icon: Icons.fact_check_outlined,
+                title: 'Workflow-logboek',
+                path: '/workflow-logboek',
+                lines: const [],
+                fallback:
+                    'Inlogpogingen en doorlopen van de workflow-app, met alle logs.',
               ),
           ],
         ),

@@ -14,6 +14,7 @@ import 'ai/admin_ai_capacity.dart';
 import 'ai/admin_ai_capacity_result.dart';
 import 'ai/admin_ai_capacity_execution.dart';
 import 'requests/admin_request_log.dart';
+import 'workflow/admin_workflow_log.dart';
 import 'collection/admin_collection_scrape.dart';
 import 'dashboard/admin_dashboard.dart';
 import 'shell/admin_router.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
       aiResearchSource: AdminAiResearchClient(AppConfig.apiBaseUrl),
       aiCapacitySource: AdminAiCapacityClient(AppConfig.apiBaseUrl),
       requestLogSource: AdminRequestLogClient(AppConfig.apiBaseUrl),
+      workflowLogSource: AdminWorkflowLogClient(AppConfig.apiBaseUrl),
     ),
   );
 }
@@ -50,6 +52,7 @@ class HkhAdminApp extends StatefulWidget {
     this.aiResearchSource,
     this.aiCapacitySource,
     this.requestLogSource,
+    this.workflowLogSource,
     this.dashboardSource,
     this.googleButtonBuilder,
     super.key,
@@ -67,6 +70,7 @@ class HkhAdminApp extends StatefulWidget {
 
   /// Logboek van verzoeken; zonder bron ontbreekt dat onderdeel.
   final AdminRequestLogSource? requestLogSource;
+  final AdminWorkflowLogSource? workflowLogSource;
 
   /// Statusgegevens voor de startpagina; zonder bron toont de startpagina alleen de knoppen.
   final AdminDashboardSource? dashboardSource;
@@ -88,6 +92,7 @@ class _HkhAdminAppState extends State<HkhAdminApp> {
         aiResearchSource: widget.aiResearchSource,
         aiCapacitySource: widget.aiCapacitySource,
         requestLogSource: widget.requestLogSource,
+        workflowLogSource: widget.workflowLogSource,
         dashboardSource: widget.dashboardSource,
         path: path,
         onNavigate: go,
@@ -127,6 +132,7 @@ class AdminGate extends StatefulWidget {
     this.aiResearchSource,
     this.aiCapacitySource,
     this.requestLogSource,
+    this.workflowLogSource,
     this.dashboardSource,
     super.key,
   });
@@ -137,6 +143,7 @@ class AdminGate extends StatefulWidget {
   final AdminAiResearchSource? aiResearchSource;
   final AdminAiCapacitySource? aiCapacitySource;
   final AdminRequestLogSource? requestLogSource;
+  final AdminWorkflowLogSource? workflowLogSource;
   final AdminDashboardSource? dashboardSource;
   final Widget Function() googleButtonBuilder;
 
@@ -239,6 +246,7 @@ class _AdminGateState extends State<AdminGate> {
         aiResearchSource: widget.aiResearchSource,
         aiCapacitySource: widget.aiCapacitySource,
         requestLogSource: widget.requestLogSource,
+        workflowLogSource: widget.workflowLogSource,
         dashboardSource: widget.dashboardSource,
         onSignOut: _signOut,
       );
@@ -331,6 +339,7 @@ class _AdminShell extends StatelessWidget {
     this.aiResearchSource,
     this.aiCapacitySource,
     this.requestLogSource,
+    this.workflowLogSource,
     this.dashboardSource,
   });
 
@@ -342,6 +351,7 @@ class _AdminShell extends StatelessWidget {
   final AdminAiResearchSource? aiResearchSource;
   final AdminAiCapacitySource? aiCapacitySource;
   final AdminRequestLogSource? requestLogSource;
+  final AdminWorkflowLogSource? workflowLogSource;
   final AdminDashboardSource? dashboardSource;
   final VoidCallback onSignOut;
 
@@ -350,6 +360,7 @@ class _AdminShell extends StatelessWidget {
       ? null
       : switch (path) {
           AdminPaths.requestLog ||
+          AdminPaths.workflowLog ||
           AdminPaths.aiCompare ||
           AdminPaths.aiCapacity => null,
           AdminPaths.start => 1000,
@@ -369,6 +380,18 @@ class _AdminShell extends StatelessWidget {
               campaignId: executionIds[0],
               runId: executionIds[1],
               onNavigate: onNavigate,
+            );
+    }
+    final workflowSession = AdminPaths.workflowSessionId(path);
+    if (workflowSession != null) {
+      final source = workflowLogSource;
+      return source == null
+          ? const Text('Het workflow-logboek is niet beschikbaar.')
+          : AdminWorkflowSessionPage(
+              key: ValueKey(path),
+              identity: identity,
+              source: source,
+              sessionId: workflowSession,
             );
     }
     final resultIds = AdminPaths.resultIds(path);
@@ -414,6 +437,16 @@ class _AdminShell extends StatelessWidget {
         return source == null
             ? const Text('Het logboek is niet beschikbaar.')
             : AdminRequestLogPage(identity: identity, source: source);
+      case AdminPaths.workflowLog:
+        final source = workflowLogSource;
+        return source == null
+            ? const Text('Het workflow-logboek is niet beschikbaar.')
+            : AdminWorkflowLogPage(
+                identity: identity,
+                source: source,
+                onOpenSession: (id) =>
+                    onNavigate(AdminPaths.workflowSession(id)),
+              );
       default:
         return AdminDashboardPage(
           identity: identity,
@@ -423,6 +456,7 @@ class _AdminShell extends StatelessWidget {
           showAiCompare: aiResearchSource != null,
           showAiCapacity: aiCapacitySource != null,
           showRequestLog: requestLogSource != null,
+          showWorkflowLog: workflowLogSource != null,
         );
     }
   }
@@ -440,8 +474,10 @@ class _AdminShell extends StatelessWidget {
                 tooltip: 'Terug naar het overzicht',
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => onNavigate(
-                  AdminPaths.resultIds(path) == null &&
-                          AdminPaths.executionIds(path) == null
+                  AdminPaths.workflowSessionId(path) != null
+                      ? AdminPaths.workflowLog
+                      : AdminPaths.resultIds(path) == null &&
+                            AdminPaths.executionIds(path) == null
                       ? AdminPaths.start
                       : AdminPaths.aiCapacity,
                 ),

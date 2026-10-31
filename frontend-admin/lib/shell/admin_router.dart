@@ -11,6 +11,7 @@ class AdminPaths {
   static const aiCapacity = '/ai-capaciteit';
   static const aiCompare = '/ai-vergelijken';
   static const requestLog = '/logboek';
+  static const workflowLog = '/workflow-logboek';
 
   static const all = [
     start,
@@ -19,6 +20,7 @@ class AdminPaths {
     aiCompare,
     aiCapacity,
     requestLog,
+    workflowLog,
   ];
 
   static String capacityResult(String campaignId, String runId) =>
@@ -41,19 +43,36 @@ class AdminPaths {
         : null;
   }
 
+  static String workflowSession(String id) => '$workflowLog/$id';
+
+  /// De sessie-id uit `/workflow-logboek/{uuid}`, of null als het pad dat niet is.
+  static String? workflowSessionId(String path) {
+    final segments = Uri.parse(path).pathSegments;
+    return segments.length == 2 &&
+            segments[0] == 'workflow-logboek' &&
+            RegExp(
+              r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+            ).hasMatch(segments[1])
+        ? segments[1].toLowerCase()
+        : null;
+  }
+
   /// Onbekende adressen vallen terug op de startpagina.
   static String normalise(String path) {
     final clean = path.length > 1 && path.endsWith('/')
         ? path.substring(0, path.length - 1)
         : path;
     return all.contains(clean) ||
+            workflowSessionId(clean) != null ||
             resultIds(clean) != null ||
             executionIds(clean) != null
         ? clean
         : start;
   }
 
-  static String title(String path) => executionIds(path) != null
+  static String title(String path) => workflowSessionId(path) != null
+      ? 'Doorloop van de workflow-app'
+      : executionIds(path) != null
       ? 'Uitvoeringsdetails'
       : resultIds(path) != null
       ? 'Testresultaat'
@@ -63,6 +82,7 @@ class AdminPaths {
           aiCapacity => 'Capaciteitstests',
           aiCompare => 'AI vergelijken',
           requestLog => 'Logboek van verzoeken',
+          workflowLog => 'Workflow-logboek',
           _ => 'Overzicht',
         };
 }
