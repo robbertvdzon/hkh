@@ -64,10 +64,10 @@ patches:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-d6f9563
+  newTag: sha-ddb2eca
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-d6f9563
+  newTag: sha-ddb2eca
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
   newTag: sha-c351486
