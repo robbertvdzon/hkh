@@ -41,6 +41,10 @@ sessiegeheim klopt niet, `429` met `Retry-After: 60` bij te veel meldingen, `507
   (`hkh.workflow-log.forwarded-hops`, standaard 1 omdat de nginx van het beheerscherm er nog één bijzet). Wat links daarvan staat
   en `CF-Connecting-IP` kan een afzender zelf verzinnen.
 - Maximaal 1 MB per bericht; de lengte van alle tekstvelden wordt afgekapt.
+- Uitzondering, tijdelijk: het veld `ftpPassword` blijft leesbaar (`hkh.workflow-log.keep-ftp-password`, standaard aan), zodat de
+  beheerder in het begin kan controleren wat er in de workflow-app is ingesteld. Zet `HKH_WORKFLOW_LOG_KEEP_FTP_PASSWORD=false` op de
+  backend (of het vinkje uit in de instellingen van de app) zodra dat niet meer nodig is; reeds bewaarde sessies houden dan nog wel het
+  wachtwoord in hun momentopname.
 - Velden die op een geheim lijken (`password`, `wachtwoord`, `secret`, `token`, `...key`) worden vóór het bewaren vervangen. De
   app filtert ze ook zelf.
 - Alles wat binnenkomt is ongecontroleerd: het beheerscherm toont het als platte tekst en zegt dat het indicatief is.

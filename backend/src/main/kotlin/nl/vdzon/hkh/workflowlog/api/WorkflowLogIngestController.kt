@@ -39,8 +39,14 @@ class WorkflowLogIngestController(
     private val objectMapper: ObjectMapper,
     /** Hoeveel adressen aan het eind van X-Forwarded-For door onze eigen proxies zijn toegevoegd (de nginx van het beheerscherm voegt er één toe). */
     @param:Value("\${hkh.workflow-log.forwarded-hops:1}") private val forwardedHops: Int,
+    /**
+     * Blijft het veld `ftpPassword` van de instellingen leesbaar in het logboek? Zo kan de beheerder in het begin controleren wat er is
+     * ingesteld. Zet dit op false (HKH_WORKFLOW_LOG_KEEP_FTP_PASSWORD) zodra dat niet meer nodig is; dan wordt het weer weggelaten,
+     * wat de app ook stuurt.
+     */
+    @param:Value("\${hkh.workflow-log.keep-ftp-password:true}") keepFtpPassword: Boolean,
 ) {
-    private val sanitizer = WorkflowLogSanitizer(objectMapper)
+    private val sanitizer = WorkflowLogSanitizer(objectMapper, if (keepFtpPassword) setOf("ftpPassword") else emptySet())
     private val cachedSessionCount = AtomicLong(0)
     private val countedAtMillis = AtomicLong(0)
 

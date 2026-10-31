@@ -37,7 +37,7 @@ class WorkflowLogApiIntegrationTest(
         """{"kind":"NEW_FILES","secret":"$secret","user":"carla","collection":"archief","appVersion":"1.2.3","computer":"PC-CARLA",
             "phase":$phase,"phaseCount":7,"phaseLabel":"Bestanden kiezen","status":"$status","fileCount":12,
             ${event?.let { """"event":"$it",""" } ?: ""}
-            "snapshot":{"settings":{"ftpHost":"ftp.example.org","ftpPassword":"nooit-zichtbaar"},"bestanden":["a.pdf","b.pdf"],"consoles":{"images":"regel 1\nregel 2"}}$extra}"""
+            "snapshot":{"settings":{"ftpHost":"ftp.example.org","ftpPassword":"ftp-zichtbaar","adminPassword":"nooit-zichtbaar"},"bestanden":["a.pdf","b.pdf"],"consoles":{"images":"regel 1\nregel 2"}}$extra}"""
 
     private fun put(id: UUID, json: String, withKey: Boolean = true, ip: String = "203.0.113.50") =
         mockMvc.put("/api/workflow-log/sessions/$id") {
@@ -67,6 +67,8 @@ class WorkflowLogApiIntegrationTest(
         val detail = admin("/api/admin/workflow-log/sessions/$id").andExpect { status { isOk() } }.andReturn().response.contentAsString
         assertTrue("regel 1" in detail && "ftp.example.org" in detail, detail)
         assertTrue("nooit-zichtbaar" !in detail, detail)
+        // Het ftp-wachtwoord blijft standaard leesbaar, zodat de beheerder de instelling kan controleren.
+        assertTrue("ftp-zichtbaar" in detail, detail)
         val events = service.session(id)!!.events
         assertEquals(listOf("Sessie gestart", "images.exe gestart", "Klaar"), events.map { it.message })
         // Een geldige sessie kan met een andere kind-lijst niet worden opgevraagd.

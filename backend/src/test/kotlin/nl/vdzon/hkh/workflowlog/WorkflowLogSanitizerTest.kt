@@ -31,6 +31,15 @@ class WorkflowLogSanitizerTest {
     }
 
     @Test
+    fun `een veld dat bewust leesbaar blijft wordt niet vervangen, de andere geheimen wel`() {
+        val input = mapper.readTree("""{"ftpPassword":"ftp-zichtbaar","adminPassword":"admin-geheim"}""")
+        val out = WorkflowLogSanitizer(mapper, setOf("ftpPassword")).clean(input)
+        assertEquals("ftp-zichtbaar", out.path("ftpPassword").asString())
+        assertEquals(WorkflowLogSanitizer.REDACTED, out.path("adminPassword").asString())
+        assertEquals(WorkflowLogSanitizer.REDACTED, sanitizer.clean(input).path("ftpPassword").asString())
+    }
+
+    @Test
     fun `NUL-tekens verdwijnen en alleen een object is een geldige momentopname`() {
         assertEquals("ab", sanitizer.clean(mapper.readTree("""{"t":"a\u0000b"}""")).path("t").asString())
         assertEquals("ab", sanitizer.text(" a\u0000b ", 10))

@@ -8,9 +8,9 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Het meldpunt is open, dus wat binnenkomt wordt schoongemaakt voordat het wordt bewaard: waarden van velden die
  * op een geheim lijken worden vervangen (de app filtert ze ook zelf), NUL-tekens verdwijnen (Postgres weigert ze)
- * en te diepe structuren worden afgekapt.
+ * en te diepe structuren worden afgekapt. Velden met een naam in [keepNames] blijven leesbaar (zie `hkh.workflow-log.keep-ftp-password`).
  */
-class WorkflowLogSanitizer(private val mapper: ObjectMapper) {
+class WorkflowLogSanitizer(private val mapper: ObjectMapper, private val keepNames: Set<String> = emptySet()) {
     fun clean(node: JsonNode?): JsonNode = node?.takeIf { it.isObject }?.let { copy(it, 0) } ?: mapper.createObjectNode()
 
     fun text(value: String?, max: Int): String? = value?.replace("\u0000", "")?.trim()?.take(max)?.takeIf { it.isNotEmpty() }
@@ -21,7 +21,7 @@ class WorkflowLogSanitizer(private val mapper: ObjectMapper) {
             val out: ObjectNode = mapper.createObjectNode()
             node.properties().forEach { (name, value) ->
                 val key = name.replace("\u0000", "")
-                out.set(key, if (isSecretName(key) && (value.isString || value.isNumber)) mapper.nodeFactory.stringNode(REDACTED) else copy(value, depth + 1))
+                out.set(key, if (key !in keepNames && isSecretName(key) && (value.isString || value.isNumber)) mapper.nodeFactory.stringNode(REDACTED) else copy(value, depth + 1))
             }
             out
         }
