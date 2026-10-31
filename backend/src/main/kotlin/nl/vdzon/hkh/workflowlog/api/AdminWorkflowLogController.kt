@@ -8,7 +8,10 @@ import nl.vdzon.hkh.workflowlog.AppLogOverviewRow
 import nl.vdzon.hkh.workflowlog.AppLogPage
 import nl.vdzon.hkh.workflowlog.WorkflowAppLogService
 import nl.vdzon.hkh.workflowlog.WorkflowKind
+import nl.vdzon.hkh.workflowlog.SettingsChangeDetail
+import nl.vdzon.hkh.workflowlog.SettingsChangeSummary
 import nl.vdzon.hkh.workflowlog.WorkflowLogService
+import nl.vdzon.hkh.workflowlog.WorkflowSettingsChangeService
 import nl.vdzon.hkh.workflowlog.WorkflowLoginEntry
 import nl.vdzon.hkh.workflowlog.WorkflowSessionDetail
 import nl.vdzon.hkh.workflowlog.WorkflowSessionSummary
@@ -27,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException
 class AdminWorkflowLogController(
     private val service: WorkflowLogService,
     private val appLogService: WorkflowAppLogService,
+    private val settingsChangeService: WorkflowSettingsChangeService,
     private val authenticator: AdminAuthenticator,
 ) {
     @GetMapping("/logins")
@@ -111,5 +115,28 @@ class AdminWorkflowLogController(
     ): List<String> {
         authenticator.authenticate(authorization, previewHeader)
         return appLogService.versions()
+    }
+
+    /** Wijzigingen in de instellingen van de workflow-app, nieuwste eerst, met per wijziging de gewijzigde velden (oud en nieuw). */
+    @GetMapping("/settings-changes")
+    fun settingsChanges(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @RequestParam(required = false) limit: Int?,
+        @RequestParam(required = false) source: String?,
+    ): List<SettingsChangeSummary> {
+        authenticator.authenticate(authorization, previewHeader)
+        return settingsChangeService.changes(limit ?: WorkflowSettingsChangeService.DEFAULT_LIMIT, source?.takeIf { it.isNotBlank() })
+    }
+
+    /** Eén wijziging met de volledige nieuwe instellingen. */
+    @GetMapping("/settings-changes/{id}")
+    fun settingsChange(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @PathVariable id: Long,
+    ): SettingsChangeDetail {
+        authenticator.authenticate(authorization, previewHeader)
+        return settingsChangeService.change(id) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Wijziging niet gevonden")
     }
 }

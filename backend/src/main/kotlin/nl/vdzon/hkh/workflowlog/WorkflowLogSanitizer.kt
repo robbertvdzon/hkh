@@ -13,6 +13,17 @@ import tools.jackson.databind.node.ObjectNode
 class WorkflowLogSanitizer(private val mapper: ObjectMapper, private val keepNames: Set<String> = emptySet()) {
     fun clean(node: JsonNode?): JsonNode = node?.takeIf { it.isObject }?.let { copy(it, 0) } ?: mapper.createObjectNode()
 
+    /**
+     * De waarde van een gewijzigd veld ([field] met punten voor nesting, bijvoorbeeld `collections.archief.imagesResolution`): weggelaten als het veld
+     * op een geheim lijkt en niet in [keepNames] staat, anders ontdaan van NUL-tekens, van wachtwoorden in de tekst en afgekapt op [max].
+     */
+    fun fieldValue(field: String, value: String?, max: Int): String? {
+        if (value == null) return null
+        val name = field.substringAfterLast('.')
+        if (name !in keepNames && isSecretName(name)) return REDACTED
+        return AppLogMasker.mask(value.replace("\u0000", "")).take(max)
+    }
+
     fun text(value: String?, max: Int): String? = value?.replace("\u0000", "")?.trim()?.take(max)?.takeIf { it.isNotEmpty() }
 
     private fun copy(node: JsonNode, depth: Int): JsonNode = when {

@@ -30,7 +30,7 @@ class DatabaseIntegrationTest(
         )
 
         assertEquals("HKH technical baseline", metadata)
-        assertEquals(33L, successfulMigrations)
+        assertEquals(34L, successfulMigrations)
         assertEquals(
             0L,
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM latest_news", Long::class.java),

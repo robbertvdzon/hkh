@@ -3,10 +3,10 @@
 De Windows-app `hkh-workflow` (de wrapper rond ZCBS die Carla gebruikt) meldt aan de backend wat er gebeurt, zodat de beheerder
 het in het beheerscherm kan terugkijken: elke inlogpoging, elke doorloop "nieuwe bestanden in ZCBS zetten" en elke doorloop
 "records aanpassen", met alle instellingen, gekozen bestanden, stappen en de uitvoer van de programma's. Daarnaast stuurt de app
-zijn eigen logregels (INFO en hoger) op, het **app-log** (zie hieronder).
+zijn eigen logregels (INFO en hoger) op, het **app-log**, en elke wijziging van zijn instellingen, het **instellingenlogboek** (zie hieronder).
 
 Backend: module `workflowlog`. Beheerscherm: `frontend-admin/lib/workflow/admin_workflow_log.dart`, pagina `/workflow-logboek`
-(tabbladen Aangemaakt, Aangepast, Inloggen en App-log) en `/workflow-logboek/{uuid}` voor de volledige log van één doorloop.
+(tabbladen Aangemaakt, Aangepast, Inloggen, App-log en Instellingen) en `/workflow-logboek/{uuid}` voor de volledige log van één doorloop.
 
 ## Meldpunt (zonder inlog)
 
@@ -18,6 +18,7 @@ De endpoints vragen geen inlog, maar wel de kop `X-HKH-Workflow-Key` met een vas
 | `POST /api/workflow-log/logins` | Een inlogpoging: `{user, success, method: PASSWORD\|COOKIE, detail?, appVersion?, computer?, source?}` |
 | `PUT /api/workflow-log/sessions/{uuid}` | Maakt de sessie aan of vervangt haar momentopname |
 | `POST /api/workflow-log/app-logs` | Een pakketje logregels van de app (zie "App-log") |
+| `POST /api/workflow-log/settings-changes` | Een wijziging van de instellingen van de app (zie "Instellingen") |
 
 Een sessiebericht: `{kind: NEW_FILES\|EDIT, secret, user, collection, appVersion, computer, phase, phaseCount, phaseLabel,
 status: RUNNING\|FINISHED\|FAILED, fileCount, event?, snapshot, source?}`.
@@ -106,3 +107,51 @@ computer zonder pakketje in 24 uur is grijs, een klik op een rij filtert op die 
 versie en zoektekst) en de regels in een monospace-lijst met tijd, niveau, versie, ingekorte logger en bericht; een stacktrace is
 uitklapbaar. "Meer laden" haalt de volgende, oudere pagina. Alles is platte tekst en selecteerbaar. Omdat de app alleen stuurt als er
 nieuwe regels zijn, betekent een grijze regel niet per se dat de app uit staat.
+
+## Instellingen
+
+Elke keer dat iemand de instellingen van de app opslaat (de pagina Instellingen, of de app zelf, bijvoorbeeld als hij het ftp-wachtwoord
+overneemt van handmatig uitvoeren van images.exe) meldt de app dat. Een opslag waarbij niets verandert, wordt niet gemeld.
+
+`POST /api/workflow-log/settings-changes`, zelfde kop `X-HKH-Workflow-Key` als hierboven:
+
+```
+{ "source": "hkh", "computer": "FILESERVER", "appVersion": "0.0.1-SNAPSHOT+20261031.1405",
+  "user": "carla", "address": "10.0.0.5", "reason": "Instellingen opgeslagen",
+  "changes": [ {"field": "collections.beeldbank.imagesResolution", "old": "6", "new": "2"} ],
+  "settings": { …de volledige nieuwe instellingen… } }
+```
+
+- `source`, `computer` en `reason` zijn verplicht. `user` (de ZCBS-naam van wie het deed) en `address` (het adres van de browser) mogen
+  ontbreken of leeg zijn. `changes` moet een lijst met minstens één en hooguit 300 wijzigingen zijn; elke wijziging heeft een `field` (geneste
+  velden met punten, bijvoorbeeld `collections.archief.imagesResolution`) en een `old` en `new` die tekst of `null` zijn. `settings` moet een
+  JSON-object zijn. Een bericht dat daar niet aan voldoet, geeft `400` en wordt niet bewaard.
+- De ontvanger maakt `settings` schoon met dezelfde `WorkflowLogSanitizer` als de momentopnames van de sessies: velden die op een geheim lijken
+  (`password`, `wachtwoord`, `secret`, `token`, `…key`) worden vervangen door `(weggelaten)`, behalve `ftpPassword` zolang
+  `hkh.workflow-log.keep-ftp-password` aan staat. Dezelfde regel geldt voor de `old` en `new` van een gewijzigd veld (op de laatste naam van
+  `field`), en daarnaast wordt elke waarde gemaskeerd zoals bij het app-log (`AppLogMasker`) en op 2000 tekens afgekapt. Dat een wachtwoord
+  veranderde, blijft dus zichtbaar als een wijziging van `ftpPassword` zonder dat de waarde erbij staat.
+- Antwoorden: `204`, `400`, `401` (sleutel), `429` met `Retry-After: 60` en `507` als het logboek vol zit (5.000 wijzigingen).
+- Limieten (`IngestLimits`, bovenop de gewone limieten): per adres 10 meldingen achter elkaar en daarna 30 per uur, voor alle adressen samen
+  100 achter elkaar en daarna 200 per uur.
+
+Opslag: tabel `workflow_settings_change` (migratie V34), met bron, computer, appversie, gebruiker, adres, reden, de gewijzigde velden en de
+nieuwe instellingen. **Er is geen opruiming**: instellingen veranderen zelden en de bovengrens van 5.000 wijzigingen begrenst de tabel.
+
+### Beheer-API
+
+Zelfde authenticatie als de rest van `/api/admin/workflow-log`:
+
+| Verzoek | Doel |
+|---|---|
+| `GET /settings-changes?source=&limit=` | Lijst, nieuwste eerst: `{id, createdAt, source, computer, appVersion, user, address, reason, changeCount, changes: [{field, old, new}]}`; `limit` standaard 100, maximaal 500 |
+| `GET /settings-changes/{id}` | Dezelfde velden plus `settings` (de volledige nieuwe instellingen); `404` als de wijziging niet bestaat |
+| `GET /sources` | Bevat ook de bronnen uit het instellingenlogboek |
+
+### Het tabblad Instellingen
+
+Een kaart per wijziging, nieuwste eerst: tijd en reden, daaronder bron, computer, versie en wie het deed (met het adres van de browser), en per
+gewijzigd veld één regel `veld: oud → nieuw`. Lange waarden zijn ingekort en klappen uit ("volledige waarden"). Onder "Nieuwe instellingen"
+haalt het scherm pas bij het openen de volledige instellingen op (`GET /settings-changes/{id}`) en toont ze als ingesprongen tekst met
+gesorteerde sleutels, zodat twee wijzigingen goed te vergelijken zijn. Het bronfilter werkt zoals bij de andere tabbladen. Alles is platte
+tekst en selecteerbaar.

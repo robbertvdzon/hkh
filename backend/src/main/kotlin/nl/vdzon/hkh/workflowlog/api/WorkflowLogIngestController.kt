@@ -8,6 +8,8 @@ import java.time.Instant
 import nl.vdzon.hkh.workflowlog.AppLogChunk
 import nl.vdzon.hkh.workflowlog.AppLogLine
 import nl.vdzon.hkh.workflowlog.AppLogMasker
+import nl.vdzon.hkh.workflowlog.SettingChange
+import nl.vdzon.hkh.workflowlog.SettingsChangeReport
 import nl.vdzon.hkh.workflowlog.IngestLimits
 import nl.vdzon.hkh.workflowlog.IngestRateLimiter
 import nl.vdzon.hkh.workflowlog.WorkflowAppLogService
@@ -16,6 +18,7 @@ import nl.vdzon.hkh.workflowlog.WorkflowLogSanitizer
 import nl.vdzon.hkh.workflowlog.WorkflowLogService
 import nl.vdzon.hkh.workflowlog.WorkflowLoginReport
 import nl.vdzon.hkh.workflowlog.WorkflowSessionForbidden
+import nl.vdzon.hkh.workflowlog.WorkflowSettingsChangeService
 import nl.vdzon.hkh.workflowlog.WorkflowSessionReport
 import nl.vdzon.hkh.workflowlog.WorkflowStatus
 import java.util.concurrent.atomic.AtomicLong
@@ -41,6 +44,7 @@ import tools.jackson.databind.ObjectMapper
 class WorkflowLogIngestController(
     private val service: WorkflowLogService,
     private val appLogService: WorkflowAppLogService,
+    private val settingsChangeService: WorkflowSettingsChangeService,
     private val limiter: IngestRateLimiter,
     private val objectMapper: ObjectMapper,
     /** Hoeveel adressen aan het eind van X-Forwarded-For door onze eigen proxies zijn toegevoegd (de nginx van het beheerscherm voegt er één toe). */
@@ -151,6 +155,42 @@ class WorkflowLogIngestController(
         return ResponseEntity.noContent().build()
     }
 
+    /**
+     * Een wijziging van de instellingen van de workflow-app: wie, waarom, per veld de oude en de nieuwe waarde en de volledige nieuwe instellingen.
+     * Wachtwoorden en sleutels worden vervangen, behalve het ftp-wachtwoord als `hkh.workflow-log.keep-ftp-password` aan staat (net als bij de sessies).
+     */
+    @PostMapping("/settings-changes")
+    fun settingsChange(@RequestHeader(INGEST_KEY_HEADER, required = false) key: String?, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
+        val ip = rateKey(request, forwardedHops)
+        if (!limiter.tryAcquire("global", IngestLimits.GLOBAL_PER_MINUTE, IngestLimits.GLOBAL_PER_MINUTE.toDouble()) ||
+            !limiter.tryAcquire("ip:$ip", IngestLimits.IP_PER_MINUTE, IngestLimits.IP_PER_MINUTE.toDouble()) ||
+            !limiter.tryAcquire("settings:all", IngestLimits.SETTINGS_CHANGES_GLOBAL_BURST, IngestLimits.SETTINGS_CHANGES_GLOBAL_PER_HOUR / 60.0) ||
+            !limiter.tryAcquire("settings:$ip", IngestLimits.SETTINGS_CHANGES_PER_IP_BURST, IngestLimits.SETTINGS_CHANGES_PER_IP_PER_HOUR / 60.0)
+        ) return tooMany()
+        if (!keyMatches(key)) return reject(HttpStatus.UNAUTHORIZED, "Sleutel ontbreekt of klopt niet")
+        val root = readJson(request) ?: return reject(HttpStatus.BAD_REQUEST, "Geen geldig bericht (of te groot)")
+        val source = text(root, "source", 80) ?: return reject(HttpStatus.BAD_REQUEST, "source ontbreekt")
+        val computer = text(root, "computer", 120) ?: return reject(HttpStatus.BAD_REQUEST, "computer ontbreekt")
+        val reason = text(root, "reason", 200) ?: return reject(HttpStatus.BAD_REQUEST, "reason ontbreekt")
+        val changesNode = root.get("changes")?.takeIf { it.isArray && it.size() > 0 } ?: return reject(HttpStatus.BAD_REQUEST, "changes moet een lijst met minstens één wijziging zijn")
+        if (changesNode.size() > IngestLimits.MAX_SETTING_CHANGES) return reject(HttpStatus.BAD_REQUEST, "Te veel wijzigingen in een melding")
+        val settingsNode = root.get("settings")?.takeIf { it.isObject } ?: return reject(HttpStatus.BAD_REQUEST, "settings moet een object zijn")
+        val changes = ArrayList<SettingChange>(changesNode.size())
+        for (node in changesNode) {
+            if (!node.isObject) return reject(HttpStatus.BAD_REQUEST, "Een wijziging is geen object")
+            val field = text(node, "field", 200) ?: return reject(HttpStatus.BAD_REQUEST, "Een wijziging heeft geen field")
+            val old = node.get("old")
+            val new = node.get("new")
+            if ((old != null && !old.isNull && !old.isString) || (new != null && !new.isNull && !new.isString)) return reject(HttpStatus.BAD_REQUEST, "old en new moeten tekst of null zijn")
+            changes += SettingChange(field, sanitizer.fieldValue(field, old?.takeIf { it.isString }?.stringValue(), CHANGE_VALUE_MAX_CHARS), sanitizer.fieldValue(field, new?.takeIf { it.isString }?.stringValue(), CHANGE_VALUE_MAX_CHARS))
+        }
+        if (settingsChangeService.count() >= IngestLimits.MAX_STORED_SETTINGS_CHANGES) return reject(HttpStatus.INSUFFICIENT_STORAGE, "Het logboek zit vol")
+        settingsChangeService.record(
+            SettingsChangeReport(source, computer, text(root, "appVersion", 80), text(root, "user", 200), text(root, "address", 64), reason, changes, sanitizer.clean(settingsNode)),
+        )
+        return ResponseEntity.noContent().build()
+    }
+
     private fun text(root: JsonNode, name: String, max: Int): String? = root.get(name)?.takeIf { it.isString }?.let { sanitizer.text(it.stringValue(), max) }
 
     private fun number(root: JsonNode, name: String, max: Int): Int = (root.get(name)?.takeIf { it.isNumber }?.intValue() ?: 0).coerceIn(0, max)
@@ -185,6 +225,9 @@ class WorkflowLogIngestController(
         private val APP_LOG_LEVELS = setOf("INFO", "WARN", "ERROR")
         private const val MESSAGE_MAX_CHARS = 8000
         private const val MESSAGE_SCAN_CHARS = 20_000
+        /** Zo lang mag de oude of nieuwe waarde van een gewijzigd veld zijn (bijvoorbeeld een lijst met mappen). */
+        private const val CHANGE_VALUE_MAX_CHARS = 2000
+
         const val INGEST_KEY_HEADER = "X-HKH-Workflow-Key"
 
         /** Bewust vast en openbaar in de broncode; zie de uitleg bij de klasse. */

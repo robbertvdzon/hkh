@@ -70,6 +70,76 @@ class _WorkflowSource implements AdminWorkflowLogSource {
     source: source,
   );
 
+  final List<String?> settingsAsked = [];
+  final List<int> settingsOpened = [];
+
+  @override
+  Future<List<SettingsChangeEntry>> settingsChanges(
+    AdminIdentity identity, {
+    String? source,
+  }) async {
+    settingsAsked.add(source);
+    return [
+      SettingsChangeEntry(
+        id: 8,
+        createdAt: DateTime(2026, 10, 31, 11, 5, 0),
+        source: 'hkh',
+        computer: 'FILESERVER',
+        appVersion: '0.0.1+20261031.1405',
+        user: 'carla',
+        address: '10.0.0.5',
+        reason: 'Instellingen opgeslagen',
+        changes: [
+          const SettingChange(
+            field: 'testFolder',
+            oldValue: r'C:\oud',
+            newValue: r'C:\nieuw',
+          ),
+          const SettingChange(field: 'ftpPassword', newValue: '(weggelaten)'),
+          SettingChange(
+            field: 'sourceFolders',
+            oldValue: '',
+            newValue: 'Ria=K:\\ria ${'x' * 200}',
+          ),
+        ],
+      ),
+      SettingsChangeEntry(
+        id: 7,
+        createdAt: DateTime(2026, 10, 30, 9, 0, 0),
+        source: 'macbook',
+        computer: 'MAC-ROBBERT',
+        reason: 'Het FTP-wachtwoord is overgenomen',
+        changes: const [
+          SettingChange(field: 'ftpPassword', newValue: '(weggelaten)'),
+        ],
+      ),
+    ];
+  }
+
+  @override
+  Future<SettingsChangeEntry> settingsChange(
+    AdminIdentity identity,
+    int id,
+  ) async {
+    settingsOpened.add(id);
+    return SettingsChangeEntry(
+      id: id,
+      createdAt: DateTime(2026, 10, 31, 11, 5, 0),
+      source: 'hkh',
+      computer: 'FILESERVER',
+      reason: 'Instellingen opgeslagen',
+      changes: const [],
+      settings: {
+        'testFolder': r'C:\nieuw',
+        'collections': {
+          'beeldbank': {'imagesResolution': '2'},
+          'archief': {'imagesResolution': '6'},
+        },
+        'ftpHost': '<b>ftp</b>',
+      },
+    );
+  }
+
   final List<AppLogFilter> appLogFilters = [];
   final List<String?> appLogBefore = [];
 
@@ -419,6 +489,140 @@ void main() {
     expect(source.appLogFilters.last.source, 'macbook');
     expect(source.appLogFilters.last.computer, 'MAC-ROBBERT');
   });
+
+  testWidgets(
+    'the administrator reads the settings changes and opens the new settings',
+    (tester) async {
+      final source = _WorkflowSource();
+      await tester.binding.setSurfaceSize(const Size(1800, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        HkhAdminApp(
+          sessionSource: _AuthenticatedSession(),
+          scrapeSource: _ScrapeSource(),
+          workflowLogSource: source,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tile = find.byKey(const Key('admin-tile-workflow-logboek'));
+      await tester.ensureVisible(tile);
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('workflow-log-tabs')),
+          matching: find.text('Instellingen'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Wie, wanneer en waarom, en per veld oud → nieuw als platte tekst.
+      // (De laatst gekozen bron blijft tussen tests bewaard; hier telt alleen dat de lijst één keer is gevraagd.)
+      expect(source.settingsAsked, hasLength(1));
+      expect(find.byKey(const Key('settings-changes')), findsOneWidget);
+      expect(
+        find.text('31-10 11:05:00  ·  Instellingen opgeslagen'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'hkh  ·  FILESERVER  ·  0.0.1+20261031.1405  ·  carla (10.0.0.5)',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('macbook  ·  MAC-ROBBERT  ·  gebruiker onbekend'),
+        findsOneWidget,
+      );
+      expect(find.text(r'testFolder: C:\oud → C:\nieuw'), findsOneWidget);
+      expect(
+        find.text('ftpPassword: (niet ingesteld) → (weggelaten)'),
+        findsNWidgets(2),
+      );
+      expect(
+        find.textContaining('sourceFolders: (leeg) → Ria='),
+        findsOneWidget,
+      );
+      expect(find.textContaining('x' * 150), findsNothing);
+      expect(find.text('2 wijzigingen'), findsOneWidget);
+
+      // Een lange waarde is ingekort en klapt uit.
+      await tester.ensureVisible(
+        find.byKey(const Key('settings-expand-values-8')),
+      );
+      await tester.tap(find.byKey(const Key('settings-expand-values-8')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('x' * 150), findsOneWidget);
+      expect(find.text('▾ waarden inkorten'), findsOneWidget);
+
+      // De nieuwe instellingen worden pas bij het openen opgehaald, met gesorteerde sleutels en als platte tekst.
+      expect(source.settingsOpened, isEmpty);
+      await tester.ensureVisible(find.byKey(const Key('settings-new-8')));
+      await tester.tap(find.byKey(const Key('settings-new-8')));
+      await tester.pumpAndSettle();
+      expect(source.settingsOpened, [8]);
+      final json = tester
+          .widget<SelectableText>(
+            find.descendant(
+              of: find.byKey(const Key('settings-json-8')),
+              matching: find.byType(SelectableText),
+            ),
+          )
+          .data!;
+      expect(json, contains('"ftpHost": "<b>ftp</b>"'));
+      expect(json.indexOf('"archief"'), lessThan(json.indexOf('"beeldbank"')));
+      expect(
+        json.indexOf('"collections"'),
+        lessThan(json.indexOf('"ftpHost"')),
+      );
+      expect(json.indexOf('"ftpHost"'), lessThan(json.indexOf('"testFolder"')));
+
+      // Filteren op bron vraagt de lijst opnieuw met die bron.
+      await tester.tap(find.byKey(const Key('workflow-log-source')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('windows-laptop').last);
+      await tester.pumpAndSettle();
+      expect(source.settingsAsked, hasLength(2));
+      expect(source.settingsAsked.last, 'windows-laptop');
+    },
+  );
+
+  test(
+    'the client reads the settings changes and the new settings of one change',
+    () async {
+      final urls = <Uri>[];
+      final client = AdminWorkflowLogClient(
+        'https://api.example',
+        client: MockClient((request) async {
+          urls.add(request.url);
+          if (request.url.path.endsWith('/settings-changes/9')) {
+            return http.Response(
+              '{"id":9,"createdAt":"2026-10-31T10:05:00Z","source":"hkh","computer":"PC","reason":"x","changeCount":0,"changes":[],"settings":{"testFolder":"C:\\\\nieuw"}}',
+              200,
+            );
+          }
+          return http.Response(
+            '[{"id":9,"createdAt":"2026-10-31T10:05:00Z","source":"hkh","computer":"PC","appVersion":"1.0","user":null,"address":"10.0.0.5","reason":"Instellingen opgeslagen","changeCount":2,"changes":[{"field":"a","old":null,"new":"1"},{"field":"b","old":"2","new":""}]}]',
+            200,
+          );
+        }),
+      );
+      const identity = AdminIdentity('admin');
+      final list = await client.settingsChanges(identity, source: 'hkh');
+      expect(urls.last.path, '/api/admin/workflow-log/settings-changes');
+      expect(urls.last.queryParameters, {'limit': '200', 'source': 'hkh'});
+      expect(list.single.user, isNull);
+      expect(list.single.address, '10.0.0.5');
+      expect(list.single.changes.first.oldValue, isNull);
+      expect(list.single.changes.first.newValue, '1');
+      expect(list.single.changes.last.newValue, '');
+      expect(list.single.settings, isNull);
+
+      final detail = await client.settingsChange(identity, 9);
+      expect(urls.last.path, '/api/admin/workflow-log/settings-changes/9');
+      expect(detail.settings, {'testFolder': r'C:\nieuw'});
+    },
+  );
 
   test(
     'the client asks for the app log with the chosen filters and reads the answer',

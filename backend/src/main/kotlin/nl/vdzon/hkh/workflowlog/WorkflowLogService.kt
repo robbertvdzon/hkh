@@ -81,7 +81,7 @@ class WorkflowLogService(private val jdbc: JdbcTemplate, private val objectMappe
 
     /** De bronnen die ooit iets hebben gemeld, alfabetisch. */
     fun sources(): List<String> = jdbc.queryForList(
-        "SELECT source FROM (SELECT source FROM workflow_login UNION SELECT source FROM workflow_session UNION SELECT source FROM workflow_app_log) s WHERE source IS NOT NULL ORDER BY source",
+        "SELECT source FROM (SELECT source FROM workflow_login UNION SELECT source FROM workflow_session UNION SELECT source FROM workflow_app_log UNION SELECT source FROM workflow_settings_change) s WHERE source IS NOT NULL ORDER BY source",
         String::class.java,
     )
 

@@ -68,6 +68,18 @@ object IngestLimits {
     const val APP_LOGS_GLOBAL_BURST = 100
     const val APP_LOGS_GLOBAL_PER_HOUR = 200
 
+    /** Meldingen van gewijzigde instellingen: dat gebeurt zelden, dus de limieten zijn krap. */
+    const val SETTINGS_CHANGES_PER_IP_BURST = 10
+    const val SETTINGS_CHANGES_PER_IP_PER_HOUR = 30
+    const val SETTINGS_CHANGES_GLOBAL_BURST = 100
+    const val SETTINGS_CHANGES_GLOBAL_PER_HOUR = 200
+
+    /** Zoveel gewijzigde velden per melding. */
+    const val MAX_SETTING_CHANGES = 300
+
+    /** Zoveel meldingen bewaart het logboek hooguit; daarna worden nieuwe geweigerd tot er ruimte is gemaakt (zoals bij de sessies). */
+    const val MAX_STORED_SETTINGS_CHANGES = 5_000
+
     /** Zoveel regels per pakketje; de grootte van het hele bericht is begrensd door [MAX_BODY_BYTES]. */
     const val MAX_APP_LOG_LINES = 5000
 }

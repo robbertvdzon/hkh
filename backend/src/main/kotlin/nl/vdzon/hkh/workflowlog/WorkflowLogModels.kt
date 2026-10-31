@@ -86,3 +86,24 @@ data class AppLogOverviewRow(
     val source: String, val computer: String, val appVersion: String?, val lastSeen: Instant,
     val lines24h: Int, val warnings24h: Int, val errors24h: Int,
 )
+
+/** Eén gewijzigd veld van de instellingen; geneste velden heten bijvoorbeeld `collections.archief.imagesResolution`. [old] en [new] zijn tekst of null. */
+data class SettingChange(val field: String, val old: String?, val new: String?)
+
+/** Een melding dat de instellingen van de workflow-app zijn gewijzigd. [user] is de ZCBS-naam van wie het deed, [address] het adres van de browser. */
+data class SettingsChangeReport(
+    val source: String, val computer: String, val appVersion: String?, val user: String?, val address: String?, val reason: String,
+    val changes: List<SettingChange>, val settings: JsonNode,
+)
+
+/** Een wijziging zoals het beheerscherm hem toont in de lijst, zonder de volledige instellingen. */
+data class SettingsChangeSummary(
+    val id: Long, val createdAt: Instant, val source: String, val computer: String, val appVersion: String?, val user: String?,
+    val address: String?, val reason: String, val changeCount: Int, val changes: List<SettingChange>,
+)
+
+/** Een wijziging met de volledige nieuwe instellingen. */
+data class SettingsChangeDetail(
+    val id: Long, val createdAt: Instant, val source: String, val computer: String, val appVersion: String?, val user: String?,
+    val address: String?, val reason: String, val changeCount: Int, val changes: List<SettingChange>, val settings: JsonNode,
+)

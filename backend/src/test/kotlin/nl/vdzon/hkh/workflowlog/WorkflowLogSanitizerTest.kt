@@ -55,4 +55,18 @@ class WorkflowLogSanitizerTest {
         repeat(40) { json = """{"a":$json}""" }
         assertTrue(sanitizer.clean(mapper.readTree(json)).toString().contains("te diep"))
     }
+
+    @Test
+    fun `de waarde van een gewijzigd veld wordt weggelaten, gemaskeerd of afgekapt`() {
+        val keep = WorkflowLogSanitizer(mapper, setOf("ftpPassword"))
+        assertNull(sanitizer.fieldValue("testFolder", null, 100))
+        assertEquals("C:\\invoer", sanitizer.fieldValue("testFolder", "C:\\invoer", 100))
+        assertEquals(WorkflowLogSanitizer.REDACTED, sanitizer.fieldValue("ftpPassword", "geheim", 100))
+        assertEquals(WorkflowLogSanitizer.REDACTED, keep.fieldValue("adminPassword", "geheim", 100))
+        assertEquals(WorkflowLogSanitizer.REDACTED, keep.fieldValue("collections.archief.apiKey", "k", 100))
+        assertEquals("geheim", keep.fieldValue("ftpPassword", "geheim", 100))
+        assertEquals("abcde", sanitizer.fieldValue("sourceFolders", "abcdefgh", 5))
+        assertEquals("ftp://ZCBS:***@host", sanitizer.fieldValue("remark", "ftp://ZCBS:geheim@host", 100))
+        assertEquals("ab", sanitizer.fieldValue("remark", "a\u0000b", 100))
+    }
 }

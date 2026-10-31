@@ -275,7 +275,73 @@ class AppLogFilter {
   final String? query;
 }
 
+/// Eén gewijzigd veld van de instellingen; geneste velden heten bijvoorbeeld `collections.archief.imagesResolution`.
+class SettingChange {
+  const SettingChange({required this.field, this.oldValue, this.newValue});
+
+  factory SettingChange.fromJson(Map<String, dynamic> json) => SettingChange(
+    field: json['field'] as String? ?? '',
+    oldValue: json['old'] as String?,
+    newValue: json['new'] as String?,
+  );
+
+  final String field;
+  final String? oldValue;
+  final String? newValue;
+}
+
+/// Een wijziging van de instellingen van de workflow-app: wie, waarom en welke velden. Alleen het detail
+/// (`GET /settings-changes/{id}`) bevat de volledige nieuwe [settings].
+class SettingsChangeEntry {
+  const SettingsChangeEntry({
+    required this.id,
+    required this.createdAt,
+    required this.source,
+    required this.computer,
+    required this.reason,
+    required this.changes,
+    this.appVersion,
+    this.user,
+    this.address,
+    this.settings,
+  });
+
+  factory SettingsChangeEntry.fromJson(Map<String, dynamic> json) =>
+      SettingsChangeEntry(
+        id: (json['id'] as num).toInt(),
+        createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+        source: json['source'] as String? ?? '',
+        computer: json['computer'] as String? ?? '',
+        appVersion: json['appVersion'] as String?,
+        user: json['user'] as String?,
+        address: json['address'] as String?,
+        reason: json['reason'] as String? ?? '',
+        changes: [
+          for (final change in (json['changes'] as List<dynamic>? ?? const []))
+            SettingChange.fromJson(change as Map<String, dynamic>),
+        ],
+        settings: json['settings'] as Map<String, dynamic>?,
+      );
+
+  final int id;
+  final DateTime createdAt;
+  final String source;
+  final String computer;
+  final String? appVersion;
+  final String? user;
+  final String? address;
+  final String reason;
+  final List<SettingChange> changes;
+  final Map<String, dynamic>? settings;
+}
+
 abstract interface class AdminWorkflowLogSource {
+  Future<List<SettingsChangeEntry>> settingsChanges(
+    AdminIdentity identity, {
+    String? source,
+  });
+  Future<SettingsChangeEntry> settingsChange(AdminIdentity identity, int id);
+
   Future<List<AppLogOverviewRow>> appLogOverview(AdminIdentity identity);
   Future<List<String>> appLogVersions(AdminIdentity identity);
   Future<AppLogPage> appLogs(
@@ -394,6 +460,27 @@ class AdminWorkflowLogClient implements AdminWorkflowLogSource {
   );
 
   @override
+  Future<List<SettingsChangeEntry>> settingsChanges(
+    AdminIdentity identity, {
+    String? source,
+  }) async =>
+      ((await _get(identity, '/settings-changes', {
+                'limit': '200',
+                if (source != null) 'source': source,
+              }))
+              as List<dynamic>)
+          .map((e) => SettingsChangeEntry.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
+
+  @override
+  Future<SettingsChangeEntry> settingsChange(
+    AdminIdentity identity,
+    int id,
+  ) async => SettingsChangeEntry.fromJson(
+    (await _get(identity, '/settings-changes/$id')) as Map<String, dynamic>,
+  );
+
+  @override
   Future<WorkflowSessionDetail> session(
     AdminIdentity identity,
     String id,
@@ -443,7 +530,19 @@ String _describeError(Object error) => error is StateError
     ? error.message
     : 'Het logboek kon niet worden geladen.';
 
-enum _Tab { logins, created, edited, appLog }
+/// De sleutels recursief gesorteerd, zodat de instellingen van twee wijzigingen goed te vergelijken zijn.
+Object? _sortedKeys(Object? value) => switch (value) {
+  Map<String, dynamic> map => {
+    for (final key in (map.keys.toList()..sort())) key: _sortedKeys(map[key]),
+  },
+  List<dynamic> list => [for (final item in list) _sortedKeys(item)],
+  _ => value,
+};
+
+String _prettyJson(Object? value) =>
+    const JsonEncoder.withIndent('  ').convert(_sortedKeys(value));
+
+enum _Tab { logins, created, edited, appLog, settings }
 
 /// De laatst gekozen tab, zodat je na een sessie weer op dezelfde lijst terugkomt.
 _Tab _lastTab = _Tab.created;
@@ -477,6 +576,9 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   bool _loading = true;
   String? _error;
   final _horizontal = ScrollController();
+
+  // Tabblad Instellingen.
+  List<SettingsChangeEntry> _settingsChanges = const [];
 
   // Tabblad App-log.
   List<AppLogOverviewRow> _overview = const [];
@@ -530,6 +632,18 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
           _versions = versions;
           _appLogs = page.items;
           _appLogNext = page.next;
+          _error = null;
+          _loading = false;
+        });
+      } else if (_tab == _Tab.settings) {
+        final changes = await widget.source.settingsChanges(
+          widget.identity,
+          source: _source,
+        );
+        if (!mounted) return;
+        setState(() {
+          _sources = sources;
+          _settingsChanges = changes;
           _error = null;
           _loading = false;
         });
@@ -818,6 +932,22 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
     );
   }
 
+  Widget _settingsView() => SelectionArea(
+    child: Column(
+      key: const Key('settings-changes'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final change in _settingsChanges)
+          _SettingsChangeCard(
+            key: ValueKey('settings-change-${change.id}'),
+            entry: change,
+            identity: widget.identity,
+            source: widget.source,
+          ),
+      ],
+    ),
+  );
+
   static const _headingStyle = TextStyle(
     fontWeight: FontWeight.w600,
     fontSize: 12,
@@ -934,6 +1064,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
     final count = switch (_tab) {
       _Tab.logins => _logins.length,
       _Tab.appLog => _appLogs.length,
+      _Tab.settings => _settingsChanges.length,
       _ => _sessions.length,
     };
     return Column(
@@ -944,7 +1075,9 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
           'elke doorloop om nieuwe bestanden in ZCBS te zetten en elke '
           'doorloop om records aan te passen. Klik op een doorloop voor de '
           'volledige log. Het tabblad App-log toont de logregels van de app '
-          'zelf. De gegevens komen ongecontroleerd binnen via een '
+          'zelf, en het tabblad Instellingen elke keer dat iemand de '
+          'instellingen van de app wijzigt, met de nieuwe instellingen. '
+          'De gegevens komen ongecontroleerd binnen via een '
           'open meldpunt en zijn dus indicatief.',
           style: theme.textTheme.bodyMedium,
         ),
@@ -962,6 +1095,10 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
                 ButtonSegment(value: _Tab.edited, label: Text('Aangepast')),
                 ButtonSegment(value: _Tab.logins, label: Text('Inloggen')),
                 ButtonSegment(value: _Tab.appLog, label: Text('App-log')),
+                ButtonSegment(
+                  value: _Tab.settings,
+                  label: Text('Instellingen'),
+                ),
               ],
               selected: {_tab},
               onSelectionChanged: (value) {
@@ -974,7 +1111,8 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
             ),
             DropdownButton<String?>(
               key: const Key('workflow-log-source'),
-              value: _source,
+              // De bronnen worden pas na het laden bekend; zolang de gekozen bron er nog niet bij staat, geldt "Alle bronnen".
+              value: _sources.contains(_source) ? _source : null,
               hint: const Text('Alle bronnen'),
               items: [
                 const DropdownMenuItem<String?>(
@@ -1001,7 +1139,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
               icon: const Icon(Icons.refresh),
             ),
             Text(
-              '$count regels',
+              _tab == _Tab.settings ? '$count wijzigingen' : '$count regels',
               key: const Key('workflow-log-count'),
               style: theme.textTheme.bodySmall,
             ),
@@ -1017,6 +1155,8 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
           )
         else if (_tab == _Tab.appLog)
           _appLogView()
+        else if (_tab == _Tab.settings && count > 0)
+          _settingsView()
         else if (count == 0)
           const Text('Nog niets gemeld.')
         else
@@ -1098,6 +1238,160 @@ class _AppLogRowState extends State<_AppLogRow> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Eén wijziging van de instellingen: wie en wanneer, per veld oud → nieuw (lange waarden ingekort, uit te klappen) en op verzoek de
+/// volledige nieuwe instellingen, die pas bij het openen worden opgehaald.
+class _SettingsChangeCard extends StatefulWidget {
+  const _SettingsChangeCard({
+    required this.entry,
+    required this.identity,
+    required this.source,
+    super.key,
+  });
+
+  final SettingsChangeEntry entry;
+  final AdminIdentity identity;
+  final AdminWorkflowLogSource source;
+
+  @override
+  State<_SettingsChangeCard> createState() => _SettingsChangeCardState();
+}
+
+class _SettingsChangeCardState extends State<_SettingsChangeCard> {
+  static const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12);
+  static const _clipAt = 120;
+
+  bool _fullValues = false;
+  Future<SettingsChangeEntry>? _detail;
+
+  static String _value(String? value, bool full) {
+    if (value == null) return '(niet ingesteld)';
+    if (value.isEmpty) return '(leeg)';
+    return full || value.length <= _clipAt
+        ? value
+        : '${value.substring(0, _clipAt)}…';
+  }
+
+  void _openSettings(bool open) {
+    if (open && _detail == null) {
+      final detail = widget.source.settingsChange(
+        widget.identity,
+        widget.entry.id,
+      );
+      setState(() {
+        _detail = detail;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final entry = widget.entry;
+    final clipped = entry.changes.any(
+      (c) =>
+          (c.oldValue?.length ?? 0) > _clipAt ||
+          (c.newValue?.length ?? 0) > _clipAt,
+    );
+    final who = [
+      if (entry.user != null && entry.user!.isNotEmpty) entry.user!,
+      if (entry.address != null && entry.address!.isNotEmpty)
+        '(${entry.address})',
+    ].join(' ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_when(entry.createdAt)}  ·  ${entry.reason}',
+              style: theme.textTheme.titleSmall,
+            ),
+            Text(
+              [
+                entry.source,
+                entry.computer,
+                if (entry.appVersion != null) entry.appVersion!,
+                if (who.isNotEmpty) who else 'gebruiker onbekend',
+              ].join('  ·  '),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            for (final change in entry.changes)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  '${change.field}: ${_value(change.oldValue, _fullValues)}'
+                  ' → ${_value(change.newValue, _fullValues)}',
+                  style: _mono,
+                ),
+              ),
+            if (clipped)
+              InkWell(
+                key: Key('settings-expand-values-${entry.id}'),
+                onTap: () => setState(() => _fullValues = !_fullValues),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    _fullValues ? '▾ waarden inkorten' : '▸ volledige waarden',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                ),
+              ),
+            ExpansionTile(
+              key: Key('settings-new-${entry.id}'),
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Nieuwe instellingen'),
+              onExpansionChanged: _openSettings,
+              children: [
+                if (_detail != null)
+                  FutureBuilder<SettingsChangeEntry>(
+                    future: _detail,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Text(
+                          _describeError(snapshot.error!),
+                          style: TextStyle(color: theme.colorScheme.error),
+                        );
+                      }
+                      final settings = snapshot.data?.settings;
+                      if (settings == null) {
+                        return const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return Container(
+                        key: Key('settings-json-${entry.id}'),
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        constraints: const BoxConstraints(maxHeight: 520),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            _prettyJson(settings),
+                            style: _mono,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
