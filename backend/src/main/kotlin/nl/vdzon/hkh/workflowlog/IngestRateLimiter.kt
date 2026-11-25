@@ -80,6 +80,13 @@ object IngestLimits {
     /** Zoveel meldingen bewaart het logboek hooguit; daarna worden nieuwe geweigerd tot er ruimte is gemaakt (zoals bij de sessies). */
     const val MAX_STORED_SETTINGS_CHANGES = 5_000
 
+    /** Versiewissels van de app: zelden (hooguit een per nacht per server), dus een krappe limiet en een kleine bovengrens. */
+    const val VERSION_CHANGES_PER_IP_BURST = 5
+    const val VERSION_CHANGES_PER_IP_PER_HOUR = 10
+    const val VERSION_CHANGES_GLOBAL_BURST = 30
+    const val VERSION_CHANGES_GLOBAL_PER_HOUR = 60
+    const val MAX_STORED_VERSION_CHANGES = 5_000
+
     /** Zoveel regels per pakketje; de grootte van het hele bericht is begrensd door [MAX_BODY_BYTES]. */
     const val MAX_APP_LOG_LINES = 5000
 }

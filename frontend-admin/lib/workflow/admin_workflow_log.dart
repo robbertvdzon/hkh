@@ -335,7 +335,44 @@ class SettingsChangeEntry {
   final Map<String, dynamic>? settings;
 }
 
+/// De workflow-app is met een andere versie gestart dan de vorige keer: bijgewerkt, of de vorige versie is teruggezet.
+class VersionChangeEntry {
+  const VersionChangeEntry({
+    required this.id,
+    required this.createdAt,
+    required this.source,
+    required this.computer,
+    required this.previous,
+    required this.current,
+    required this.reason,
+  });
+
+  factory VersionChangeEntry.fromJson(Map<String, dynamic> json) =>
+      VersionChangeEntry(
+        id: (json['id'] as num).toInt(),
+        createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+        source: json['source'] as String? ?? '',
+        computer: json['computer'] as String? ?? '',
+        previous: json['previous'] as String? ?? '',
+        current: json['current'] as String? ?? '',
+        reason: json['reason'] as String? ?? '',
+      );
+
+  final int id;
+  final DateTime createdAt;
+  final String source;
+  final String computer;
+  final String previous;
+  final String current;
+  final String reason;
+}
+
 abstract interface class AdminWorkflowLogSource {
+  Future<List<VersionChangeEntry>> versionChanges(
+    AdminIdentity identity, {
+    String? source,
+  });
+
   Future<List<SettingsChangeEntry>> settingsChanges(
     AdminIdentity identity, {
     String? source,
@@ -473,6 +510,19 @@ class AdminWorkflowLogClient implements AdminWorkflowLogSource {
           .toList(growable: false);
 
   @override
+  Future<List<VersionChangeEntry>> versionChanges(
+    AdminIdentity identity, {
+    String? source,
+  }) async =>
+      ((await _get(identity, '/version-changes', {
+                'limit': '200',
+                if (source != null) 'source': source,
+              }))
+              as List<dynamic>)
+          .map((e) => VersionChangeEntry.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
+
+  @override
   Future<SettingsChangeEntry> settingsChange(
     AdminIdentity identity,
     int id,
@@ -542,7 +592,7 @@ Object? _sortedKeys(Object? value) => switch (value) {
 String _prettyJson(Object? value) =>
     const JsonEncoder.withIndent('  ').convert(_sortedKeys(value));
 
-enum _Tab { logins, created, edited, appLog, settings }
+enum _Tab { logins, created, edited, appLog, settings, versions }
 
 /// De laatst gekozen tab, zodat je na een sessie weer op dezelfde lijst terugkomt.
 _Tab _lastTab = _Tab.created;
@@ -579,6 +629,9 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
 
   // Tabblad Instellingen.
   List<SettingsChangeEntry> _settingsChanges = const [];
+
+  // Tabblad Versies.
+  List<VersionChangeEntry> _versionChanges = const [];
 
   // Tabblad App-log.
   List<AppLogOverviewRow> _overview = const [];
@@ -644,6 +697,18 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
         setState(() {
           _sources = sources;
           _settingsChanges = changes;
+          _error = null;
+          _loading = false;
+        });
+      } else if (_tab == _Tab.versions) {
+        final changes = await widget.source.versionChanges(
+          widget.identity,
+          source: _source,
+        );
+        if (!mounted) return;
+        setState(() {
+          _sources = sources;
+          _versionChanges = changes;
           _error = null;
           _loading = false;
         });
@@ -954,6 +1019,40 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
   );
   static const _dataStyle = TextStyle(fontSize: 12);
 
+  /// Wanneer welke computer met een andere versie van de workflow-app is gaan draaien.
+  Widget _versionTable() => DataTable(
+    key: const Key('workflow-version-table'),
+    columnSpacing: 20,
+    headingTextStyle: _headingStyle,
+    dataTextStyle: _dataStyle,
+    columns: const [
+      DataColumn(label: Text('Wanneer')),
+      DataColumn(label: Text('Bron')),
+      DataColumn(label: Text('Computer')),
+      DataColumn(label: Text('Wat')),
+      DataColumn(label: Text('Nieuwe versie')),
+      DataColumn(label: Text('Vorige versie')),
+    ],
+    rows: [
+      for (final entry in _versionChanges)
+        DataRow(
+          cells: [
+            DataCell(Text(_when(entry.createdAt))),
+            DataCell(Text(entry.source)),
+            DataCell(Text(entry.computer)),
+            DataCell(Text(entry.reason)),
+            DataCell(
+              SelectableText(
+                entry.current,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DataCell(SelectableText(entry.previous)),
+          ],
+        ),
+    ],
+  );
+
   Widget _loginTable() => DataTable(
     key: const Key('workflow-login-table'),
     columnSpacing: 20,
@@ -1065,6 +1164,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
       _Tab.logins => _logins.length,
       _Tab.appLog => _appLogs.length,
       _Tab.settings => _settingsChanges.length,
+      _Tab.versions => _versionChanges.length,
       _ => _sessions.length,
     };
     return Column(
@@ -1076,7 +1176,9 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
           'doorloop om records aan te passen. Klik op een doorloop voor de '
           'volledige log. Het tabblad App-log toont de logregels van de app '
           'zelf, en het tabblad Instellingen elke keer dat iemand de '
-          'instellingen van de app wijzigt, met de nieuwe instellingen. '
+          'instellingen van de app wijzigt, met de nieuwe instellingen. Het '
+          'tabblad Versies laat zien wanneer een server een nieuwe versie van '
+          'de app heeft geïnstalleerd. '
           'De gegevens komen ongecontroleerd binnen via een '
           'open meldpunt en zijn dus indicatief.',
           style: theme.textTheme.bodyMedium,
@@ -1099,6 +1201,7 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
                   value: _Tab.settings,
                   label: Text('Instellingen'),
                 ),
+                ButtonSegment(value: _Tab.versions, label: Text('Versies')),
               ],
               selected: {_tab},
               onSelectionChanged: (value) {
@@ -1167,7 +1270,11 @@ class _AdminWorkflowLogPageState extends State<AdminWorkflowLogPage> {
               controller: _horizontal,
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(bottom: 16),
-              child: _tab == _Tab.logins ? _loginTable() : _sessionTable(),
+              child: switch (_tab) {
+                _Tab.logins => _loginTable(),
+                _Tab.versions => _versionTable(),
+                _ => _sessionTable(),
+              },
             ),
           ),
       ],

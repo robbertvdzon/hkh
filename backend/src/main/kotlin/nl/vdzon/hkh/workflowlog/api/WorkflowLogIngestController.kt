@@ -19,6 +19,8 @@ import nl.vdzon.hkh.workflowlog.WorkflowLogService
 import nl.vdzon.hkh.workflowlog.WorkflowLoginReport
 import nl.vdzon.hkh.workflowlog.WorkflowSessionForbidden
 import nl.vdzon.hkh.workflowlog.WorkflowSettingsChangeService
+import nl.vdzon.hkh.workflowlog.VersionChangeReport
+import nl.vdzon.hkh.workflowlog.WorkflowVersionChangeService
 import nl.vdzon.hkh.workflowlog.WorkflowSessionReport
 import nl.vdzon.hkh.workflowlog.WorkflowStatus
 import java.util.concurrent.atomic.AtomicLong
@@ -45,6 +47,7 @@ class WorkflowLogIngestController(
     private val service: WorkflowLogService,
     private val appLogService: WorkflowAppLogService,
     private val settingsChangeService: WorkflowSettingsChangeService,
+    private val versionChangeService: WorkflowVersionChangeService,
     private val limiter: IngestRateLimiter,
     private val objectMapper: ObjectMapper,
     /** Hoeveel adressen aan het eind van X-Forwarded-For door onze eigen proxies zijn toegevoegd (de nginx van het beheerscherm voegt er één toe). */
@@ -188,6 +191,27 @@ class WorkflowLogIngestController(
         settingsChangeService.record(
             SettingsChangeReport(source, computer, text(root, "appVersion", 80), text(root, "user", 200), text(root, "address", 64), reason, changes, sanitizer.clean(settingsNode)),
         )
+        return ResponseEntity.noContent().build()
+    }
+
+    /** De workflow-app is met een andere versie gestart dan de vorige keer: bijgewerkt, of de vorige versie is teruggezet. */
+    @PostMapping("/version-changes")
+    fun versionChange(@RequestHeader(INGEST_KEY_HEADER, required = false) key: String?, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
+        val ip = rateKey(request, forwardedHops)
+        if (!limiter.tryAcquire("global", IngestLimits.GLOBAL_PER_MINUTE, IngestLimits.GLOBAL_PER_MINUTE.toDouble()) ||
+            !limiter.tryAcquire("ip:$ip", IngestLimits.IP_PER_MINUTE, IngestLimits.IP_PER_MINUTE.toDouble()) ||
+            !limiter.tryAcquire("version:all", IngestLimits.VERSION_CHANGES_GLOBAL_BURST, IngestLimits.VERSION_CHANGES_GLOBAL_PER_HOUR / 60.0) ||
+            !limiter.tryAcquire("version:$ip", IngestLimits.VERSION_CHANGES_PER_IP_BURST, IngestLimits.VERSION_CHANGES_PER_IP_PER_HOUR / 60.0)
+        ) return tooMany()
+        if (!keyMatches(key)) return reject(HttpStatus.UNAUTHORIZED, "Sleutel ontbreekt of klopt niet")
+        val root = readJson(request) ?: return reject(HttpStatus.BAD_REQUEST, "Geen geldig bericht (of te groot)")
+        val source = text(root, "source", 80) ?: return reject(HttpStatus.BAD_REQUEST, "source ontbreekt")
+        val computer = text(root, "computer", 120) ?: return reject(HttpStatus.BAD_REQUEST, "computer ontbreekt")
+        val previous = text(root, "previous", 120) ?: return reject(HttpStatus.BAD_REQUEST, "previous ontbreekt")
+        val current = text(root, "current", 120) ?: return reject(HttpStatus.BAD_REQUEST, "current ontbreekt")
+        val reason = text(root, "reason", 200) ?: return reject(HttpStatus.BAD_REQUEST, "reason ontbreekt")
+        if (versionChangeService.count() >= IngestLimits.MAX_STORED_VERSION_CHANGES) return reject(HttpStatus.INSUFFICIENT_STORAGE, "Het logboek zit vol")
+        versionChangeService.record(VersionChangeReport(source, computer, previous, current, reason))
         return ResponseEntity.noContent().build()
     }
 

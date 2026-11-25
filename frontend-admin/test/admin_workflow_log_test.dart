@@ -70,6 +70,27 @@ class _WorkflowSource implements AdminWorkflowLogSource {
     source: source,
   );
 
+  final List<String?> versionsAsked = [];
+
+  @override
+  Future<List<VersionChangeEntry>> versionChanges(
+    AdminIdentity identity, {
+    String? source,
+  }) async {
+    versionsAsked.add(source);
+    return [
+      VersionChangeEntry(
+        id: 3,
+        createdAt: DateTime(2026, 11, 25, 0, 3, 12),
+        source: 'hkh',
+        computer: 'FILESERVER',
+        previous: 'build 18 (0.0.1+20261124.1000)',
+        current: 'build 19 (0.0.1+20261125.0900)',
+        reason: 'Nieuwe versie geïnstalleerd',
+      ),
+    ];
+  }
+
   final List<String?> settingsAsked = [];
   final List<int> settingsOpened = [];
 
@@ -586,6 +607,65 @@ void main() {
       expect(source.settingsAsked.last, 'windows-laptop');
     },
   );
+
+  testWidgets('the administrator sees when a server installed a new version', (
+    tester,
+  ) async {
+    final source = _WorkflowSource();
+    await tester.binding.setSurfaceSize(const Size(1800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      HkhAdminApp(
+        sessionSource: _AuthenticatedSession(),
+        scrapeSource: _ScrapeSource(),
+        workflowLogSource: source,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const Key('admin-tile-workflow-logboek'));
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('workflow-log-tabs')),
+        matching: find.text('Versies'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(source.versionsAsked, hasLength(1));
+    expect(find.byKey(const Key('workflow-version-table')), findsOneWidget);
+    expect(find.text('25-11 00:03:12'), findsOneWidget);
+    expect(find.text('FILESERVER'), findsOneWidget);
+    expect(find.text('Nieuwe versie geïnstalleerd'), findsOneWidget);
+    expect(find.text('build 19 (0.0.1+20261125.0900)'), findsOneWidget);
+    expect(find.text('build 18 (0.0.1+20261124.1000)'), findsOneWidget);
+    expect(find.text('1 regels'), findsOneWidget);
+  });
+
+  test('the client reads the version changes', () async {
+    final urls = <Uri>[];
+    final client = AdminWorkflowLogClient(
+      'https://api.example',
+      client: MockClient((request) async {
+        urls.add(request.url);
+        return http.Response(
+          '[{"id":3,"createdAt":"2026-11-25T08:00:00Z","source":"hkh","computer":"PC","previous":"build 18","current":"build 19","reason":"Nieuwe versie"}]',
+          200,
+        );
+      }),
+    );
+    final list = await client.versionChanges(
+      const AdminIdentity('admin'),
+      source: 'hkh',
+    );
+    expect(urls.last.path, '/api/admin/workflow-log/version-changes');
+    expect(urls.last.queryParameters, {'limit': '200', 'source': 'hkh'});
+    expect(list.single.previous, 'build 18');
+    expect(list.single.current, 'build 19');
+    expect(list.single.computer, 'PC');
+  });
 
   test(
     'the client reads the settings changes and the new settings of one change',

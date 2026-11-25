@@ -6,7 +6,7 @@ het in het beheerscherm kan terugkijken: elke inlogpoging, elke doorloop "nieuwe
 zijn eigen logregels (INFO en hoger) op, het **app-log**, en elke wijziging van zijn instellingen, het **instellingenlogboek** (zie hieronder).
 
 Backend: module `workflowlog`. Beheerscherm: `frontend-admin/lib/workflow/admin_workflow_log.dart`, pagina `/workflow-logboek`
-(tabbladen Aangemaakt, Aangepast, Inloggen, App-log en Instellingen) en `/workflow-logboek/{uuid}` voor de volledige log van één doorloop.
+(tabbladen Aangemaakt, Aangepast, Inloggen, App-log, Instellingen en Versies) en `/workflow-logboek/{uuid}` voor de volledige log van één doorloop.
 
 ## Meldpunt (zonder inlog)
 
@@ -19,6 +19,7 @@ De endpoints vragen geen inlog, maar wel de kop `X-HKH-Workflow-Key` met een vas
 | `PUT /api/workflow-log/sessions/{uuid}` | Maakt de sessie aan of vervangt haar momentopname |
 | `POST /api/workflow-log/app-logs` | Een pakketje logregels van de app (zie "App-log") |
 | `POST /api/workflow-log/settings-changes` | Een wijziging van de instellingen van de app (zie "Instellingen") |
+| `POST /api/workflow-log/version-changes` | De app draait met een andere versie dan de vorige keer (zie "Versies") |
 
 Een sessiebericht: `{kind: NEW_FILES\|EDIT, secret, user, collection, appVersion, computer, phase, phaseCount, phaseLabel,
 status: RUNNING\|FINISHED\|FAILED, fileCount, event?, snapshot, source?}`.
@@ -140,11 +141,6 @@ overneemt van handmatig uitvoeren van images.exe) meldt de app dat. Een opslag w
 Opslag: tabel `workflow_settings_change` (migratie V34), met bron, computer, appversie, gebruiker, adres, reden, de gewijzigde velden en de
 nieuwe instellingen. **Er is geen opruiming**: instellingen veranderen zelden en de bovengrens van 5.000 wijzigingen begrenst de tabel.
 
-**Een nieuwe versie van de app** (sinds 25 november 2026) komt ook hier binnen: start de workflow-app met een andere versie dan de vorige keer, dan
-stuurt hij een wijziging met `reason` "Nieuwe versie geïnstalleerd" (of "Vorige versie teruggezet"), één wijziging van het veld `appVersion` (oud en
-nieuw) en een leeg `settings`-object. Zo is op het tabblad Instellingen te zien wanneer een server is bijgewerkt. De app schrijft dezelfde regel in zijn
-app-log.
-
 ### Beheer-API
 
 Zelfde authenticatie als de rest van `/api/admin/workflow-log`:
@@ -162,3 +158,30 @@ gewijzigd veld één regel `veld: oud → nieuw`. Lange waarden zijn ingekort en
 haalt het scherm pas bij het openen de volledige instellingen op (`GET /settings-changes/{id}`) en toont ze als ingesprongen tekst met
 gesorteerde sleutels, zodat twee wijzigingen goed te vergelijken zijn. Het bronfilter werkt zoals bij de andere tabbladen. Alles is platte
 tekst en selecteerbaar.
+
+## Versies
+
+Bij het opstarten vergelijkt de workflow-app zijn versie met die van de vorige start. Is die anders (het startscript van de service heeft een nieuwe jar
+geplaatst, of de vorige teruggezet), dan meldt hij dat. Zo is te zien wanneer een server is bijgewerkt.
+
+`POST /api/workflow-log/version-changes`, zelfde kop `X-HKH-Workflow-Key` als hierboven:
+
+```
+{ "source": "hkh", "computer": "FILESERVER",
+  "previous": "build 18 (0.0.1-SNAPSHOT+20261124.1000)", "current": "build 19 (0.0.1-SNAPSHOT+20261125.0900)",
+  "reason": "Nieuwe versie geïnstalleerd" }
+```
+
+- Alle vijf de velden zijn verplicht; `previous` en `current` hooguit 120 tekens, `reason` hooguit 200 ("Nieuwe versie geïnstalleerd" of "Vorige versie
+  teruggezet"). Een bericht dat daar niet aan voldoet, geeft `400` en wordt niet bewaard.
+- Antwoorden: `204`, `400`, `401` (sleutel), `429` met `Retry-After: 60` en `507` als het logboek vol zit (5.000 versiewissels).
+- Limieten (`IngestLimits`, bovenop de gewone limieten): per adres 5 meldingen achter elkaar en daarna 10 per uur, voor alle adressen samen 30 achter
+  elkaar en daarna 60 per uur.
+
+Opslag: tabel `workflow_version_change` (migratie V35). **Er is geen opruiming.**
+
+Beheer-API: `GET /api/admin/workflow-log/version-changes?source=&limit=` geeft `[{id, createdAt, source, computer, previous, current, reason}]`, nieuwste
+eerst; `limit` standaard 200, maximaal 500. `GET /sources` bevat ook de bronnen van de versiewissels.
+
+Het tabblad **Versies** toont een tabel: wanneer, bron, computer, wat er gebeurde, de nieuwe en de vorige versie. Het bronfilter werkt zoals bij de andere
+tabbladen. De eerste start van een app die dit nog niet bijhield meldt niets: er is dan geen vorige versie bekend.

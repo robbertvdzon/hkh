@@ -12,6 +12,8 @@ import nl.vdzon.hkh.workflowlog.SettingsChangeDetail
 import nl.vdzon.hkh.workflowlog.SettingsChangeSummary
 import nl.vdzon.hkh.workflowlog.WorkflowLogService
 import nl.vdzon.hkh.workflowlog.WorkflowSettingsChangeService
+import nl.vdzon.hkh.workflowlog.VersionChangeEntry
+import nl.vdzon.hkh.workflowlog.WorkflowVersionChangeService
 import nl.vdzon.hkh.workflowlog.WorkflowLoginEntry
 import nl.vdzon.hkh.workflowlog.WorkflowSessionDetail
 import nl.vdzon.hkh.workflowlog.WorkflowSessionSummary
@@ -31,6 +33,7 @@ class AdminWorkflowLogController(
     private val service: WorkflowLogService,
     private val appLogService: WorkflowAppLogService,
     private val settingsChangeService: WorkflowSettingsChangeService,
+    private val versionChangeService: WorkflowVersionChangeService,
     private val authenticator: AdminAuthenticator,
 ) {
     @GetMapping("/logins")
@@ -127,6 +130,18 @@ class AdminWorkflowLogController(
     ): List<SettingsChangeSummary> {
         authenticator.authenticate(authorization, previewHeader)
         return settingsChangeService.changes(limit ?: WorkflowSettingsChangeService.DEFAULT_LIMIT, source?.takeIf { it.isNotBlank() })
+    }
+
+    /** Wanneer een server met een andere versie van de workflow-app is gaan draaien, nieuwste eerst. */
+    @GetMapping("/version-changes")
+    fun versionChanges(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @RequestParam(required = false) limit: Int?,
+        @RequestParam(required = false) source: String?,
+    ): List<VersionChangeEntry> {
+        authenticator.authenticate(authorization, previewHeader)
+        return versionChangeService.changes(limit ?: WorkflowVersionChangeService.DEFAULT_LIMIT, source?.takeIf { it.isNotBlank() })
     }
 
     /** Eén wijziging met de volledige nieuwe instellingen. */
