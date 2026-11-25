@@ -25,6 +25,8 @@ status: RUNNING\|FINISHED\|FAILED, fileCount, event?, snapshot, source?}`.
 
 - `snapshot` is een vrij JSON-object met alles wat de app weet; elk bericht **vervangt** de vorige (de app stuurt dus telkens
   alles opnieuw, een gemist bericht herstelt zich vanzelf). Het beheerscherm toont elke sleutel van het object als uitklapbaar blok.
+- De sleutel `tijdmetingen` (sinds 25 november 2026) is een lijst regels met tijdstip, handeling, duur en waar de tijd in zat (de controles van fase 1 per
+  onderdeel, het lezen van de mappen met scans, het kopiëren met MB/s, de programma's, de upload en de back-up). Dezelfde regels staan als "Tijdmeting ..." in het app-log.
 - `secret` is een willekeurig geheim (minimaal 16 tekens) dat de app bij de start van de sessie verzint. Alleen een bericht met
   hetzelfde geheim mag een bestaande sessie bijwerken; de backend bewaart alleen de hash.
 - `source` is de bron die de beheerder in de workflow-app heeft ingesteld (bijvoorbeeld `macbook`, `windows-laptop` of `hkh`); het
@@ -137,6 +139,11 @@ overneemt van handmatig uitvoeren van images.exe) meldt de app dat. Een opslag w
 
 Opslag: tabel `workflow_settings_change` (migratie V34), met bron, computer, appversie, gebruiker, adres, reden, de gewijzigde velden en de
 nieuwe instellingen. **Er is geen opruiming**: instellingen veranderen zelden en de bovengrens van 5.000 wijzigingen begrenst de tabel.
+
+**Een nieuwe versie van de app** (sinds 25 november 2026) komt ook hier binnen: start de workflow-app met een andere versie dan de vorige keer, dan
+stuurt hij een wijziging met `reason` "Nieuwe versie geïnstalleerd" (of "Vorige versie teruggezet"), één wijziging van het veld `appVersion` (oud en
+nieuw) en een leeg `settings`-object. Zo is op het tabblad Instellingen te zien wanneer een server is bijgewerkt. De app schrijft dezelfde regel in zijn
+app-log.
 
 ### Beheer-API
 
