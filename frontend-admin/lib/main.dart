@@ -970,6 +970,30 @@ class _AiModelSectionState extends State<_AiModelSection> {
                 key: const Key('ai-method-description'),
                 style: const TextStyle(fontSize: 12),
               ),
+              if (state.method == AiResearchMethod.pipeline)
+                SwitchListTile(
+                  key: const Key('ai-short-first'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Eerst een kort antwoord'),
+                  subtitle: const Text(
+                    'Eén AI-run geeft een kort antwoord uit de AI-kaarten en '
+                    'tekstfragmenten. Een artikel volgt alleen als de vraag '
+                    'erom vraagt of de bezoeker het laat maken.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: state.shortFirst,
+                  onChanged: _saving
+                      ? null
+                      : (enabled) => _apply(
+                          () => widget.source.selectShortFirst(
+                            widget.identity,
+                            enabled,
+                          ),
+                          enabled
+                              ? 'Nieuwe vragen krijgen eerst een kort antwoord.'
+                              : 'Nieuwe vragen krijgen weer direct een artikel.',
+                        ),
+                ),
               if (state.roles.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(

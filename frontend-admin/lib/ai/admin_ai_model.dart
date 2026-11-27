@@ -140,6 +140,7 @@ class AiModelState {
     this.writeBudgetChars = 450000,
     this.writeBudgetFromSetting = false,
     this.writeBudgetDefault = 450000,
+    this.shortFirst = false,
   });
 
   factory AiModelState.fromJson(Map<String, dynamic> json) => AiModelState(
@@ -161,6 +162,7 @@ class AiModelState {
     writeBudgetChars: (json['writeBudgetChars'] as num?)?.toInt() ?? 450000,
     writeBudgetFromSetting: json['writeBudgetFromSetting'] as bool? ?? false,
     writeBudgetDefault: (json['writeBudgetDefault'] as num?)?.toInt() ?? 450000,
+    shortFirst: json['shortFirst'] as bool? ?? false,
   );
 
   final AiRole role;
@@ -178,6 +180,10 @@ class AiModelState {
   final int writeBudgetChars;
   final bool writeBudgetFromSetting;
   final int writeBudgetDefault;
+
+  /// De korte stand van de pijplijn: eerst een kort antwoord, het artikel op
+  /// verzoek.
+  final bool shortFirst;
 }
 
 abstract interface class AdminAiModelSource {
@@ -194,6 +200,7 @@ abstract interface class AdminAiModelSource {
   );
   Future<AiModelState> selectWriteBudget(AdminIdentity identity, int chars);
   Future<AiModelState> resetWriteBudget(AdminIdentity identity);
+  Future<AiModelState> selectShortFirst(AdminIdentity identity, bool enabled);
 }
 
 class AdminAiModelClient implements AdminAiModelSource {
@@ -299,6 +306,24 @@ class AdminAiModelClient implements AdminAiModelSource {
         .delete(_writeBudgetUri, headers: identity.requestHeaders)
         .timeout(const Duration(seconds: 20)),
     'Tekstbudget terugzetten mislukt',
+  );
+
+  @override
+  Future<AiModelState> selectShortFirst(
+    AdminIdentity identity,
+    bool enabled,
+  ) async => _parse(
+    await _client
+        .put(
+          Uri.parse('$apiBaseUrl/api/admin/ai-search/short-first'),
+          headers: {
+            ...identity.requestHeaders,
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'enabled': enabled}),
+        )
+        .timeout(const Duration(seconds: 20)),
+    'Korte stand wijzigen mislukt',
   );
 
   AiModelState _parse(http.Response response, String failure) {

@@ -133,6 +133,7 @@ class _AiModelSource implements AdminAiModelSource {
     writeBudgetChars: writeBudget ?? 450000,
     writeBudgetFromSetting: writeBudget != null,
     writeBudgetDefault: 450000,
+    shortFirst: shortFirst,
     roles: [
       for (final each in AiRole.values)
         AiRoleModel(role: each, current: current, fromSetting: fromSetting),
@@ -225,6 +226,17 @@ class _AiModelSource implements AdminAiModelSource {
   Future<AiModelState> resetWriteBudget(AdminIdentity identity) async {
     writeBudget = null;
     return _state(role: AiRole.writer);
+  }
+
+  bool shortFirst = false;
+
+  @override
+  Future<AiModelState> selectShortFirst(
+    AdminIdentity identity,
+    bool enabled,
+  ) async {
+    shortFirst = enabled;
+    return _state();
   }
 }
 
@@ -646,6 +658,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(aiModelSource.method, AiResearchMethod.pipeline);
     expect(find.text('De onderzoeksmethode is gewijzigd.'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('ai-short-first')));
+    await tester.tap(find.byKey(const Key('ai-short-first')));
+    await tester.pumpAndSettle();
+    expect(aiModelSource.shortFirst, isTrue);
+    expect(
+      find.text('Nieuwe vragen krijgen eerst een kort antwoord.'),
+      findsOneWidget,
+    );
 
     await tester.ensureVisible(find.byKey(const Key('ai-role-select')));
     await tester.tap(find.byKey(const Key('ai-role-select')));

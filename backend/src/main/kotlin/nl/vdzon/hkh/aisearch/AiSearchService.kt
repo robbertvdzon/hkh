@@ -14,6 +14,7 @@ import nl.vdzon.hkh.research.ResearchPreview
 import nl.vdzon.hkh.research.ResearchPipelineService
 import nl.vdzon.hkh.research.ResearchRef
 import nl.vdzon.hkh.research.ResearchRoundReport
+import nl.vdzon.hkh.research.ResearchStats
 import nl.vdzon.hkh.research.StructuredJobFailedException
 import nl.vdzon.hkh.requestlog.RequestKind
 import nl.vdzon.hkh.requestlog.RequestLogService
@@ -454,6 +455,7 @@ class AiSearchService(
             priorSources = previousSources,
             idempotencyPrefix = capacity.prefix(turn.id),
             writeBudgetChars = capacity.config(turn.id)?.writeBudgetChars ?: modelSettings.writeBudget().chars,
+            shortFirst = modelSettings.shortFirst(),
         )
         val input = if (capacity.isCapacity(turn.id)) capacity.checkpoint(turn.id, "input", ResearchInput::class.java) { proposedInput } else proposedInput
         try {
@@ -464,7 +466,9 @@ class AiSearchService(
                     logFinished(turn.id)
                     return
                 }
-                pipeline.expand(input, selection, expands.answerHtml?.let { Jsoup.parse(it).wholeText().trim() }.orEmpty(), listener)
+                val previous = expands.answerHtml?.let { Jsoup.parse(it).wholeText().trim() }.orEmpty()
+                // Na een kort antwoord is de vervolgstap het artikel; na een begrensd artikel de volledige uitwerking.
+                if (isShortAnswer(expands)) pipeline.article(input, selection, previous, listener) else pipeline.expand(input, selection, previous, listener)
             } else {
                 pipeline.research(input, listener)
             }
@@ -483,6 +487,10 @@ class AiSearchService(
             logFinished(turn.id)
         }
     }
+
+    /** Of deze beurt een kort antwoord zonder schrijfstap was (de korte stand van de pijplijn). */
+    private fun isShortAnswer(turn: AiSearchTurn): Boolean =
+        turn.researchStats?.let { runCatching { objectMapper.readTree(it) }.getOrNull() }?.path("kind")?.asText("") == ResearchStats.KIND_SHORT
 
     /** De volledige selectie van een pijplijnbeurt, zoals de schrijver die kreeg (uit `research_stats`). */
     private fun selectionOf(turn: AiSearchTurn): List<ResearchRef> {

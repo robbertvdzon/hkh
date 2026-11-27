@@ -316,4 +316,107 @@ class ResearchPipelineServiceTest {
     private companion object {
         val jdbcStub = JdbcTemplate()
     }
+
+    // ---- Korte stand ----
+
+    private fun quick(form: String, worthwhile: Boolean = true, sources: String = "1", include: String = "", answer: String = """<p>Toos en Cis woonden in 1950 aan de Kerklaan <a data-hkh-source=\"1\">foto</a>.</p>""") =
+        """{"form":"$form","title":"Toos en Cis Oostrum","answerHtml":"$answer","sources":[$sources],"suggestedFollowUps":["Wie was Grard Oostrom?"],"articleWorthwhile":$worthwhile,"articleSummary":"Meer over de pastorie en de familie.","query":{"terms":["Oostrum"],"yearFrom":0,"yearTo":0,"collections":[],"withImage":false,"sortByYear":"none","includeRecords":[$include],"reason":"test"}}"""
+
+    private fun shortInput(question: String, budget: Int = ResearchPipelineService.DEFAULT_QUICK_BUDGET_CHARS) =
+        ResearchInput(question, "", idempotencyPrefix = "t", shortFirst = true, quickBudgetChars = budget)
+
+    @Test
+    fun `the short mode answers in one model run from cards and passages and keeps the selection for a later article`() {
+        val long = "Inleiding. ".repeat(400) + "In 1973 heropende burgemeester Oostrum paviljoen 3 met dr. Vidra. " + "Slot. ".repeat(400)
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true), card("7", "De pastorie", "Artikel over de pastorie.", text = true, collection = "artikelen"))
+        val (runner, requests) = runner(quick("antwoord", include = """{"collection":"artikelen","ident":"7"}"""))
+        val search = FakeSearch(found)
+        val listener = Listener()
+        val outcome = ResearchPipelineService(runner, search, FakeDocuments(found, mapOf("7" to long)), mapper).research(shortInput("Waar woonde Toos Oostrum?"), listener)
+
+        assertEquals(listOf("t-quick"), requests.map { it.idempotencyKey })
+        assertEquals(AiRole.RESEARCH, requests.single().role)
+        val prompt = requests.single().instruction.replace(Regex("\\s+"), " ")
+        assertTrue(prompt.contains("""[1] beeldbank 1 "Kerklaan 13a""""))
+        assertTrue(prompt.contains("heropende burgemeester Oostrum paviljoen 3 met dr. Vidra"), "het fragment rond de treffer diep in de tekst gaat mee")
+        assertTrue(prompt.contains("Fragment (vanaf teken"))
+        assertFalse(prompt.contains("Slot. ".repeat(150).trim()), "de rest van de lange tekst gaat niet mee")
+
+        assertEquals(ResearchStats.KIND_SHORT, outcome.stats.kind)
+        assertEquals("antwoord", outcome.stats.form)
+        assertEquals(1, outcome.stats.jobs.size)
+        assertEquals("kort", outcome.stats.jobs.single().step)
+        assertTrue(outcome.stats.jobs.single().inputChars > 0)
+        assertTrue(outcome.result.path("answerHtml").asText().contains("""data-hkh-source="beeldbank/1""""))
+        assertEquals("beeldbank", outcome.result.path("sources")[0].path("collection").asText())
+        assertTrue(outcome.result.path("moreAvailable").asBoolean())
+        assertEquals("Meer over de pastorie en de familie.", outcome.result.path("moreSummary").asText())
+        assertEquals("artikelen/7", outcome.stats.selection.first(), "de aangewezen stukken staan vooraan in de selectie voor het artikel")
+        assertTrue(listener.rounds.single().conclusion.startsWith("Toos en Cis woonden in 1950"))
+    }
+
+    @Test
+    fun `a subject document goes in whole when it fits and only its head and passages when it is too long`() {
+        val fits = "Toos Oostrum werd geboren in 1901. " + "Verder verhaal. ".repeat(200)
+        val tooLong = "Het begin van de lange biografie. " + "Opvulling zonder treffer. ".repeat(2_000) + "Laat in de tekst: Oostrum verhuisde in 1930."
+        val found = listOf(card("1", "Toos Oostrum", "Biografie.", text = true, collection = "artikelen"), card("2", "Oostrum in de krant", "Lang stuk.", text = true, collection = "artikelen"))
+        val (runner, requests) = runner(quick("twijfel"))
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found, mapOf("1" to fits, "2" to tooLong)), mapper).research(shortInput("Oostrum"), Listener())
+
+        val prompt = requests.single().instruction.replace(Regex("\\s+"), " ")
+        assertTrue(prompt.contains("Volledige tekst: Toos Oostrum werd geboren in 1901."))
+        assertTrue(prompt.contains("Begin van de tekst: Het begin van de lange biografie."))
+        assertTrue(prompt.contains("Laat in de tekst: Oostrum verhuisde in 1930."))
+        assertTrue(requests.single().attachments.isEmpty(), "de invoer past in de instructie zelf")
+    }
+
+    @Test
+    fun `when the question asks for an article the short mode writes it directly from the selection`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true))
+        val (runner, requests) = runner(
+            quick("artikel"),
+            """{"title":"De zussen Oostrum","answerHtml":"<p>Een artikel <a data-hkh-source=\"1\">foto</a>.</p>","sources":[1],"suggestedFollowUps":[],"moreAvailable":true,"moreSummary":"Meer over de familie."}""",
+        )
+        val outcome = ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper).research(shortInput("Schrijf een verhaal over Toos Oostrum"), Listener())
+
+        assertEquals(listOf("t-quick", "t-write"), requests.map { it.idempotencyKey })
+        assertTrue(requests[1].instruction.contains("Tussenconclusie uit het onderzoek: Toos en Cis woonden in 1950"))
+        assertEquals(ResearchStats.KIND_ARTICLE, outcome.stats.kind)
+        assertEquals("artikel", outcome.stats.form)
+        assertEquals("De zussen Oostrum", outcome.result.path("title").asText())
+    }
+
+    @Test
+    fun `the article after a short answer skips searching and writes from the stored selection`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true), card("3", "Pastorie", "Grard Oostrom als huishoudster.", text = true))
+        val (runner, requests) = runner(
+            """{"title":"De zussen Oostrum","answerHtml":"<p>Een artikel <a data-hkh-source=\"2\">stuk</a>.</p>","sources":[2],"suggestedFollowUps":[],"moreAvailable":true,"moreSummary":"Nog meer."}""",
+        )
+        val search = FakeSearch(found)
+        val outcome = ResearchPipelineService(runner, search, FakeDocuments(found), mapper)
+            .article(input("Waar woonde Toos Oostrum?"), found.map { it.ref }, "Toos en Cis woonden aan de Kerklaan.", Listener())
+
+        assertEquals(listOf("t-write"), requests.map { it.idempotencyKey })
+        assertTrue(search.searches.isEmpty() && search.selections.isEmpty())
+        assertTrue(requests.single().instruction.contains("Tussenconclusie uit het onderzoek: Toos en Cis woonden aan de Kerklaan."))
+        assertFalse(outcome.result.path("moreAvailable").asBoolean(), "het artikel is hier het eindpunt")
+        assertEquals(listOf("beeldbank/1", "beeldbank/3"), outcome.stats.selection)
+    }
+
+    @Test
+    fun `progress follows the clock against the estimated duration while a model run is waiting`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true))
+        val asked = mutableListOf<Triple<AiRole, String, Int>>()
+        val runner = StructuredJobRunner { request ->
+            request.cancelled()
+            StructuredJobOutcome("job", mapper.readTree(quick("antwoord")), 1000, 100, "anthropic/test")
+        }
+        val listener = Listener()
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper, JobDurationEstimator { role, step, chars -> asked += Triple(role, step, chars); 120 })
+            .research(shortInput("Waar woonde Toos Oostrum?"), listener)
+
+        assertEquals(AiRole.RESEARCH to "kort", asked.single().first to asked.single().second)
+        assertTrue(asked.single().third > 1_000, "de schatter krijgt de omvang van de invoer")
+        assertTrue(listener.progress.any { it == "15 Het antwoord wordt opgesteld uit 1 gevonden archiefstukken; nog ongeveer 2 minuten" }, listener.progress.toString())
+    }
 }

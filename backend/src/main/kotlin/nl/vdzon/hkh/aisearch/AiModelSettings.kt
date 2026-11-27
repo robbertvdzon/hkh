@@ -127,12 +127,30 @@ class AiModelSettings(
         )
     }
 
+    /**
+     * De korte stand van de pijplijn: eerst een kort antwoord uit de kaarten en tekstfragmenten, het
+     * artikel alleen als de vraag erom vraagt of de gebruiker het laat maken. Standaard uit.
+     */
+    fun shortFirst(): Boolean = jdbc.queryForList("SELECT value FROM app_setting WHERE key = ?", String::class.java, SHORT_FIRST_KEY)
+        .singleOrNull()?.trim().equals("true", ignoreCase = true)
+
+    fun updateShortFirst(enabled: Boolean, updatedBy: String) {
+        jdbc.update(
+            """
+            INSERT INTO app_setting (key, value, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
+            """.trimIndent(),
+            SHORT_FIRST_KEY, enabled.toString(), updatedBy.take(320),
+        )
+    }
+
     private fun key(role: AiRole) = if (role == AiRole.AGENT) KEY else "$KEY.${role.name.lowercase()}"
 
     companion object {
         const val KEY = "ai-search.execution"
         const val METHOD_KEY = "ai-search.method"
         const val WRITE_BUDGET_KEY = "ai-search.write-budget"
+        const val SHORT_FIRST_KEY = "ai-search.short-first"
         val WRITE_BUDGET_RANGE = 50_000..2_000_000
         const val WRITE_BUDGET_LARGE = 450_000
         const val WRITE_BUDGET_SMALL = 250_000

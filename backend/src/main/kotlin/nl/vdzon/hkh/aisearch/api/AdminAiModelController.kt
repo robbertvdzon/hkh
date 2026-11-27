@@ -48,6 +48,8 @@ data class AiModelView(
     val writeBudgetChars: Int,
     val writeBudgetFromSetting: Boolean,
     val writeBudgetDefault: Int,
+    /** De korte stand van de pijplijn: eerst een kort antwoord, het artikel op verzoek. */
+    val shortFirst: Boolean,
 )
 
 data class SelectAiModelRequest(
@@ -59,6 +61,8 @@ data class SelectAiModelRequest(
 data class SelectAiMethodRequest(@field:NotBlank @field:Size(max = 20) val method: String)
 
 data class SelectWriteBudgetRequest(val chars: Int)
+
+data class SelectShortFirstRequest(val enabled: Boolean)
 
 /**
  * Beheer van de AI-modellen: catalogus van de runtime, de keuze per rol (agent, extractie,
@@ -150,6 +154,17 @@ class AdminAiModelController(
         return view(AiRole.WRITER)
     }
 
+    @PutMapping("/short-first")
+    fun selectShortFirst(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @RequestBody request: SelectShortFirstRequest,
+    ): AiModelView {
+        val admin = authenticator.authenticate(authorization, previewHeader)
+        settings.updateShortFirst(request.enabled, admin.email)
+        return view(AiRole.RESEARCH)
+    }
+
     private fun parseRole(value: String?): AiRole {
         if (value.isNullOrBlank()) return AiRole.AGENT
         return AiRole.entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
@@ -179,13 +194,14 @@ class AdminAiModelController(
             writeBudgetChars = budget.chars,
             writeBudgetFromSetting = budget.fromSetting,
             writeBudgetDefault = budget.default,
+            shortFirst = settings.shortFirst(),
         )
     }
 
     private fun roleLabel(role: AiRole) = when (role) {
         AiRole.AGENT -> "Agent (zoekt zelf via de API)"
         AiRole.EXTRACTION -> "Extractie (AI-kaarten)"
-        AiRole.RESEARCH -> "Richten (kaarten beoordelen en de zoekopdracht bepalen)"
+        AiRole.RESEARCH -> "Richten (kaarten beoordelen en de zoekopdracht bepalen; in de korte stand ook het korte antwoord)"
         AiRole.WRITER -> "Schrijven (het antwoord uit de volledige teksten)"
     }
 
