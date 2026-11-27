@@ -263,8 +263,10 @@ class ResearchPipelineService(
             return outcome.copy(stats = outcome.stats.copy(form = form.code))
         }
         val written = (quick as ObjectNode).deepCopy()
+        // Na een kort antwoord kan de bezoeker altijd een artikel laten schrijven zolang er stukken zijn;
+        // het model zegt alleen wat zo'n artikel zou toevoegen als het dat de moeite waard vindt.
         val worthwhile = quick.path("articleWorthwhile").asBoolean(false) && selection.isNotEmpty()
-        written.put("moreAvailable", worthwhile)
+        written.put("moreAvailable", selection.isNotEmpty())
         written.put("moreSummary", if (worthwhile) quick.path("articleSummary").asText("") else "")
         val result = toAgentResult(written, numbers, bounded = true)
         return ResearchOutcome(

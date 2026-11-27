@@ -653,7 +653,9 @@ void main() {
   for (final embedded in [false, true]) {
     for (final status in ['RUNNING', 'SUCCEEDED']) {
       testWidgets(
-        '$status search has no follow-up input or suggestions (embedded: $embedded)',
+        status == 'RUNNING'
+            ? 'RUNNING search has no follow-up input or suggestions (embedded: $embedded)'
+            : 'SUCCEEDED search offers a follow-up question and the suggested ones (embedded: $embedded)',
         (tester) async {
           final source = _AiSource()
             ..session = AiSearchSession(
@@ -681,12 +683,22 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
 
-          expect(find.byType(TextField), findsNothing);
-          expect(find.text('Stel een vervolgvraag'), findsNothing);
+          if (status == 'RUNNING') {
+            // Zolang het onderzoek loopt is er niets om op door te vragen.
+            expect(find.byType(TextField), findsNothing);
+            expect(find.text('Stel een vervolgvraag'), findsNothing);
+            expect(find.text('En zijn zoon?'), findsNothing);
+          } else {
+            expect(find.byKey(const Key('follow-up-composer')), findsOneWidget);
+            expect(find.text('Stel een vervolgvraag'), findsOneWidget);
+            expect(find.text('En zijn zoon?'), findsOneWidget);
+            await tester.ensureVisible(find.text('En zijn zoon?'));
+            await tester.tap(find.text('En zijn zoon?'));
+            await tester.pump();
+            expect(source.followUpDepths, hasLength(1));
+          }
           expect(find.text('Misschien wil je ook weten:'), findsNothing);
-          expect(find.text('En zijn zoon?'), findsNothing);
           expect(find.byKey(const Key('research-depth-menu')), findsNothing);
-          expect(source.followUpDepths, isEmpty);
           expect(find.text('Wie was Jan Klaasz. Beemster?'), findsOneWidget);
           if (status == 'SUCCEEDED') {
             expect(find.text('Jan Klaasz. Beemster'), findsOneWidget);

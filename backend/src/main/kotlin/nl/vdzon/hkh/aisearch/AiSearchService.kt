@@ -817,6 +817,8 @@ data class AiSearchTurnView(
     val preview: AiSearchPreview?,
     /** Wat de onderzoeker achtereenvolgens deed, in gewone woorden. */
     val steps: List<AiStep>,
+    /** "short" als dit een kort antwoord is waar nog een artikel bij te maken is; anders null. */
+    val answerKind: String?,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
@@ -830,6 +832,8 @@ data class AiSearchOptionsView(val method: AiResearchMethod, val depthSelectable
 
 data class AiSteeringView(val stop: Boolean, val hint: String?, val delivered: Boolean)
 
+private val SHORT_KIND = Regex(""""kind"\s*:\s*"short"""")
+
 private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView(
     id, turnNumber, question, status, progressPercent, progressMessage, title, answerHtml, sourcesHtml,
     sources, suggestedFollowUps, errorMessage, depth, method,
@@ -837,6 +841,7 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
     AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
     status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1 && method == AiResearchMethod.AGENT,
     moreAvailable, moreSummary, expandsTurnId, preview, steps,
+    if (researchStats?.let { SHORT_KIND.containsMatchIn(it) } == true) ResearchStats.KIND_SHORT else null,
     createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 

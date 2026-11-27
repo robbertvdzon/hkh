@@ -183,6 +183,51 @@ class _AiSearchPageState extends State<AiSearchPage> {
     }
   }
 
+  /// Een vervolgvraag in hetzelfde gesprek; het eerdere antwoord en zijn bronnen gaan als context mee.
+  Future<void> _askFollowUp(String text) async {
+    final sessionId = _session?.id;
+    final question = text.trim();
+    if (!widget.canAsk ||
+        sessionId == null ||
+        question.length < 3 ||
+        _submitting) {
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final session = await widget.source.askFollowUp(
+        sessionId,
+        question,
+        depth: _depth,
+      );
+      if (!mounted) return;
+      setState(() {
+        _session = session;
+        _submitting = false;
+        _questionController.clear();
+      });
+      _startPolling();
+      _scrollToBottom();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = error.toString().replaceFirst('Bad state: ', '');
+      });
+    }
+  }
+
+  /// Of er nu een vervolgvraag gesteld kan worden: het gesprek loopt niet meer en heeft nog ruimte.
+  bool _canFollowUp(AiSearchSession? session) =>
+      widget.canAsk &&
+      session != null &&
+      session.turns.isNotEmpty &&
+      !session.turns.any((t) => t.isActive) &&
+      session.turns.length < 10;
+
   void _startPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
@@ -482,6 +527,26 @@ class _AiSearchPageState extends State<AiSearchPage> {
                         _QuestionCard(question: turn.question),
                         const SizedBox(height: 10),
                         _buildTurnCard(session, turn),
+                        if (_canFollowUp(session) &&
+                            turn ==
+                                session.turns.lastWhere((t) => !t.isExpansion) &&
+                            turn.suggestedFollowUps.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            key: const Key('follow-up-suggestions'),
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final suggestion in turn.suggestedFollowUps)
+                                ActionChip(
+                                  label: Text(suggestion),
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => _askFollowUp(suggestion),
+                                ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 20),
                       ],
                     if (_error != null)
@@ -506,6 +571,18 @@ class _AiSearchPageState extends State<AiSearchPage> {
                   depth: _depth,
                   onDepthChanged: (depth) => setState(() => _depth = depth),
                   showDepth: _depthSelectable,
+                )
+              else if (_canFollowUp(session))
+                _QuestionComposer(
+                  key: const Key('follow-up-composer'),
+                  controller: _questionController,
+                  enabled: !_submitting,
+                  label: 'Stel een vervolgvraag',
+                  onSubmit: () => _askFollowUp(_questionController.text),
+                  depth: _depth,
+                  onDepthChanged: (depth) => setState(() => _depth = depth),
+                  // Een vervolgvraag neemt de diepte van het gesprek over; geen keuzemenu.
+                  showDepth: false,
                 )
               else if (!widget.canAsk)
                 Padding(
@@ -997,8 +1074,12 @@ class _TurnCardState extends State<_TurnCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Dit is een beknopt antwoord. Er is meer te vertellen'
-            '${(summary?.isNotEmpty ?? false) ? ': $summary' : '.'}',
+            turn.isShortAnswer
+                ? 'Dit is een kort antwoord. U kunt er een artikel over laten '
+                      'schrijven uit de volledige archiefstukken'
+                      '${(summary?.isNotEmpty ?? false) ? ': $summary' : '.'}'
+                : 'Dit is een beknopt antwoord. Er is meer te vertellen'
+                      '${(summary?.isNotEmpty ?? false) ? ': $summary' : '.'}',
           ),
           if (busy) ...[
             const SizedBox(height: 10),
@@ -1013,7 +1094,7 @@ class _TurnCardState extends State<_TurnCard> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Volledige uitwerking wordt geschreven, dit duurt enkele '
+                    '${turn.isShortAnswer ? 'Het artikel' : 'Volledige uitwerking'} wordt geschreven, dit duurt enkele '
                     'minuten'
                     '${expansion.progressMessage == null ? '' : ' · ${expansion.progressMessage}'}'
                     '${widget.expansionElapsed == null ? '' : ' · ${widget.expansionElapsed}'}',
@@ -1051,9 +1132,13 @@ class _TurnCardState extends State<_TurnCard> {
                 onPressed: widget.onExpand,
                 icon: const Icon(Icons.unfold_more),
                 label: Text(
-                  failed
-                      ? 'Opnieuw volledig uitwerken (duurt enkele minuten)'
-                      : 'Volledig uitwerken (duurt enkele minuten)',
+                  turn.isShortAnswer
+                      ? (failed
+                            ? 'Opnieuw een artikel schrijven (duurt enkele minuten)'
+                            : 'Schrijf hier een artikel over (duurt enkele minuten)')
+                      : (failed
+                            ? 'Opnieuw volledig uitwerken (duurt enkele minuten)'
+                            : 'Volledig uitwerken (duurt enkele minuten)'),
                 ),
               ),
             ],
@@ -1532,6 +1617,7 @@ class _SteeringPanelState extends State<_SteeringPanel> {
 
 class _QuestionComposer extends StatelessWidget {
   const _QuestionComposer({
+    super.key,
     required this.controller,
     required this.enabled,
     required this.label,

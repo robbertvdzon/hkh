@@ -146,6 +146,7 @@ class AiSearchTurn {
     this.expandsTurnId,
     this.preview,
     this.steps = const [],
+    this.answerKind,
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -189,6 +190,7 @@ class AiSearchTurn {
         .map((item) => (item as Map<String, dynamic>)['text'] as String? ?? '')
         .where((text) => text.isNotEmpty)
         .toList(growable: false),
+    answerKind: json['answerKind'] as String?,
   );
 
   final String id;
@@ -238,6 +240,11 @@ class AiSearchTurn {
 
   /// Wat de onderzoeker achtereenvolgens deed, in gewone woorden.
   final List<String> steps;
+
+  /// 'short' als dit een kort antwoord is waar nog een artikel bij te maken is.
+  final String? answerKind;
+
+  bool get isShortAnswer => answerKind == 'short';
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);
