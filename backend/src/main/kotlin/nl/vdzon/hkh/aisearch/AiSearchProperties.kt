@@ -13,6 +13,6 @@ data class AiSearchProperties(
     /** Standaardmodel voor de kaartenextractie (bulkwerk): klein en snel, tenzij een beheerder anders kiest. */
     val extractionModel: String = "claude-haiku-4-5-20251001",
     val executionTimeoutSeconds: Int = 900,
-    val pollIntervalMs: Long = 2_000,
+    val pollIntervalMs: Long = 1_000,
     val maxActiveSearches: Int = 5,
 )

@@ -371,6 +371,19 @@ class ResearchPipelineServiceTest {
     }
 
     @Test
+    fun `the short mode keeps its whole input inside the instruction, however many records were found`() {
+        val long = "Oostrum woonde hier. ".repeat(40) + "Opvulling. ".repeat(3_000)
+        val found = (1..150).map { card("$it", "Stuk nummer $it met een behoorlijk lange titel over de familie", "Samenvatting van stuk $it. ".repeat(20), text = true, collection = "artikelen") }
+        val (runner, requests) = runner(quick("twijfel"))
+        ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found, found.associate { it.ref.ident to long }), mapper).research(shortInput("Oostrum"), Listener())
+
+        val request = requests.single()
+        assertTrue(request.attachments.isEmpty(), "geen bestanden: die kosten het model een extra leesbeurt")
+        assertTrue(request.instruction.length <= JobPrompts.INLINE_LIMIT, "instructie van ${request.instruction.length} tekens")
+        assertTrue(request.instruction.contains("Ook gevonden, alleen de kop"))
+    }
+
+    @Test
     fun `when the question asks for an article the short mode writes it directly from the selection`() {
         val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true))
         val (runner, requests) = runner(
