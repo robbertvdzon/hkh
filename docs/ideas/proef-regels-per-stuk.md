@@ -163,6 +163,33 @@ een schatting op medianen; lange uitschieters (één transcriptie is 300.000 tek
 6. **Gebruik Sonnet voor de regels, niet Haiku**, als ze gemaakt worden: Haiku is korter doordat
    het gegevens weglaat.
 
+## Aanvulling: maakt een feitentabel het korte antwoord sneller?
+
+Gemeten op 27 november 2026, nadat de korte stand live stond. Vraag: "sinds wanneer staat de
+laurentius kerk er", dertien stukken, dezelfde opdracht en hetzelfde schema als de korte stand,
+Haiku 5.5 op het laagste redeneerniveau, lokaal met de Claude-CLI, elke variant drie keer.
+
+| Invoer | Tekens | Totaal (3 runs) | Nadenken (3 runs) | Schrijven |
+| --- | --- | --- | --- | --- |
+| A: zoals de korte stand nu (kaart, fragmenten, begin van onderwerpstukken) | 55.103 | 16,0 / 19,1 / 22,6 s | 10,3 / 13,5 / 17,2 s | 3,4 tot 3,7 s |
+| B: alleen fragmenten, klein | 14.837 | 14,8 / 15,7 / 18,3 s | 9,9 / 10,9 / 13,1 s | 3,0 tot 3,6 s |
+| C: gevonden regels per stuk | 14.406 | 15,3 / 20,0 / 15,7 s | 10,0 / 15,1 / 10,0 s | 3,1 tot 3,8 s |
+
+- **Sneller wordt het niet door de regels.** B en C zijn even groot en even snel; het verschil
+  tussen runs van dezelfde variant (tot 5 seconden) is groter dan het verschil tussen de varianten.
+- **Een kleinere invoer scheelt gemiddeld ongeveer 3 seconden** ten opzichte van A. De eerste token
+  komt bij alle varianten na ongeveer 1 seconde; de tijd zit in het nadenken (10 tot 17 seconden,
+  2.000 tot 3.500 tokens) en dat hangt nauwelijks van de invoer af.
+- **Het antwoord was wel beter met de regels.** Alleen variant C noemde 1891 en architect Tonnaer
+  voor de huidige Laurentiuskerk; A en B antwoordden over de middeleeuwse kerk (gesticht vóór 1049).
+  De fragmenten, gelijk verspreid over tientallen treffers op "kerk", bevatten de passage over 1891
+  niet; de regels die beide zoektermen raakten wel. Eén vraag, dus een aanwijzing en geen bewijs.
+- **De CLI stuurt zelf ongeveer 26.000 tokens mee** (systeemopdracht en gereedschappen): een invoer
+  van 14.800 tekens telde 31.000 invoertokens.
+
+Ter vergelijking: dezelfde vraag via de runtime duurde 37 seconden, waarvan 13,6 nadenken en 7,2
+schrijven; de rest zat in hkh (5,6 s), het oppakken en het starten van de container.
+
 ## Materiaal
 
 De stukken, regels, zoekresultaten en antwoorden van de proef staan in de scratchmap van de sessie
