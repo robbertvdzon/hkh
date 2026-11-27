@@ -145,6 +145,7 @@ class AiSearchTurn {
     this.moreSummary,
     this.expandsTurnId,
     this.preview,
+    this.steps = const [],
   });
 
   factory AiSearchTurn.fromJson(Map<String, dynamic> json) => AiSearchTurn(
@@ -184,6 +185,10 @@ class AiSearchTurn {
     preview: json['preview'] == null
         ? null
         : AiSearchPreview.fromJson(json['preview'] as Map<String, dynamic>),
+    steps: (json['steps'] as List<dynamic>? ?? const [])
+        .map((item) => (item as Map<String, dynamic>)['text'] as String? ?? '')
+        .where((text) => text.isNotEmpty)
+        .toList(growable: false),
   );
 
   final String id;
@@ -230,6 +235,9 @@ class AiSearchTurn {
 
   /// Pijplijn: de eerste treffers, direct na de snelle zoekstap.
   final AiSearchPreview? preview;
+
+  /// Wat de onderzoeker achtereenvolgens deed, in gewone woorden.
+  final List<String> steps;
 
   bool get isActive =>
       const {'SUBMITTING', 'QUEUED', 'RUNNING'}.contains(status);

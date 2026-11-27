@@ -25,7 +25,49 @@ data class StructuredJobRequest(
      * standaard van de runtime. Laag is bedoeld voor het korte antwoord, waar wachttijd telt.
      */
     val reasoningEffort: String? = null,
+    /**
+     * Wordt aangeroepen als het model van bezigheid wisselt (nadenken, een hulpmiddel gebruiken, het
+     * antwoord schrijven), afgeleid uit de gebeurtenissen van de runtime. Zonder luisteraar worden die
+     * gebeurtenissen niet opgehaald.
+     */
+    val onActivity: ((JobActivity) -> Unit)? = null,
 )
+
+/** Waar het model tijdens een job mee bezig is. */
+enum class JobActivity { THINKING, USING_TOOL, WRITING }
+
+/**
+ * Leest de bezigheid van het model uit de stroom van de provider-CLI zoals de runtime die als
+ * logtekst doorgeeft. De tekst komt in stukken binnen, dus de lezer onthoudt het staartje.
+ */
+class JobActivityReader(private val resultTool: String = "StructuredOutput") {
+    private var tail = ""
+    private var last: JobActivity? = null
+
+    /** Geeft de nieuwe bezigheid terug als die door deze tekst verandert, anders null. */
+    fun read(text: String): JobActivity? {
+        val buffer = tail + text
+        var current: JobActivity? = null
+        for (match in BLOCK.findAll(buffer)) {
+            val after = buffer.substring(match.range.last + 1, minOf(buffer.length, match.range.last + 1 + NAME_WINDOW))
+            current = when (match.groupValues[1]) {
+                "thinking" -> JobActivity.THINKING
+                "text" -> JobActivity.WRITING
+                else -> if (NAME.find(after)?.groupValues?.get(1) == resultTool) JobActivity.WRITING else JobActivity.USING_TOOL
+            }
+        }
+        tail = buffer.takeLast(TAIL_CHARS)
+        // Een blok dat nog in het staartje zit, wordt bij de volgende tekst opnieuw gezien; alleen een verandering telt.
+        return current?.takeIf { it != last }?.also { last = it }
+    }
+
+    private companion object {
+        val BLOCK = Regex("""\"content_block\":\{\"type\":\"(thinking|tool_use|text)\"""")
+        val NAME = Regex("""\"name\":\"([A-Za-z_]+)\"""")
+        const val NAME_WINDOW = 160
+        const val TAIL_CHARS = 240
+    }
+}
 
 /**
  * De runtime beperkt een instructie tot 65.536 tekens. Grote invoer (records, kandidaten,

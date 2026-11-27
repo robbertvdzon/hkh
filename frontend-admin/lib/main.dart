@@ -994,6 +994,31 @@ class _AiModelSectionState extends State<_AiModelSection> {
                               : 'Nieuwe vragen krijgen weer direct een artikel.',
                         ),
                 ),
+              if (state.method == AiResearchMethod.pipeline && state.shortFirst)
+                SwitchListTile(
+                  key: const Key('ai-model-searches'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('De onderzoeker zoekt zelf'),
+                  subtitle: const Text(
+                    'Het model bedenkt zelf waar het naar zoekt en vraagt de '
+                    'stukken op bij HKH (hoogstens twee zoekacties), in plaats '
+                    'van dat de code de zoektermen uit de vraag haalt. De '
+                    'bezoeker ziet elke stap.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: state.modelSearches,
+                  onChanged: _saving
+                      ? null
+                      : (enabled) => _apply(
+                          () => widget.source.selectModelSearches(
+                            widget.identity,
+                            enabled,
+                          ),
+                          enabled
+                              ? 'De onderzoeker zoekt voortaan zelf.'
+                              : 'De zoektermen komen weer uit de vraag.',
+                        ),
+                ),
               if (state.roles.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(

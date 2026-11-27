@@ -50,6 +50,8 @@ data class AiModelView(
     val writeBudgetDefault: Int,
     /** De korte stand van de pijplijn: eerst een kort antwoord, het artikel op verzoek. */
     val shortFirst: Boolean,
+    /** Binnen de korte stand: het model zoekt zelf in het archief. */
+    val modelSearches: Boolean,
 )
 
 data class SelectAiModelRequest(
@@ -63,6 +65,8 @@ data class SelectAiMethodRequest(@field:NotBlank @field:Size(max = 20) val metho
 data class SelectWriteBudgetRequest(val chars: Int)
 
 data class SelectShortFirstRequest(val enabled: Boolean)
+
+data class SelectModelSearchesRequest(val enabled: Boolean)
 
 /**
  * Beheer van de AI-modellen: catalogus van de runtime, de keuze per rol (agent, extractie,
@@ -165,6 +169,17 @@ class AdminAiModelController(
         return view(AiRole.RESEARCH)
     }
 
+    @PutMapping("/model-searches")
+    fun selectModelSearches(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestHeader(PreviewRuntimeConfig.ADMIN_HEADER, required = false) previewHeader: String?,
+        @RequestBody request: SelectModelSearchesRequest,
+    ): AiModelView {
+        val admin = authenticator.authenticate(authorization, previewHeader)
+        settings.updateModelSearches(request.enabled, admin.email)
+        return view(AiRole.RESEARCH)
+    }
+
     private fun parseRole(value: String?): AiRole {
         if (value.isNullOrBlank()) return AiRole.AGENT
         return AiRole.entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
@@ -195,6 +210,7 @@ class AdminAiModelController(
             writeBudgetFromSetting = budget.fromSetting,
             writeBudgetDefault = budget.default,
             shortFirst = settings.shortFirst(),
+            modelSearches = settings.modelSearches(),
         )
     }
 

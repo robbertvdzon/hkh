@@ -6,7 +6,10 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import nl.vdzon.hkh.research.ArchiveSearchTool
 import nl.vdzon.hkh.research.ResearchCancelledException
+import nl.vdzon.hkh.research.SearchToolSession
+import nl.vdzon.hkh.research.ToolSearchRequest
 import nl.vdzon.hkh.research.ResearchInput
 import nl.vdzon.hkh.collection.CollectionLinks
 import nl.vdzon.hkh.research.ResearchListener
@@ -39,8 +42,13 @@ class AiSearchService(
     private val capacityPhases: AiCapacityPhases,
     @param:org.springframework.beans.factory.annotation.Value("\${hkh.public-origin:https://hkh.vdzonsoftware.nl}")
     private val publicOrigin: String = "https://hkh.vdzonsoftware.nl",
+    private val searchTool: ArchiveSearchTool? = null,
 ) {
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
+
+    /** Lopende onderzoeken waarin het model zelf zoekt: de sessie van de zoekfunctie en de terugkoppeling naar de beurt. */
+    private class ActiveTool(val session: SearchToolSession, val listener: ResearchListener)
+    private val activeTools = ConcurrentHashMap<String, ActiveTool>()
     private val processing = ConcurrentHashMap.newKeySet<String>()
 
     @PostConstruct
@@ -210,6 +218,37 @@ class AiSearchService(
             else "Ronde ${round.round} afgerond, ${round.sources} bronnen; volgende spoor: ${round.next.first()}"
         repository.updateProgress(turn.id, AiTurnStatus.RUNNING, turn.progressPercent, summary.take(500))
         return if (steering.pending) steering else AiSteering()
+    }
+
+    /**
+     * Een zoekactie van de onderzoeker zelf (korte stand, het model zoekt zelf). Geeft de tekst voor
+     * het model terug en laat de bezoeker direct zien waar hij naar zoekt en wat er gevonden is.
+     * Null als de beurt of het geheim niet klopt of er voor deze beurt geen zoekfunctie openstaat.
+     */
+    fun toolSearch(turnId: String, token: String, request: ToolSearchRequest): String? {
+        val turn = repository.findTurnByControlToken(turnId, token) ?: return null
+        if (turn.status !in ACTIVE_STATUSES) return null
+        val active = activeTools[turn.id] ?: return null
+        val tool = searchTool ?: return null
+        val session = active.session
+        val goal = request.goal.ifBlank { request.terms.take(3).joinToString(", ") }
+        if (request.terms.isNotEmpty() && session.searches < session.maxSearches) {
+            session.label = if (session.searches == 0) "Zoekt in het archief naar $goal" else "Meer nodig: zoekt ook naar $goal"
+            active.listener.step(session.label)
+            repository.updateProgress(turn.id, AiTurnStatus.RUNNING, turn.progressPercent, session.label)
+        }
+        val reply = tool.search(session, request)
+        val found = reply.found ?: return reply.text
+        val count = found.candidates.size
+        session.label = when {
+            count == 0 -> "Niets gevonden bij deze zoekactie; de onderzoeker bekijkt het opnieuw"
+            count == 1 -> "1 archiefstuk gevonden; de onderzoeker leest het"
+            else -> "${found.totalFound} archiefstukken gevonden; de onderzoeker leest de ${if (count < found.totalFound) "$count beste" else "stukken"}"
+        }
+        active.listener.step(session.label)
+        if (reply.searchNumber == 1 && count > 0) active.listener.preview(pipeline.previewOf(found, listOfNotNull(reply.query)))
+        repository.updateProgress(turn.id, AiTurnStatus.RUNNING, repository.findTurn(turn.id)?.progressPercent, session.label)
+        return reply.text
     }
 
     private fun applySteering(sessionId: String, turnId: String, stop: Boolean?, hint: String?) {
@@ -445,6 +484,14 @@ class AiSearchService(
 
             override fun cancelled(): Boolean = repository.findTurn(turn.id)?.status !in ACTIVE_STATUSES || capacity.stopped(turn.id)
 
+            override fun step(text: String) {
+                // De stappen zijn er voor de bezoeker; een fout bij het opslaan mag het onderzoek niet raken.
+                runCatching {
+                    repository.addStep(turn.id, text)
+                    requestLog.firstFeedback(turn.id)
+                }
+            }
+
             override fun <T : Any> checkpoint(name: String, type: Class<T>, compute: () -> T): T =
                 if (capacity.isCapacity(turn.id)) capacity.checkpoint(turn.id, name, type, compute) else compute()
         }
@@ -469,6 +516,15 @@ class AiSearchService(
                 val previous = expands.answerHtml?.let { Jsoup.parse(it).wholeText().trim() }.orEmpty()
                 // Na een kort antwoord is de vervolgstap het artikel; na een begrensd artikel de volledige uitwerking.
                 if (isShortAnswer(expands)) pipeline.article(input, selection, previous, listener) else pipeline.expand(input, selection, previous, listener)
+            } else if (input.shortFirst && modelSettings.modelSearches() && searchTool != null && !turn.controlToken.isNullOrBlank()) {
+                // Het model zoekt zelf: de zoekfunctie staat open zolang deze modelaanroep loopt.
+                val session = SearchToolSession()
+                activeTools[turn.id] = ActiveTool(session, listener)
+                try {
+                    pipeline.researchWithTool(input, session, "${publicOrigin.trimEnd('/')}/api/ai-search/research/${turn.id}/${turn.controlToken}/search", listener)
+                } finally {
+                    activeTools.remove(turn.id)
+                }
             } else {
                 pipeline.research(input, listener)
             }
@@ -759,6 +815,8 @@ data class AiSearchTurnView(
     val expandsTurnId: String?,
     /** Pijplijn: de eerste treffers, direct na de snelle zoekstap. */
     val preview: AiSearchPreview?,
+    /** Wat de onderzoeker achtereenvolgens deed, in gewone woorden. */
+    val steps: List<AiStep>,
     val createdAt: java.time.Instant,
     val updatedAt: java.time.Instant,
     val completedAt: java.time.Instant?,
@@ -778,7 +836,7 @@ private fun AiSearchTurn.toView(now: Instant = Instant.now()) = AiSearchTurnView
     researchLog.map { AiResearchRoundView(it.round, it.sources, it.found, it.next, it.reportedAt) },
     AiSteeringView(steering.stop, steering.hint, steering.deliveredAt != null),
     status in setOf(AiTurnStatus.SUBMITTING, AiTurnStatus.QUEUED, AiTurnStatus.RUNNING) && depth.maxRounds > 1 && method == AiResearchMethod.AGENT,
-    moreAvailable, moreSummary, expandsTurnId, preview,
+    moreAvailable, moreSummary, expandsTurnId, preview, steps,
     createdAt, updatedAt, completedAt, durationSeconds(now),
 )
 

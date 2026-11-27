@@ -434,4 +434,79 @@ class ResearchPipelineServiceTest {
         assertTrue(asked.single().third > 1_000, "de schatter krijgt de omvang van de invoer")
         assertTrue(listener.progress.any { it == "15 Het antwoord wordt opgesteld uit 1 gevonden archiefstukken; nog ongeveer 2 minuten" }, listener.progress.toString())
     }
+
+    // ---- Het model zoekt zelf ----
+
+    @Test
+    fun `the search tool numbers records once, reports what it found and refuses after the maximum`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true), card("7", "De pastorie", "Artikel over de pastorie.", text = true, collection = "artikelen"))
+        val tool = ArchiveSearchTool(FakeSearch(found), FakeDocuments(found, mapOf("7" to "De pastorie stond aan de Kerklaan. ".repeat(100) + "Oostrum werkte er vanaf 1931.")))
+        val session = SearchToolSession(maxSearches = 2)
+
+        val empty = tool.search(session, ToolSearchRequest("niets", emptyList()))
+        assertTrue(empty.text.contains("minstens één zoekterm"))
+        assertEquals(0, session.searches, "een lege poging telt niet mee")
+
+        val first = tool.search(session, ToolSearchRequest("de familie Oostrum", listOf("Oostrum", " oostrum ", "Kerklaan")))
+        assertEquals(1, first.searchNumber)
+        assertEquals(listOf("Oostrum", "Kerklaan"), first.query!!.terms)
+        assertTrue(first.text.startsWith("Zoekactie 1 van 2."))
+        assertTrue(first.text.contains("""[1] beeldbank 1 "Kerklaan 13a""""))
+        assertTrue(first.text.contains("""[2] artikelen 7 "De pastorie""""))
+        assertTrue(first.text.contains("Oostrum werkte er vanaf 1931."), "het fragment rond de treffer gaat mee")
+        assertTrue(first.text.contains("Je mag nog 1 keer zoeken"))
+        assertTrue(first.text.length < 30_000, "onder de grens waarboven het gereedschap de uitvoer afkapt")
+
+        val second = tool.search(session, ToolSearchRequest("de pastorie", listOf("pastorie")))
+        assertTrue(second.text.contains("Dit was je laatste zoekactie"))
+        assertEquals(mapOf(1 to ResearchRef("beeldbank", "1"), 2 to ResearchRef("artikelen", "7")), session.numbers(), "een record houdt zijn nummer over de zoekacties heen")
+
+        val third = tool.search(session, ToolSearchRequest("nog iets", listOf("Markt")))
+        assertTrue(third.text.contains("maximum van 2 zoekacties"))
+        assertEquals(null, third.found)
+        assertEquals(2, session.searches)
+    }
+
+    @Test
+    fun `when the model searches itself the code picks no terms and the visitor sees each step`() {
+        val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true), card("7", "De pastorie", "Artikel over de pastorie.", text = true, collection = "artikelen"))
+        val search = FakeSearch(found)
+        val tool = ArchiveSearchTool(search, FakeDocuments(found))
+        val session = SearchToolSession()
+        val requests = mutableListOf<StructuredJobRequest>()
+        // Het nagebootste model: zoekt één keer, begint dan te schrijven en geeft het korte antwoord.
+        val runner = StructuredJobRunner { request ->
+            requests += request
+            assertTrue(tool.search(session, ToolSearchRequest("waar Toos Oostrum woonde", listOf("Toos Oostrum"))).text.contains("[1] beeldbank 1"))
+            request.onActivity!!(JobActivity.THINKING)
+            request.onActivity!!(JobActivity.WRITING)
+            request.onActivity!!(JobActivity.WRITING)
+            StructuredJobOutcome("job", mapper.readTree(quick("antwoord", sources = "1,2", include = """{"collection":"artikelen","ident":"7"}""")), 1000, 100, "anthropic/test")
+        }
+        val steps = mutableListOf<String>()
+        val listener = object : ResearchListener {
+            override fun progress(percent: Int, message: String) {}
+            override fun round(report: ResearchRoundReport): Boolean = false
+            override fun step(text: String) { steps += text }
+        }
+        val outcome = ResearchPipelineService(runner, search, FakeDocuments(found), mapper)
+            .researchWithTool(ResearchInput("waar woonde toos oostrum", "", idempotencyPrefix = "t", shortFirst = true), session, "https://hkh.example/api/ai-search/research/turn/geheim/search", listener)
+
+        val request = requests.single()
+        assertEquals("t-tool", request.idempotencyKey)
+        assertEquals("LOW", request.reasoningEffort)
+        assertTrue(request.attachments.isEmpty())
+        assertTrue(request.instruction.contains("curl -s -G 'https://hkh.example/api/ai-search/research/turn/geheim/search'"))
+        assertTrue(request.instruction.contains("<user-question>waar woonde toos oostrum</user-question>"))
+        assertFalse(request.instruction.contains("[1] beeldbank"), "de code zoekt niet vooraf")
+        assertEquals(1, search.searches.size, "alleen de zoekactie van het model")
+        assertEquals(listOf("De onderzoeker leest uw vraag", "De onderzoeker schrijft het antwoord"), steps, "de stap 'schrijft' komt één keer; de zoekstappen meldt de aanroeper van de zoekfunctie")
+        assertEquals("De onderzoeker schrijft het antwoord", session.label)
+
+        assertEquals(ResearchStats.KIND_SHORT, outcome.stats.kind)
+        assertEquals("zoekend", outcome.stats.jobs.single().step)
+        assertTrue(outcome.result.path("answerHtml").asText().contains("""data-hkh-source="beeldbank/1""""))
+        assertEquals(listOf("beeldbank/1", "artikelen/7"), buildList { for (node in outcome.result.path("sources")) add("${node.path("collection").asText()}/${node.path("ident").asText()}") })
+        assertEquals("artikelen/7", outcome.stats.selection.first())
+    }
 }

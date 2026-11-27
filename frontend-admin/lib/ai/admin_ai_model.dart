@@ -141,6 +141,7 @@ class AiModelState {
     this.writeBudgetFromSetting = false,
     this.writeBudgetDefault = 450000,
     this.shortFirst = false,
+    this.modelSearches = false,
   });
 
   factory AiModelState.fromJson(Map<String, dynamic> json) => AiModelState(
@@ -163,6 +164,7 @@ class AiModelState {
     writeBudgetFromSetting: json['writeBudgetFromSetting'] as bool? ?? false,
     writeBudgetDefault: (json['writeBudgetDefault'] as num?)?.toInt() ?? 450000,
     shortFirst: json['shortFirst'] as bool? ?? false,
+    modelSearches: json['modelSearches'] as bool? ?? false,
   );
 
   final AiRole role;
@@ -184,6 +186,9 @@ class AiModelState {
   /// De korte stand van de pijplijn: eerst een kort antwoord, het artikel op
   /// verzoek.
   final bool shortFirst;
+
+  /// Binnen de korte stand: het model zoekt zelf in het archief.
+  final bool modelSearches;
 }
 
 abstract interface class AdminAiModelSource {
@@ -201,6 +206,10 @@ abstract interface class AdminAiModelSource {
   Future<AiModelState> selectWriteBudget(AdminIdentity identity, int chars);
   Future<AiModelState> resetWriteBudget(AdminIdentity identity);
   Future<AiModelState> selectShortFirst(AdminIdentity identity, bool enabled);
+  Future<AiModelState> selectModelSearches(
+    AdminIdentity identity,
+    bool enabled,
+  );
 }
 
 class AdminAiModelClient implements AdminAiModelSource {
@@ -324,6 +333,24 @@ class AdminAiModelClient implements AdminAiModelSource {
         )
         .timeout(const Duration(seconds: 20)),
     'Korte stand wijzigen mislukt',
+  );
+
+  @override
+  Future<AiModelState> selectModelSearches(
+    AdminIdentity identity,
+    bool enabled,
+  ) async => _parse(
+    await _client
+        .put(
+          Uri.parse('$apiBaseUrl/api/admin/ai-search/model-searches'),
+          headers: {
+            ...identity.requestHeaders,
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'enabled': enabled}),
+        )
+        .timeout(const Duration(seconds: 20)),
+    'Zoekwijze wijzigen mislukt',
   );
 
   AiModelState _parse(http.Response response, String failure) {

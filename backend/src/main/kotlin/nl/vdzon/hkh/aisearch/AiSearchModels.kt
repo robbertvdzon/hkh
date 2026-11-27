@@ -18,6 +18,9 @@ enum class AiResearchMethod {
 
 data class AiSourceRef(val collection: String, val ident: String)
 
+/** Eén stap van een onderzoek zoals de bezoeker die ziet. */
+data class AiStep(val at: java.time.Instant, val text: String)
+
 /** Eén van de eerste treffers die de gebruiker te zien krijgt terwijl het model nog werkt. */
 data class AiPreviewHit(
     val collection: String,
@@ -78,6 +81,8 @@ data class AiSearchTurn(
     val moreSummary: String? = null,
     /** Als deze beurt een uitwerking is: de beurt waarvan het antwoord en de bronnen de basis zijn. */
     val expandsTurnId: String? = null,
+    /** Wat de onderzoeker achtereenvolgens deed, in gewone woorden, voor de bezoeker. */
+    val steps: List<AiStep> = emptyList(),
     /** Pijplijn: de eerste treffers, direct na de snelle zoekstap; null bij agent of oudere vragen. */
     val preview: AiSearchPreview? = null,
 )

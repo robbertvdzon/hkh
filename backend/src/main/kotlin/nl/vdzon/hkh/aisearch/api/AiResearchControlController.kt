@@ -5,7 +5,10 @@ import java.time.Instant
 import nl.vdzon.hkh.aisearch.AiResearchRound
 import nl.vdzon.hkh.aisearch.AiSearchService
 import org.springframework.http.HttpStatus
+import nl.vdzon.hkh.research.ToolSearchRequest
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
@@ -42,5 +45,34 @@ class AiResearchControlController(private val service: AiSearchService) {
         val steering = service.reportRound(turnId, token, round)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Onbekend onderzoek")
         return ResearchControlResponse(stop = steering.stop, hint = steering.hint?.takeIf(String::isNotBlank))
+    }
+
+    /**
+     * De zoekfunctie waarmee de onderzoeker zelf in het archief zoekt (korte stand, het model zoekt
+     * zelf). Het antwoord is platte tekst: de genummerde stukken met samenvatting en fragmenten.
+     */
+    @GetMapping("/api/ai-search/research/{turnId}/{token}/search", produces = ["text/plain;charset=UTF-8"])
+    fun search(
+        @PathVariable turnId: String,
+        @PathVariable token: String,
+        @RequestParam(name = "doel", required = false) goal: String?,
+        @RequestParam(name = "termen", required = false) terms: String?,
+        @RequestParam(name = "van", required = false) from: String?,
+        @RequestParam(name = "tot", required = false) to: String?,
+        @RequestParam(name = "collecties", required = false) collections: String?,
+        @RequestParam(name = "fotos", required = false) photos: String?,
+        response: HttpServletResponse,
+    ): String {
+        response.setHeader("Cache-Control", "no-store")
+        fun list(value: String?) = value.orEmpty().split('|', ';', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+        val request = ToolSearchRequest(
+            goal = goal.orEmpty().replace(Regex("\\s+"), " ").trim().take(200),
+            terms = list(terms).take(12),
+            yearFrom = from?.trim()?.toIntOrNull(),
+            yearTo = to?.trim()?.toIntOrNull(),
+            collections = list(collections).take(7),
+            withImage = photos?.trim()?.lowercase() in setOf("ja", "true", "1", "yes"),
+        )
+        return service.toolSearch(turnId, token, request) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Onbekend onderzoek")
     }
 }

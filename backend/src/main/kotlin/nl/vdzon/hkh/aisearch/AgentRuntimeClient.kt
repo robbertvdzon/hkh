@@ -2,6 +2,8 @@ package nl.vdzon.hkh.aisearch
 
 import java.net.http.HttpClient
 import java.time.Duration
+import nl.vdzon.hkh.research.JobActivity
+import nl.vdzon.hkh.research.JobActivityReader
 import nl.vdzon.hkh.research.AiRole
 import nl.vdzon.hkh.research.JobAttachment
 import nl.vdzon.hkh.research.StructuredJobCancelledException
@@ -169,6 +171,9 @@ class AgentRuntimeClient(
         val job = if (request.reasoningEffort == null) createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments)
         else createJobInternal(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments, false, request.reasoningEffort)
         val deadline = System.currentTimeMillis() + (request.executionTimeoutSeconds + 600) * 1000L
+        val activity = request.onActivity?.takeUnless { fixtures.enabled }
+        val reader = JobActivityReader()
+        var eventCursor = 0L
         while (true) {
             val current = getJob(job.id)
             when (current.status) {
@@ -189,9 +194,32 @@ class AgentRuntimeClient(
                 runCatching { cancel(job.id) }
                 throw StructuredJobFailedException(job.id, "De AI-dienst reageerde niet op tijd.")
             }
+            if (activity != null) eventCursor = readActivity(job.id, eventCursor, reader, activity)
             Thread.sleep(pollIntervalMs)
         }
     }
+
+    /**
+     * Leest de nieuwe gebeurtenissen van een job en meldt het als het model van bezigheid wisselt
+     * (nadenken, een hulpmiddel, het antwoord schrijven). Alleen voor de voortgang: een fout hier mag
+     * de job niet raken.
+     */
+    private fun readActivity(jobId: String, after: Long, reader: JobActivityReader, onActivity: (JobActivity) -> Unit): Long = runCatching {
+        var cursor = after
+        for (page in 1..5) {
+            val json = client.get().uri("/v2/jobs/{jobId}/events?afterSequence={after}&limit=100", jobId, cursor).retrieve().body(String::class.java) ?: break
+            val items = objectMapper.readTree(json).path("items")
+            if (items.size() == 0) break
+            val text = StringBuilder()
+            for (item in items) {
+                cursor = maxOf(cursor, item.path("sequence").asLong(cursor))
+                item.path("logText").takeIf { it.isTextual }?.let { text.append(it.asText()) }
+            }
+            reader.read(text.toString())?.let(onActivity)
+            if (items.size() < 100) break
+        }
+        cursor
+    }.getOrDefault(after)
 
     /** Tokens en API-equivalente kosten uit het verbruiksoverzicht van een resultaat. */
     fun usage(envelope: JsonNode): RuntimeUsage {

@@ -234,6 +234,32 @@ class AiSearchRepository(
         )
     }
 
+    /** Voegt een stap toe aan wat de bezoeker van het onderzoek ziet; dezelfde tekst direct na elkaar telt één keer. */
+    fun addStep(turnId: String, text: String) {
+        val clean = text.trim().take(300)
+        if (clean.isEmpty()) return
+        jdbc.update(
+            """
+            UPDATE ai_search_turn
+            SET steps = coalesce(steps, '[]'::jsonb) || jsonb_build_array(jsonb_build_object('at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'text', ?::text)),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?::uuid AND coalesce(steps -> -1 ->> 'text', '') <> ?
+            """.trimIndent(),
+            clean, turnId, clean,
+        )
+    }
+
+    private fun parseSteps(json: String?): List<AiStep> {
+        if (json.isNullOrBlank()) return emptyList()
+        val node = runCatching { objectMapper.readTree(json) }.getOrNull() ?: return emptyList()
+        return buildList {
+            for (item in node) {
+                val at = runCatching { java.time.Instant.parse(item.path("at").asText("")) }.getOrNull() ?: continue
+                add(AiStep(at, item.path("text").asText("")))
+            }
+        }
+    }
+
     /** Bewaart de eerste treffers van de pijplijn, zodat de site ze direct kan tonen. */
     fun savePreview(turnId: String, preview: AiSearchPreview) {
         jdbc.update(
@@ -362,6 +388,7 @@ class AiSearchRepository(
             moreSummary = rs.getString("more_summary"),
             expandsTurnId = rs.getString("expands_turn_id"),
             preview = parsePreview(rs.getString("preview")),
+            steps = parseSteps(rs.getString("steps")),
         )
     }
 

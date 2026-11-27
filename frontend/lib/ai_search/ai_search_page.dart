@@ -1111,6 +1111,10 @@ class _TurnCardState extends State<_TurnCard> {
                   ),
               ],
             ),
+            if (turn.steps.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _ResearchSteps(steps: turn.steps),
+            ],
             if (turn.method == 'PIPELINE' && turn.preview != null) ...[
               const SizedBox(height: 12),
               _FirstHits(preview: turn.preview!),
@@ -1173,6 +1177,52 @@ class _TurnCardState extends State<_TurnCard> {
 typedef SteerHandler = Future<void> Function({bool? stop, String? hint});
 
 /// Stand per zoekronde zoals de onderzoeker die meldt: bronnen, bevindingen, volgende sporen.
+/// De stappen van een lopend onderzoek: wat al gedaan is met een vinkje, de
+/// stap waar de onderzoeker nu mee bezig is vet.
+class _ResearchSteps extends StatelessWidget {
+  const _ResearchSteps({required this.steps});
+
+  final List<String> steps;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    key: const Key('research-steps'),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (var index = 0; index < steps.length; index++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 8),
+                child: Icon(
+                  index == steps.length - 1
+                      ? Icons.arrow_right_alt
+                      : Icons.check,
+                  size: 18,
+                  color: appGreen,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  steps[index],
+                  style: TextStyle(
+                    fontWeight: index == steps.length - 1
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: index == steps.length - 1 ? null : appMutedText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+}
+
 class _ResearchLog extends StatelessWidget {
   const _ResearchLog({required this.rounds});
 

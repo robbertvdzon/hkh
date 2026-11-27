@@ -144,6 +144,23 @@ class AiModelSettings(
         )
     }
 
+    /**
+     * Binnen de korte stand: het model zoekt zelf in het archief (met een zoekfunctie van HKH) in
+     * plaats van dat de code de zoektermen uit de vraag haalt. Standaard uit.
+     */
+    fun modelSearches(): Boolean = jdbc.queryForList("SELECT value FROM app_setting WHERE key = ?", String::class.java, MODEL_SEARCHES_KEY)
+        .singleOrNull()?.trim().equals("true", ignoreCase = true)
+
+    fun updateModelSearches(enabled: Boolean, updatedBy: String) {
+        jdbc.update(
+            """
+            INSERT INTO app_setting (key, value, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP, updated_by = EXCLUDED.updated_by
+            """.trimIndent(),
+            MODEL_SEARCHES_KEY, enabled.toString(), updatedBy.take(320),
+        )
+    }
+
     private fun key(role: AiRole) = if (role == AiRole.AGENT) KEY else "$KEY.${role.name.lowercase()}"
 
     companion object {
@@ -151,6 +168,7 @@ class AiModelSettings(
         const val METHOD_KEY = "ai-search.method"
         const val WRITE_BUDGET_KEY = "ai-search.write-budget"
         const val SHORT_FIRST_KEY = "ai-search.short-first"
+        const val MODEL_SEARCHES_KEY = "ai-search.model-searches"
         val WRITE_BUDGET_RANGE = 50_000..2_000_000
         const val WRITE_BUDGET_LARGE = 450_000
         const val WRITE_BUDGET_SMALL = 250_000
