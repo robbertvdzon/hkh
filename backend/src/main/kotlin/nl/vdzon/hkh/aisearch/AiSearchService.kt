@@ -243,7 +243,8 @@ class AiSearchService(
         session.label = when {
             count == 0 -> "Niets gevonden bij deze zoekactie; de onderzoeker bekijkt het opnieuw"
             count == 1 -> "1 archiefstuk gevonden; de onderzoeker leest het"
-            else -> "${found.totalFound} archiefstukken gevonden; de onderzoeker leest de ${if (count < found.totalFound) "$count beste" else "stukken"}"
+            // Het model krijgt de best gerangschikte stukken uitgebreid te lezen en van de rest alleen de kop.
+            else -> "${found.totalFound} archiefstukken gevonden; de onderzoeker leest de best passende"
         }
         active.listener.step(session.label)
         if (reply.searchNumber == 1 && count > 0) active.listener.preview(pipeline.previewOf(found, listOfNotNull(reply.query)))
