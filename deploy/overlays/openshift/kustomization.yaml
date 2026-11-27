@@ -9,13 +9,13 @@ resources:
 images:
 - name: admin-image
   newName: ghcr.io/robbertvdzon/hkh-admin
-  newTag: sha-cb3d504
+  newTag: sha-522d4f7
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-3815b91
+  newTag: sha-522d4f7
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-c351486
+  newTag: sha-522d4f7
 patches:
 - path: agent-access-patch.yaml
 - path: central-postgres-patch.yaml
