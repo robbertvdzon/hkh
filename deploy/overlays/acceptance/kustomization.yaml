@@ -67,10 +67,10 @@ images:
   newTag: sha-522d4f7
 - name: backend-image
   newName: ghcr.io/robbertvdzon/hkh-backend
-  newTag: sha-522d4f7
+  newTag: sha-9cc788d
 - name: frontend-image
   newName: ghcr.io/robbertvdzon/hkh-frontend
-  newTag: sha-522d4f7
+  newTag: sha-9cc788d
 
 # Public web configuration, separate from the immutable frontend image. The
 # generated hash rolls both deployments when configuration changes.
