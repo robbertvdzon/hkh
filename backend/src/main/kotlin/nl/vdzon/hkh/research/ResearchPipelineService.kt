@@ -207,7 +207,7 @@ class ResearchPipelineService(
         val (head, bulk) = quickPrompt(input, listed, detailed.size, texts, found, minOf(input.quickBudgetChars, room - QUICK_BRIEF_RESERVE_CHARS).coerceAtLeast(0), room.coerceAtLeast(0))
         val (instruction, files) = JobPrompts.assemble(head, bulk, "archiefstukken", "stukken")
         // Vraagt de tekst zelf om een artikel, dan volgt er nog een schrijfstap en loopt de balk hier maar tot halverwege.
-        val quick = job(stats, AiRole.RESEARCH, "kort", "${input.idempotencyPrefix}-quick", instruction, QUICK_SCHEMA, 600, listener, files, Pace(label, 15, if (asksForArticle(input.question)) 44 else 95))
+        val quick = job(stats, AiRole.RESEARCH, "kort", "${input.idempotencyPrefix}-quick", instruction, QUICK_SCHEMA, 600, listener, files, Pace(label, 15, if (asksForArticle(input.question)) 44 else 95), reasoningEffort = QUICK_REASONING_EFFORT)
 
         val form = AnswerForm.parse(quick.path("form").asText(""))
         val query = parseQuery(quick.path("query"), candidates.map { it.ref }.toSet())
@@ -331,7 +331,7 @@ class ResearchPipelineService(
 
     private fun job(
         stats: MutableList<ResearchJobStat>, role: AiRole, step: String, key: String, prompt: String, schema: JsonNode, timeout: Int, listener: ResearchListener,
-        attachments: List<JobAttachment> = emptyList(), pace: Pace? = null,
+        attachments: List<JobAttachment> = emptyList(), pace: Pace? = null, reasoningEffort: String? = null,
     ): JsonNode {
         val started = System.currentTimeMillis()
         val inputChars = prompt.length + attachments.sumOf { it.text.length }
@@ -339,7 +339,7 @@ class ResearchPipelineService(
         val tick = pacer(role, step, inputChars, pace, listener, ::seconds)
         try {
             tick()
-            val outcome = runner.run(StructuredJobRequest(key, role, prompt, schema, timeout, cancelled = { tick(); listener.cancelled() }, attachments = attachments))
+            val outcome = runner.run(StructuredJobRequest(key, role, prompt, schema, timeout, cancelled = { tick(); listener.cancelled() }, attachments = attachments, reasoningEffort = reasoningEffort))
             stats += ResearchJobStat(role, step, outcome.jobId, outcome.model, outcome.inputTokens, outcome.outputTokens, seconds(), outcome.costUsd, inputChars)
             return outcome.result
         } catch (ex: StructuredJobCancelledException) {
@@ -829,6 +829,8 @@ class ResearchPipelineService(
         const val QUICK_PASSAGES = 4
         const val QUICK_PASSAGES_SUBJECT = 8
         const val QUICK_MIN_BLOCK_CHARS = 1_200
+        /** Het korte antwoord redeneert op het laagste niveau: op de standaard ging ruim de helft van de wachttijd naar nadenken. */
+        const val QUICK_REASONING_EFFORT = "LOW"
         /** Ruimte die in de instructie vrij blijft voor de koppen van de overige stukken. */
         const val QUICK_BRIEF_RESERVE_CHARS = 6_000
         const val QUICK_INLINE_MARGIN_CHARS = 600

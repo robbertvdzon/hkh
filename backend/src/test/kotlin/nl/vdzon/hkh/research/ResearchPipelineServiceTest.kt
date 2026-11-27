@@ -336,6 +336,7 @@ class ResearchPipelineServiceTest {
 
         assertEquals(listOf("t-quick"), requests.map { it.idempotencyKey })
         assertEquals(AiRole.RESEARCH, requests.single().role)
+        assertEquals("LOW", requests.single().reasoningEffort, "het korte antwoord redeneert op het laagste niveau")
         val prompt = requests.single().instruction.replace(Regex("\\s+"), " ")
         assertTrue(prompt.contains("""[1] beeldbank 1 "Kerklaan 13a""""))
         assertTrue(prompt.contains("heropende burgemeester Oostrum paviljoen 3 met dr. Vidra"), "het fragment rond de treffer diep in de tekst gaat mee")
@@ -393,6 +394,7 @@ class ResearchPipelineServiceTest {
         val outcome = ResearchPipelineService(runner, FakeSearch(found), FakeDocuments(found), mapper).research(shortInput("Schrijf een verhaal over Toos Oostrum"), Listener())
 
         assertEquals(listOf("t-quick", "t-write"), requests.map { it.idempotencyKey })
+        assertEquals(null, requests[1].reasoningEffort, "het artikel houdt het standaardniveau")
         assertTrue(requests[1].instruction.contains("Tussenconclusie uit het onderzoek: Toos en Cis woonden in 1950"))
         assertEquals(ResearchStats.KIND_ARTICLE, outcome.stats.kind)
         assertEquals("artikel", outcome.stats.form)

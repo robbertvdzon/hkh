@@ -68,7 +68,7 @@ class AgentRuntimeClient(
 
     private fun createJobInternal(
         idempotencyKey: String, instruction: String, resultSchema: JsonNode, executionTimeoutSeconds: Int,
-        role: AiRole, attachments: List<JobAttachment>, recoverOnly: Boolean,
+        role: AiRole, attachments: List<JobAttachment>, recoverOnly: Boolean, reasoningEffort: String? = null,
     ): RuntimeJob {
         val turnId = capacity.turnId(idempotencyKey)
         val execution = turnId?.let { capacity.config(it)?.execution } ?: modelSettings.execution(role)
@@ -113,7 +113,7 @@ class AgentRuntimeClient(
             "input" to mapOf("instruction" to actualInstruction, "objects" to objects),
             "output" to mapOf("resultSchema" to actualSchema, "artifacts" to emptyList<Any>()),
             "executionTimeoutSeconds" to actualTimeout,
-        )
+        ) + (reasoningEffort?.let { mapOf("reasoning" to mapOf("effort" to it)) } ?: emptyMap())
         val stableBody: Any = savedBody ?: if (turnId != null) phases.saveBody(turnId, idempotencyKey, generation, body) else body
         val json = client.post().uri("/v2/jobs").body(stableBody).retrieve().body(String::class.java)
             ?: error("Agent Runtime gaf geen job terug")
@@ -166,7 +166,8 @@ class AgentRuntimeClient(
      */
     override fun run(request: StructuredJobRequest): StructuredJobOutcome {
         val execution = capacity.turnId(request.idempotencyKey)?.let { capacity.config(it)?.execution } ?: modelSettings.execution(request.role)
-        val job = createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments)
+        val job = if (request.reasoningEffort == null) createJob(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments)
+        else createJobInternal(request.idempotencyKey, request.instruction, request.resultSchema, request.executionTimeoutSeconds, request.role, request.attachments, false, request.reasoningEffort)
         val deadline = System.currentTimeMillis() + (request.executionTimeoutSeconds + 600) * 1000L
         while (true) {
             val current = getJob(job.id)

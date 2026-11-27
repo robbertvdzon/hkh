@@ -20,6 +20,11 @@ data class StructuredJobRequest(
     /** Wordt tijdens het wachten gepeild; true breekt de job af (de runtime-job wordt geannuleerd). */
     val cancelled: () -> Boolean = { false },
     val attachments: List<JobAttachment> = emptyList(),
+    /**
+     * Hoeveel het model redeneert voordat het antwoordt: "LOW", "MEDIUM" of "HIGH". Zonder keuze de
+     * standaard van de runtime. Laag is bedoeld voor het korte antwoord, waar wachttijd telt.
+     */
+    val reasoningEffort: String? = null,
 )
 
 /**
