@@ -32,4 +32,28 @@ class PassagesTest {
         assertTrue(Passages.around("Een tekst over de Zeelaan.", listOf("ab", "Bachstraat"), max = 4).isEmpty())
         assertTrue(Passages.around("", listOf("Zeelaan"), max = 4).isEmpty())
     }
+
+    @Test
+    fun `the best passages are the ones that answer the question, not the first or evenly spread ones`() {
+        val filler = "Het koor zong in de Laurentiuskerk een avondvullend programma. " + "x ".repeat(500)
+        val text = filler.repeat(6) + "De Laurentiuskerk werd in 1891 gebouwd naar ontwerp van Tonnaer. " + filler.repeat(3)
+        val terms = listOf("Laurentiuskerk", "Laurentius")
+        val focus = QuickSources.focusWords("wanneer de Laurentiuskerk in Heemskerk is gebouwd", terms)
+        assertEquals(listOf("gebouwd"), focus)
+        assertTrue(QuickSources.asksWhen("wanneer de Laurentiuskerk in Heemskerk is gebouwd"))
+
+        assertTrue(Passages.around(text, terms, max = 2).none { "1891" in it.text }, "gelijk verspreid mist de passage")
+        val best = Passages.best(text, terms, focus, wantsYear = true, max = 2, window = 220)
+        assertEquals(2, best.size)
+        assertTrue(best.any { "werd in 1891 gebouwd" in it.text })
+        assertEquals(best.map { it.offset }.sorted(), best.map { it.offset }, "in de volgorde van de tekst")
+    }
+
+    @Test
+    fun `without question words the best passages stay spread over the document`() {
+        val spread = (1..20).joinToString(" ") { "Bekker in deel $it. " + "z ".repeat(600) }
+        val best = Passages.best(spread, listOf("bekker"), emptyList(), wantsYear = false, max = 4)
+        assertEquals(4, best.size)
+        assertTrue(best.last().offset > spread.length / 2)
+    }
 }

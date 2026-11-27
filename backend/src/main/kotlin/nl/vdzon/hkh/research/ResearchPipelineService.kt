@@ -575,7 +575,10 @@ class ResearchPipelineService(
         found.terms.forEach { term ->
             appendLine("- zoekterm \"${term.term}\": ${term.keywordHits} via trefwoorden, ${term.textHits} via tekst${if (term.variants.isNotEmpty()) "; varianten: ${term.variants.joinToString(", ")}" else ""}")
         }
-    }.trimEnd() to QuickSources.build(listed.mapIndexed { index, card -> index + 1 to card }, detailedCount, texts, found.terms, detailBudget, totalBudget)
+    }.trimEnd() to QuickSources.build(
+        listed.mapIndexed { index, card -> index + 1 to card }, detailedCount, texts, found.terms, detailBudget, totalBudget,
+        QuickSources.focusWords(input.question, found.terms.map { it.term }), QuickSources.asksWhen(input.question),
+    )
 
     /** Kop (regels, context) en inhoud (de genummerde bronnen) apart, zodat de bronnen als bestand mee kunnen. */
     private fun writePrompt(

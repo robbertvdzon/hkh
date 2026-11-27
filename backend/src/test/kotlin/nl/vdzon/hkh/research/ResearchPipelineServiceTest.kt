@@ -468,6 +468,29 @@ class ResearchPipelineServiceTest {
     }
 
     @Test
+    fun `the search tool puts the records that answer the goal first and keeps each one compact`() {
+        val review = "Het koor zong in de Laurentiuskerk. " + "Een mooie avond met veel publiek. ".repeat(150) + "Na afloop was er koffie in de Laurentiuskerk."
+        val history = "Over het dorp. ".repeat(200) + "De Laurentiuskerk werd in 1891 gebouwd naar ontwerp van Tonnaer. " + "Daarna groeide de parochie. ".repeat(200)
+        // De zoekdienst zet de recensie voorop (titeltreffer); het stuk met het bouwjaar staat achteraan.
+        val found = listOf(
+            card("1", "Kerstzang vult de Laurentiuskerk", "Recensie van een concert.", text = true, collection = "archief"),
+            card("2", "Kerk van buiten", "Foto van de kerk.", image = true),
+            card("3", "Bouwstenen van een zuil", "Geschiedenis van de parochie.", text = true, collection = "artikelen"),
+        )
+        val tool = ArchiveSearchTool(FakeSearch(found), FakeDocuments(found, mapOf("1" to review, "3" to history)))
+        val session = SearchToolSession()
+        val reply = tool.search(session, ToolSearchRequest("wanneer de Laurentiuskerk is gebouwd", listOf("Laurentiuskerk")))
+
+        val order = Regex("""^\[(\d+)\] """, RegexOption.MULTILINE).findAll(reply.text).map { it.groupValues[1].toInt() }.toList()
+        assertEquals(3, order.first(), "het stuk met het bouwjaar staat vooraan, met zijn eigen bronnummer")
+        assertEquals(ResearchRef("artikelen", "3"), session.numbers()[3])
+        assertTrue(reply.text.contains("werd in 1891 gebouwd naar ontwerp van Tonnaer"))
+        assertFalse(reply.text.contains("Begin van de tekst"), "compact: geen lang begin van onderwerpstukken")
+        val block = reply.text.substringAfter("[1] archief 1").substringBefore("\n[")
+        assertTrue(block.length < 1_600, "een stuk neemt weinig ruimte in: ${block.length} tekens")
+    }
+
+    @Test
     fun `when the model searches itself the code picks no terms and the visitor sees each step`() {
         val found = listOf(card("1", "Kerklaan 13a", "Toos en Cis Oostrum voor hun huis.", image = true), card("7", "De pastorie", "Artikel over de pastorie.", text = true, collection = "artikelen"))
         val search = FakeSearch(found)
