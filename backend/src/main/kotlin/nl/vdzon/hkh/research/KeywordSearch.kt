@@ -53,7 +53,8 @@ data class SearchResult(val candidates: List<CandidateCard>, val terms: List<Ter
 
 /**
  * Zoeken zonder model: trigram-tolerant op trefwoorden (Oostrum vindt ook Oostrom en Van
- * Oostrum), jaren als bereik, en de volledige tekst als vangnet voor wat de extractie miste, met
+ * Oostrum; een trefwoord dat maar een deel van de term dekt, zoals "Velsen" bij "Joop van Velsen",
+ * telt naar verhouding van zijn lengte), jaren als bereik, en de volledige tekst als vangnet voor wat de extractie miste, met
  * het fragment rond de treffer. Titeltreffers en records met documenttekst wegen zwaarder, zodat
  * een artikel niet onder de foto's zakt. Levert gerangschikte kaarten tot een plafond.
  */
@@ -114,14 +115,16 @@ open class KeywordSearchService(private val jdbc: JdbcTemplate) {
         val titlePattern = "%" + escapeLike(term) + "%"
         val variants = jdbc.query(
             """
-            SELECT k.id, k.normalized, GREATEST(word_similarity(?, k.normalized), word_similarity(k.normalized, ?)) AS s
+            SELECT k.id, k.normalized,
+                   GREATEST(word_similarity(?, k.normalized),
+                            word_similarity(k.normalized, ?) * LEAST(1.0, length(k.normalized)::float / length(?))) AS s
             FROM keyword k
             WHERE ? <% k.normalized OR k.normalized <% ? OR k.normalized ILIKE ? ESCAPE '!'
             ORDER BY s DESC, length(k.normalized), k.normalized
             LIMIT ?
             """.trimIndent(),
             { rs, _ -> Variant(rs.getLong("id"), rs.getString("normalized"), rs.getDouble("s")) },
-            term, term, term, term, titlePattern, MAX_VARIANTS,
+            term, term, term, term, term, titlePattern, MAX_VARIANTS,
         )
         var keywordHits = 0L
         if (variants.isNotEmpty()) {

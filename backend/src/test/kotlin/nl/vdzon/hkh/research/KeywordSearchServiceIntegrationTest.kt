@@ -119,6 +119,26 @@ class KeywordSearchServiceIntegrationTest(
         assertEquals(listOf("fr-4", "fr-1"), onlyIncluded.candidates.map { it.ref.ident })
     }
 
+    @Test
+    fun `a keyword that covers only part of the term counts in proportion to its length`() {
+        items.upsert(record("artikelen", "vl-1", "Uitstapje", "De schoolreis ging naar het strand.", 1955, image = false))
+        items.upsert(record("artikelen", "vl-2", "De timmerman", "Portret van een timmerman uit het dorp.", 1956, image = false))
+        card("artikelen", "vl-1", "Schoolreis naar het strand.", CardKeyword(KeywordType.OTHER, "Velsen", "Velsen"))
+        card("artikelen", "vl-2", "Portret van een timmerman.", CardKeyword(KeywordType.PERSON, "Joop van Velsen", "Joop van Velsen"))
+
+        val result = search.search(listOf(ResearchQuery(terms = listOf("Joop van Velsen"))), exclude = emptySet())
+        val byIdent = result.candidates.associateBy { it.ref.ident }
+        // Zonder de verhouding eindigen beide op dezelfde score en wint vl-1 op het alfabet.
+        assertEquals("vl-2", result.candidates.first().ref.ident, result.candidates.map { "${it.ref.ident}=${it.score}" }.toString())
+        assertTrue(byIdent.getValue("vl-2").strong, "de volledige naam is een sterke treffer")
+        assertTrue(byIdent.getValue("vl-1").score < byIdent.getValue("vl-2").score - 0.3, "alleen de plaats Velsen telt naar verhouding")
+        assertTrue(!byIdent.getValue("vl-1").strong, "een deel van de term is geen sterke treffer")
+
+        // Andersom blijft het gelijk: de korte term Velsen raakt het langere trefwoord volledig.
+        val short = search.search(listOf(ResearchQuery(terms = listOf("Velsen"))), exclude = emptySet()).candidates.associateBy { it.ref.ident }
+        assertTrue(short.getValue("vl-2").strong, "Velsen binnen Joop van Velsen")
+    }
+
     companion object {
         @Container
         @ServiceConnection
